@@ -40,10 +40,13 @@ export type PoliticsRules = {
   elections: number[];
   /** Votes needed to win an election. */
   threshold: number;
+  /** Whether Trust at the crisis line triggers a market test (off in history, which already contains the markets' reaction). */
+  trustCrisis?: boolean;
   institutions: InstitutionId[];
 };
 
-export type Entry = { quarter: number; currency: Currency; amount: number; reason: string; kind: "earned" | "spent" };
+/** "move" marks emergency moves (programmes, controls, devaluation, restructuring), which can be taken on credit. */
+export type Entry = { quarter: number; currency: Currency; amount: number; reason: string; kind: "earned" | "spent"; move?: boolean };
 
 export type Ledger = {
   votes: number;
@@ -59,7 +62,7 @@ export const TRUST_CRISIS = -3;
 const GAIN_CAP = 1;
 const LOSS_CAP = 3;
 
-function earned(t: number, prev: QuarterState, now: QuarterState, config: ScenarioConfig, events: SimEvent[], has: (id: InstitutionId) => boolean): Entry[] {
+function earned(t: number, prev: QuarterState, now: QuarterState, start: QuarterState, config: ScenarioConfig, events: SimEvent[], has: (id: InstitutionId) => boolean): Entry[] {
   const preset = getPreset(config.presetId);
   const policy = policyAt(preset.defaultPolicy, config.decisions, t);
   const out: Entry[] = [];
@@ -73,8 +76,10 @@ function earned(t: number, prev: QuarterState, now: QuarterState, config: Scenar
   const dU = now.unemp - prev.unemp;
   if (dU <= -0.3) v(1, "Jobs created");
   else if (dU >= 0.3 && !has("safety-net")) v(-1, "Job losses");
-  if (now.infl > 15) v(-2, `Prices soaring (${now.infl.toFixed(1)}%)`);
-  else if (now.infl > 8) v(-1, `Prices rising fast (${now.infl.toFixed(1)}%)`);
+  // Voters judge inflation against what they were used to when you took office.
+  if (now.infl > Math.max(15, start.infl + 7)) v(-2, `Prices soaring (${now.infl.toFixed(1)}%)`);
+  else if (now.infl > Math.max(8, start.infl + 2)) v(-1, `Prices rising fast (${now.infl.toFixed(1)}%)`);
+  else if (start.infl > 8 && now.infl < start.infl - 3) v(1, `Inflation coming down (${now.infl.toFixed(1)}%)`);
   if (policy.fiscalAdjustment >= 1.25 && !has("safety-net")) v(-1, "Austerity");
   if (policy.fiscalAdjustment <= -0.5) v(1, "Spending boost");
 
@@ -112,11 +117,11 @@ function earned(t: number, prev: QuarterState, now: QuarterState, config: Scenar
 function spent(t: number, config: ScenarioConfig): Entry[] {
   const preset = getPreset(config.presetId);
   const out: Entry[] = [];
-  const pay = (cost: Cost, reason: string) => {
-    if (cost.votes) out.push({ quarter: t, currency: "votes", amount: -cost.votes, reason, kind: "spent" });
-    if (cost.trust) out.push({ quarter: t, currency: "trust", amount: -cost.trust, reason, kind: "spent" });
+  const pay = (cost: Cost, reason: string, move = true) => {
+    if (cost.votes) out.push({ quarter: t, currency: "votes", amount: -cost.votes, reason, kind: "spent", move });
+    if (cost.trust) out.push({ quarter: t, currency: "trust", amount: -cost.trust, reason, kind: "spent", move });
   };
-  for (const a of config.institutions ?? []) if (a.quarter === t) pay(INSTITUTIONS[a.id].cost, INSTITUTIONS[a.id].name);
+  for (const a of config.institutions ?? []) if (a.quarter === t) pay(INSTITUTIONS[a.id].cost, INSTITUTIONS[a.id].name, false);
   const now = policyAt(preset.defaultPolicy, config.decisions, t);
   const before = policyAt(preset.defaultPolicy, config.decisions, t - 1);
   for (const move of Object.values(MOVE_COSTS)) if (move.when(before, now)) pay(move.cost, move.reason);
@@ -152,7 +157,7 @@ export function ledger(rules: PoliticsRules, config: ScenarioConfig, path: Quart
       else trust += e.amount;
     }
     if (t > clock) break;
-    for (const e of earned(t, path[t - 1], path[t], config, events, (id) => owned.has(id))) {
+    for (const e of earned(t, path[t - 1], path[t], path[0], config, events, (id) => owned.has(id))) {
       entries.push(e);
       if (e.currency === "votes") votes += e.amount;
       else trust += e.amount;
@@ -172,5 +177,22 @@ export function canAdopt(id: InstitutionId, rules: PoliticsRules, config: Scenar
   if (inst.requires && !owned.has(inst.requires)) return { ok: false, reason: `Needs ${INSTITUTIONS[inst.requires].name.toLowerCase()} first` };
   if ((inst.cost.votes ?? 0) > balance.votes) return { ok: false, reason: "Not enough votes" };
   if ((inst.cost.trust ?? 0) > balance.trust) return { ok: false, reason: "Not enough trust" };
+  return { ok: true };
+}
+
+/** Whether every payment in a scenario could be afforded when it was made (for tests and validation). */
+export function affordable(rules: PoliticsRules, config: ScenarioConfig, path: QuarterState[], events: SimEvent[], quarters: number): { ok: boolean; quarter?: number } {
+  for (let t = 1; t <= quarters; t++) {
+    // Institutions must be paid for up front; emergency moves can be taken on credit.
+    const paid = spent(t, config).filter((e) => !e.move);
+    if (!paid.length) continue;
+    const l = ledger(rules, config, path, events, t - 1);
+    const moves = spent(t, config).filter((e) => e.move);
+    const before = (c: Currency) => (c === "votes" ? l.votes : l.trust) - moves.filter((e) => e.currency === c).reduce((a, e) => a + e.amount, 0);
+    for (const c of ["votes", "trust"] as Currency[]) {
+      const cost = -paid.filter((e) => e.currency === c).reduce((a, e) => a + e.amount, 0);
+      if (cost > 0 && before(c) - cost < 0) return { ok: false, quarter: t };
+    }
+  }
   return { ok: true };
 }

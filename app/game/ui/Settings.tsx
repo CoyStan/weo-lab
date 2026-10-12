@@ -7,6 +7,7 @@ import { THEMES } from "../../themes";
 import { sound } from "../audio";
 import { TRACKS, useSettings } from "../settings";
 import { useGame } from "../store";
+import { WEO } from "../data";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -220,6 +221,7 @@ function About() {
         <ul className="flex flex-col gap-1">
           <li>Music: public-domain recordings from Wikimedia Commons of Satie and Debussy (performers Robin Alciatore via Musopen, La Pianista, Laurens Goedhart, Michael Laucke). <a className="underline" href={`${base}/music/CREDITS.md`} target="_blank" rel="noreferrer">Full credits</a>.</li>
           <li>Interface sounds: Interface Sounds by Kenney, CC0.</li>
+          <li>Country data: IMF, {WEO.vintage}, via the IMF DataMapper API (retrieved {WEO.fetched}). Policy rates, reserves and spreads for real countries are model estimates.</li>
           <li>Advisor portraits: the Palari art library.</li>
         </ul>
       </div>

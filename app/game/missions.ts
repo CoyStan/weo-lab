@@ -34,9 +34,10 @@ export type Objective = {
   metric: MetricKey;
   op: "<=" | ">=";
   threshold: number;
-  /** "end": judged at the mission's last quarter. "every": must hold each quarter from `from`. */
-  when: "end" | "every";
+  /** "end": judged at the mission's last quarter. "every": must hold each quarter from `from`. "year": the calendar year's average (year-end for debt). */
+  when: "end" | "every" | "year";
   from?: number;
+  year?: number;
   /** Bonus objectives earn stars; they never fail the mission. */
   bonus?: boolean;
 };
@@ -67,6 +68,10 @@ export type Mission = {
   /** Builds the scenario. Shocks whose id starts with "surprise" stay hidden until they hit. */
   setup: () => ScenarioConfig;
   politics: PoliticsRules;
+  /** Calendar year of quarter 1 (historical episodes). */
+  startYear?: number;
+  /** The path to compare against: what actually happened, or the WEO projection. */
+  comparison?: { label: string; config: ScenarioConfig; story?: string[] };
 };
 
 const shock = (id: string, kind: ShockKind, quarter: number, magnitude = 1): ScheduledShock => ({ id, kind, quarter, magnitude, source: "scheduled" });
@@ -247,8 +252,15 @@ export const MISSIONS: Mission[] = [
   },
 ];
 
+/** Missions built at runtime (historical episodes, countries today). */
+const REGISTRY = new Map<string, Mission>();
+
+export function registerMission(mission: Mission) {
+  REGISTRY.set(mission.id, mission);
+}
+
 export function getMission(id: string): Mission | undefined {
-  return MISSIONS.find((m) => m.id === id);
+  return MISSIONS.find((m) => m.id === id) ?? REGISTRY.get(id);
 }
 
 // ---- What the player can see ------------------------------------------------
@@ -260,7 +272,13 @@ export const isSurprise = (s: ScheduledShock) => s.id.startsWith("surprise");
  * `clock + 1`: every shock that has already hit, plus announced ones.
  */
 export function knownConfig(config: ScenarioConfig, clock: number): ScenarioConfig {
-  return { ...config, randomShocks: false, shocks: config.shocks.filter((s) => !isSurprise(s) || s.quarter <= clock + 1) };
+  return {
+    ...config,
+    randomShocks: false,
+    shocks: config.shocks.filter((s) => !isSurprise(s) || s.quarter <= clock + 1),
+    // Hidden residuals stand in for history nobody could forecast; they stay out until they happen.
+    residuals: config.residuals?.filter((r) => !r.hidden || r.quarter <= clock + 1),
+  };
 }
 
 /** Policy that will apply in the quarter being decided. */
@@ -274,12 +292,31 @@ export type ObjectiveStatus = "met" | "failed" | "on-track" | "at-risk";
 
 const holds = (o: Objective, v: number) => (o.op === "<=" ? v <= o.threshold + 1e-9 : v >= o.threshold - 1e-9);
 
+/** The quarters of a "year" objective, within the mission. */
+export function yearQuarters(o: Objective, mission: Mission): number[] {
+  const first = ((o.year ?? 0) - (mission.startYear ?? 2026)) * 4 + 1;
+  return [first, first + 1, first + 2, first + 3].filter((t) => t >= 1 && t <= mission.quarters);
+}
+
+/** Annual value for a "year" objective, taking quarters already played from the outturn and the rest from the forecast. */
+export function yearValue(o: Objective, mission: Mission, actual: QuarterState[], forecast: QuarterState[], clock: number): number {
+  const qs = yearQuarters(o, mission);
+  const at = (t: number) => (t <= clock ? actual[t] : forecast[t])[o.metric];
+  return o.metric === "debt" ? at(qs[qs.length - 1]) : qs.reduce((a, t) => a + at(t), 0) / qs.length;
+}
+
 /**
  * Status of one objective at the end of quarter `clock`. Actual quarters come
  * from `actual`; quarters still ahead are judged on the staff `forecast`.
  */
 export function objectiveStatus(o: Objective, mission: Mission, actual: QuarterState[], forecast: QuarterState[], clock: number): ObjectiveStatus {
   const end = mission.quarters;
+  if (o.when === "year") {
+    const qs = yearQuarters(o, mission);
+    const ok = holds(o, yearValue(o, mission, actual, forecast, clock));
+    if (clock >= qs[qs.length - 1]) return ok ? "met" : "failed";
+    return ok ? "on-track" : "at-risk";
+  }
   if (o.when === "end") {
     if (clock >= end) return holds(o, actual[end][o.metric]) ? "met" : "failed";
     return holds(o, forecast[end][o.metric]) ? "on-track" : "at-risk";
@@ -293,6 +330,7 @@ export function objectiveStatus(o: Objective, mission: Mission, actual: QuarterS
 
 /** First quarter an objective breaks on a path, if any (for charts and recaps). */
 export function firstBreach(o: Objective, path: QuarterState[], fromT: number, toT: number): number | null {
+  if (o.when === "year") return null;
   const start = o.when === "end" ? toT : Math.max(fromT, o.from ?? 1);
   for (let t = start; t <= toT; t++) if (!holds(o, path[t][o.metric])) return t;
   return null;

@@ -11,6 +11,9 @@ import { responsesFor } from "../responses";
 import { useGame, type Recap } from "../store";
 import { AdviceList } from "./Advisors";
 import { TrustIcon, VotesIcon } from "./Capital";
+import { annual } from "../calibrate";
+import { getStartYear, simulate } from "../../model/economy";
+import type { Mission } from "../missions";
 
 /** Focus the primary action when a card opens, and let Enter press it. */
 function usePrimary() {
@@ -198,7 +201,7 @@ function DebriefCard() {
   const mission = getMission(missionId ?? "")!;
   if (modal?.kind !== "debrief") return null;
   const outcome = modal.outcome;
-  const next = MISSIONS.find((m) => m.number === mission.number + 1);
+  const next = mission.number ? MISSIONS.find((m) => m.number === mission.number + 1) : undefined;
 
   if (outcome.kind === "won") {
     return (
@@ -224,12 +227,17 @@ function DebriefCard() {
           })}
         </ul>
         <p className="game-lesson">{mission.lesson}</p>
+        <Comparison mission={mission} />
         <div className="mt-3 flex flex-wrap justify-end gap-2">
           <button type="button" className="lab-btn lab-btn-ghost lab-btn-md" onClick={() => setScreen("missions")}>All missions</button>
           <button type="button" className="lab-btn lab-btn-soft lab-btn-md" onClick={restart}>Play again</button>
           {next ? (
             <button ref={primary} type="button" className="lab-btn lab-btn-primary lab-btn-md" onClick={() => startMission(next.id)}>
               Next: {next.title}
+            </button>
+          ) : mission.number === 0 ? (
+            <button ref={primary} type="button" className="lab-btn lab-btn-primary lab-btn-md" onClick={() => setScreen("missions")}>
+              Choose another
             </button>
           ) : (
             <button ref={primary} type="button" className="lab-btn lab-btn-primary lab-btn-md" onClick={() => setScreen("sandbox")}>
@@ -247,11 +255,72 @@ function DebriefCard() {
       <h2 id="debrief-title" className="game-shock-title">Mission failed</h2>
       <p className="text-[0.86rem] leading-relaxed">{outcome.reason}</p>
       <p className="mt-2 text-[0.74rem] leading-relaxed text-[var(--lab-ink-2)]">Rewind one quarter to try a different decision, or start the mission again. The goal cards show where the forecast was heading before each choice.</p>
+      <Comparison mission={mission} />
       <div className="mt-3 flex flex-wrap justify-end gap-2">
         <button type="button" className="lab-btn lab-btn-ghost lab-btn-md" onClick={() => setScreen("missions")}>All missions</button>
         <button type="button" className="lab-btn lab-btn-soft lab-btn-md" onClick={restart}>Restart mission</button>
         <button ref={primary} type="button" className="lab-btn lab-btn-primary lab-btn-md" onClick={rewind}>Rewind one quarter</button>
       </div>
+    </div>
+  );
+}
+
+const ROWS = [
+  { key: "growth", label: "Growth, %" },
+  { key: "infl", label: "Inflation, %" },
+  { key: "balance", label: "Budget balance, % GDP" },
+  { key: "debt", label: "Debt, % GDP (year end)" },
+] as const;
+
+/** Year by year: your path next to what happened (or the WEO projection), plus the story for history. */
+function Comparison({ mission }: { mission: Mission }) {
+  const config = useLab((s) => s.config);
+  const clock = useLab((s) => s.clock);
+  if (!mission.comparison) return null;
+  const mine = simulate(config).path;
+  const theirs = simulate(mission.comparison.config).path;
+  const start = getStartYear();
+  const years = Array.from({ length: Math.floor(Math.min(clock, mission.quarters) / 4) }, (_, i) => start + i);
+  return (
+    <div className="mt-3">
+      {years.length ? (
+        <table className="game-compare">
+          <thead>
+            <tr>
+              <th scope="col">You / {mission.comparison.label.toLowerCase()}</th>
+              {years.map((y) => (
+                <th key={y} scope="col">{y}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {ROWS.map((r) => (
+              <tr key={r.key}>
+                <th scope="row">{r.label}</th>
+                {years.map((y) => {
+                  const a = annual(mine, y, start)[r.key];
+                  const b = annual(theirs, y, start)[r.key];
+                  const better = r.key === "growth" || r.key === "balance" ? a > b + 0.05 : r.key === "debt" || r.key === "infl" ? a < b - 0.05 : false;
+                  const worse = r.key === "growth" || r.key === "balance" ? a < b - 0.05 : a > b + 0.05;
+                  return (
+                    <td key={y} className={better ? "is-better" : worse ? "is-worse" : ""}>
+                      <strong>{a.toFixed(1)}</strong> <span>/ {b.toFixed(1)}</span>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+      {mission.comparison.story ? (
+        <div className="mt-2">
+          <h3 className="game-section">What actually happened</h3>
+          {mission.comparison.story.map((p) => (
+            <p key={p} className="mb-1 text-[0.74rem] leading-relaxed">{p}</p>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

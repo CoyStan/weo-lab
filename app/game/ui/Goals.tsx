@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { quarterLabel, START_YEAR } from "../../model/economy";
+import { getStartYear, quarterLabel } from "../../model/economy";
 import type { QuarterState } from "../../model/types";
 import { sound } from "../audio";
 import { explain } from "../explain";
@@ -12,12 +12,18 @@ import { useProbeEffect, useTurn } from "../useTurn";
 const STATUS_TEXT: Record<ObjectiveStatus, string> = { met: "Met", failed: "Missed", "on-track": "On track", "at-risk": "At risk" };
 
 export default function Goals() {
-  const { mission, actual, forecast, forecastStart, clock, statuses } = useTurn();
+  const { mission, actual, forecast, forecastStart, clock, statuses, comparison, comparisonLabel } = useTurn();
   const metrics = Array.from(new Set(mission.objectives.map((o) => o.metric)));
   const effect = useProbeEffect(metrics);
 
   return (
     <div className="flex flex-col gap-2.5">
+      {comparisonLabel ? (
+        <p className="flex items-center gap-2 text-[0.66rem] text-[var(--lab-ink-2)]">
+          <span className="inline-block h-0 w-5 border-t-2 border-[color-mix(in_srgb,var(--lab-ink)_35%,transparent)]" /> {comparisonLabel}
+          <span className="inline-block h-0 w-5 border-t-2 border-dashed border-[var(--lab-scenario)]" /> Your forecast
+        </p>
+      ) : null}
       {metrics.map((metric) => {
         const objectives = mission.objectives.filter((o) => o.metric === metric);
         return (
@@ -32,6 +38,8 @@ export default function Goals() {
             clock={clock}
             end={mission.quarters}
             probeDelta={effect ? effect.deltas[metric] : null}
+            comparison={comparison}
+            comparisonLabel={comparisonLabel}
           />
         );
       })}
@@ -39,7 +47,7 @@ export default function Goals() {
   );
 }
 
-function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock, end, probeDelta }: { metric: MetricKey; objectives: Objective[]; statuses: Record<string, ObjectiveStatus>; actual: QuarterState[]; forecast: QuarterState[]; ghost: QuarterState[]; clock: number; end: number; probeDelta: number | null }) {
+function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock, end, probeDelta, comparison, comparisonLabel }: { metric: MetricKey; objectives: Objective[]; statuses: Record<string, ObjectiveStatus>; actual: QuarterState[]; forecast: QuarterState[]; ghost: QuarterState[]; clock: number; end: number; probeDelta: number | null; comparison: QuarterState[] | null; comparisonLabel: string | null }) {
   const meta = GAME_METRICS[metric];
   const [why, setWhy] = useState(false);
   const now = actual[clock][metric];
@@ -82,7 +90,13 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
         ))}
       </ul>
 
-      <OutlookChart metric={metric} objectives={objectives} actual={actual} forecast={forecast} ghost={ghost} clock={clock} end={end} />
+      <OutlookChart metric={metric} objectives={objectives} actual={actual} forecast={forecast} ghost={ghost} clock={clock} end={end} comparison={comparison} />
+      {comparison && comparisonLabel ? (
+        <p className="mt-0.5 text-[0.64rem] text-[var(--lab-ink-2)]">
+          {comparisonLabel}, {quarterLabel(Math.min(clock + 1, end))}: {fmtNum(comparison[Math.min(clock + 1, end)][metric], meta.digits)}
+          {unitShort(meta.unit)}
+        </p>
+      ) : null}
 
       {meta.explain && clock > 0 ? (
         <div className="mt-1">
@@ -135,13 +149,14 @@ const W = 300;
 const H = 92;
 const PAD = { l: 30, r: 8, t: 8, b: 16 };
 
-function OutlookChart({ metric, objectives, actual, forecast, ghost, clock, end }: { metric: MetricKey; objectives: Objective[]; actual: QuarterState[]; forecast: QuarterState[]; ghost: QuarterState[]; clock: number; end: number }) {
+function OutlookChart({ metric, objectives, actual, forecast, ghost, clock, end, comparison }: { metric: MetricKey; objectives: Objective[]; actual: QuarterState[]; forecast: QuarterState[]; ghost: QuarterState[]; clock: number; end: number; comparison: QuarterState[] | null }) {
   const meta = GAME_METRICS[metric];
   const past = actual.slice(0, clock + 1).map((s) => s[metric]);
   const fut = clock < end ? forecast.slice(clock, end + 1).map((s) => s[metric]) : [];
   const gh = clock < end ? ghost.slice(clock, end + 1).map((s) => s[metric]) : [];
   const ghostDiffers = gh.some((v, i) => Math.abs(v - fut[i]) > 0.01);
-  const values = [...past, ...fut, ...(ghostDiffers ? gh : []), ...objectives.map((o) => o.threshold)];
+  const comp = comparison ? comparison.slice(0, end + 1).map((s) => s[metric]) : [];
+  const values = [...past, ...fut, ...(ghostDiffers ? gh : []), ...comp, ...objectives.map((o) => o.threshold)];
   let lo = Math.min(...values);
   let hi = Math.max(...values);
   if (hi - lo < 1) {
@@ -160,13 +175,15 @@ function OutlookChart({ metric, objectives, actual, forecast, ghost, clock, end 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="mt-1.5 block w-full" role="img" aria-label={`${meta.label}: outturn so far and forecast to ${quarterLabel(end)}`}>
       {objectives.map((o) => {
-        const from = o.when === "end" ? end - 0.5 : Math.max(0.5, (o.from ?? 1) - 0.5);
+        const yq = o.when === "year" ? ((o.year ?? 0) - getStartYear()) * 4 + 1 : 0;
+        const from = o.when === "end" ? end - 0.5 : o.when === "year" ? Math.max(0.5, yq - 0.5) : Math.max(0.5, (o.from ?? 1) - 0.5);
+        const to = o.when === "year" ? Math.min(end, yq + 3.5) : end;
         const yT = y(o.threshold);
         const bad = o.op === "<=" ? { y0: PAD.t, y1: yT } : { y0: yT, y1: H - PAD.b };
         return (
           <g key={o.id}>
-            <rect x={x(from)} y={bad.y0} width={Math.max(2, x(end) - x(from) + (o.when === "end" ? 6 : 0))} height={Math.max(0, bad.y1 - bad.y0)} fill={o.bonus ? "color-mix(in srgb, var(--lab-warn-mark) 10%, transparent)" : "color-mix(in srgb, var(--lab-alert) 11%, transparent)"} />
-            <line x1={x(from)} x2={x(end)} y1={yT} y2={yT} stroke={o.bonus ? "var(--lab-warn-mark)" : "var(--lab-alert)"} strokeWidth={1} strokeDasharray={o.bonus ? "2 2" : undefined} />
+            <rect x={x(from)} y={bad.y0} width={Math.max(2, x(to) - x(from) + (o.when === "end" ? 6 : 0))} height={Math.max(0, bad.y1 - bad.y0)} fill={o.bonus ? "color-mix(in srgb, var(--lab-warn-mark) 10%, transparent)" : "color-mix(in srgb, var(--lab-alert) 11%, transparent)"} />
+            <line x1={x(from)} x2={x(to)} y1={yT} y2={yT} stroke={o.bonus ? "var(--lab-warn-mark)" : "var(--lab-alert)"} strokeWidth={1} strokeDasharray={o.bonus ? "2 2" : undefined} />
           </g>
         );
       })}
@@ -174,12 +191,13 @@ function OutlookChart({ metric, objectives, actual, forecast, ghost, clock, end 
         <g key={t}>
           <line x1={x(t)} x2={x(t)} y1={H - PAD.b} y2={H - PAD.b + 3} stroke="var(--lab-line-strong)" />
           <text x={x(t) + 2} y={H - 4} fontSize={8} fill="var(--lab-ink-2)">
-            {START_YEAR + (t - 1) / 4}
+            {getStartYear() + (t - 1) / 4}
           </text>
         </g>
       ))}
       <text x={PAD.l - 4} y={y(hi - pad) + 3} fontSize={8} textAnchor="end" fill="var(--lab-ink-2)">{fmtNum(hi - pad, meta.digits >= 1 ? 1 : 0)}</text>
       <text x={PAD.l - 4} y={y(lo + pad) + 3} fontSize={8} textAnchor="end" fill="var(--lab-ink-2)">{fmtNum(lo + pad, meta.digits >= 1 ? 1 : 0)}</text>
+      {comp.length ? <path d={line(comp, 0)} fill="none" stroke="var(--lab-ink)" strokeOpacity={0.3} strokeWidth={2} strokeLinejoin="round" /> : null}
       {ghostDiffers ? <path d={line(gh, clock)} fill="none" stroke="var(--lab-ink-2)" strokeOpacity={0.45} strokeWidth={1.5} strokeDasharray="1.5 3" strokeLinecap="round" /> : null}
       {fut.length ? <path d={line(fut, clock)} fill="none" stroke="var(--lab-scenario)" strokeWidth={2} strokeDasharray="5 3.5" strokeLinecap="round" className="game-forecast-line" /> : null}
       <path d={line(past, 0)} fill="none" stroke="var(--lab-ink)" strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />

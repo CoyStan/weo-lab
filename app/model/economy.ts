@@ -17,19 +17,31 @@ import type { Decision, Drivers, FxRegime, Policy, QuarterState, ScenarioConfig,
 import { evaluateConstraints } from "./constraints.ts";
 
 export const HORIZON = 24;
+/** Default calendar year of quarter 1. Historical episodes start earlier. */
 export const START_YEAR = 2026;
 
+// The calendar follows the scenario last simulated, so labels match whatever is on screen.
+let startYear = START_YEAR;
+
+export function setStartYear(year: number) {
+  startYear = year;
+}
+
+export function getStartYear(): number {
+  return startYear;
+}
+
 export function quarterLabel(t: number): string {
-  if (t <= 0) return `${START_YEAR - 1}Q4`;
-  return `${START_YEAR + Math.floor((t - 1) / 4)}Q${((t - 1) % 4) + 1}`;
+  if (t <= 0) return `${startYear - 1}Q4`;
+  return `${startYear + Math.floor((t - 1) / 4)}Q${((t - 1) % 4) + 1}`;
 }
 
 export function quarterYear(t: number): number {
-  return t <= 0 ? START_YEAR - 1 : START_YEAR + Math.floor((t - 1) / 4);
+  return t <= 0 ? startYear - 1 : startYear + Math.floor((t - 1) / 4);
 }
 
 export function yearLabels(): number[] {
-  return Array.from({ length: HORIZON / 4 }, (_, i) => START_YEAR + i);
+  return Array.from({ length: HORIZON / 4 }, (_, i) => startYear + i);
 }
 
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
@@ -58,7 +70,9 @@ function fundamentalPressure(preset: Preset, rate: number, usRate: number, sprea
 const sum = (parts: Record<string, number>) => Object.values(parts).reduce((a, b) => a + b, 0);
 
 export function simulate(config: ScenarioConfig): SimResult {
+  setStartYear(config.startYear ?? START_YEAR);
   const preset = getPreset(config.presetId);
+  const residualAt = new Map((config.residuals ?? []).map((r) => [r.quarter, r]));
   const P = preset.params;
   const A = config.assumptions;
   const shocks: ScheduledShock[] = [...config.shocks, ...(config.randomShocks ? generateRandomShocks(config.seed, HORIZON) : [])].sort((a, b) => a.quarter - b.quarter);
@@ -136,7 +150,9 @@ export function simulate(config: ScenarioConfig): SimResult {
     const prev = path[t - 1];
     const has = (id: string) => sinceAdoption(id, t) >= 0;
     const pol = policyAt(preset.defaultPolicy, decisions, t);
-    const { impulse: imp, active } = impulseAt(shocks, t);
+    const { impulse: shockImp, active } = impulseAt(shocks, t);
+    const res = residualAt.get(t);
+    const imp = res ? { ...shockImp, gapAdd: shockImp.gapAdd + (res.gap ?? 0), inflAdd: shockImp.inflAdd + (res.infl ?? 0), debtOneOff: shockImp.debtOneOff + (res.debt ?? 0) } : shockImp;
 
     for (const sh of shocks) {
       if (sh.quarter !== t) continue;
@@ -203,7 +219,7 @@ export function simulate(config: ScenarioConfig): SimResult {
     const debtOverhang = Math.max(0, prev.debt - 90) * 0.004;
     const hysteresis = prev.gap < -3 ? 0.05 : 0;
     const potGrowth = A.potentialGrowth + 0.3 * effReform.prod + 0.15 * effReform.trade + 0.1 * effReform.labor + (has("investment-agency") ? 0.18 : 0.12) * investDelta - debtOverhang - hysteresis;
-    const potLevel = prev.potLevel * (1 + potGrowth / 400) * imp.potentialLevelMult;
+    const potLevel = prev.potLevel * (1 + potGrowth / 400) * imp.potentialLevelMult * (1 + (res?.pot ?? 0) / 100);
 
     // Expectations anchored by credibility.
     // An inflation-targeting framework anchors expectations as if credibility were 10 points higher.
@@ -345,7 +361,7 @@ export function simulate(config: ScenarioConfig): SimResult {
     const exporterOilRevenue = P.oilImportShare < 0 ? -P.oilImportShare * 0.4 * oilDev : 0;
     const commodityRevenue = P.commodityRevenueShare * commodityDev + exporterOilRevenue;
     const taxAdmin = sinceAdoption("tax-admin", t);
-    const pb = structPB + P.autoStabilizer * gap + commodityRevenue - investDelta - imp.spendingAdd + (taxAdmin >= 0 ? 0.4 * Math.min(1, (taxAdmin + 1) / 4) : 0);
+    const pb = structPB + P.autoStabilizer * gap + commodityRevenue - investDelta - imp.spendingAdd + (taxAdmin >= 0 ? 0.4 * Math.min(1, (taxAdmin + 1) / 4) : 0) + (res?.pb ?? 0);
     // New debt is priced off the policy rate and spread; the stock reprices as it rolls over.
     const marketRate = rate + spread / 100 + P.termPremium;
     const marketRate0 = init.rate + init.spread / 100 + P.termPremium;

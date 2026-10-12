@@ -142,7 +142,14 @@ export type ScenarioConfig = {
   constraints: Constraint[];
   /** Optional: institutions adopted along the way. */
   institutions?: Adoption[];
+  /** Optional: calendar year of quarter 1 (defaults to 2026). */
+  startYear?: number;
+  /** Optional: calibrated residual impulses that make the model reproduce a data path. */
+  residuals?: Residual[];
 };
+
+/** Per-quarter impulses found by calibration (see game/calibrate.ts). */
+export type Residual = { quarter: number; gap?: number; infl?: number; pb?: number; debt?: number; /** Permanent shift in the level of potential output, %. */ pot?: number; hidden?: boolean };
 
 /**
  * What moved a variable this quarter, in the variable's own units. The parts

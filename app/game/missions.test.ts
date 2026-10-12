@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { simulate } from "../model/economy.ts";
 import type { Policy, ScenarioConfig } from "../model/types.ts";
-import { canAdopt, INSTITUTIONS, ledger } from "./politics.ts";
+import { affordable, canAdopt, INSTITUTIONS, ledger } from "./politics.ts";
 import { knownConfig, MISSIONS, missionOutcome, objectiveStatus, type Mission } from "./missions.ts";
 
 type Plan = [quarter: number, changes: Partial<Policy>][];
@@ -67,6 +67,11 @@ test("every mission can be won, and every star can be earned", () => {
     const plans = WINS[m.id];
     assert.ok(plans, `no reference plans for ${m.id}`);
     assert.equal(play(m, plans.win).kind, "won", `${m.id} reference win`);
+    for (const plan of [plans.win, plans.threeStars]) {
+      const config = withPlan(m, plan);
+      const r = simulate(config);
+      assert.ok(affordable(m.politics, config, r.path, r.events, m.quarters).ok, `${m.id}: reference plan must be affordable`);
+    }
     const best = play(m, plans.threeStars);
     assert.equal(best.kind === "won" ? best.stars : 0, 3, `${m.id} three-star plan`);
   }

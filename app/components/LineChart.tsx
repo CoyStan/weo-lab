@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { HORIZON, quarterLabel, START_YEAR } from "../model/economy";
+import { getStartYear, HORIZON, quarterLabel } from "../model/economy";
 import { fmt } from "./format";
 
 export type ChartSeries = { key: string; label: string; color: string; dashed?: boolean; values: number[] };
@@ -139,7 +139,7 @@ export default function LineChart({
             <line x1={x(t)} x2={x(t)} y1={PAD.top + plotH} y2={PAD.top + plotH + 3} stroke="color-mix(in srgb, var(--lab-ink) 30%, transparent)" strokeWidth={1} />
             {t < HORIZON ? (
               <text x={x(t + 2)} y={H - 5} textAnchor="middle" fontSize={8} fill="var(--lab-ink-2)">
-                {START_YEAR + t / 4}
+                {getStartYear() + t / 4}
               </text>
             ) : null}
           </g>

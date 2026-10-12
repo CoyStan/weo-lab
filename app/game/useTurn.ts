@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { quarterLabel } from "../model/economy";
+import { quarterLabel, simulate } from "../model/economy";
 import type { Policy, ScenarioConfig } from "../model/types";
 import { useLab } from "../store";
 import { getMission, objectiveStatus, policyForTurn, type MetricKey, type Mission, type ObjectiveStatus } from "./missions";
@@ -36,11 +36,15 @@ export function useTurn() {
     return map;
   }, [mission, result, forecast, clock]);
 
+  // The path to beat: what actually happened, or the WEO projection.
+  const comparison = useMemo(() => (mission?.comparison ? simulate(mission.comparison.config).path : null), [mission]);
   const books = useMemo(() => (mission ? ledger(mission.politics, config, result.path, result.events, clock) : null), [mission, config, result, clock]);
 
   return {
     mission,
     books,
+    comparison,
+    comparisonLabel: mission?.comparison?.label ?? null,
     config,
     clock,
     actual: result.path,

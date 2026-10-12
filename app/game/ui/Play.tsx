@@ -58,7 +58,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
           <img src={`${base}/brand/palari-logo.svg`} alt="" width={68} height={28} />
         </button>
         <div className="min-w-0">
-          <p className="game-eyebrow !mb-0">Mission {mission.number} of {MISSIONS.length} · {preset.name}</p>
+          <p className="game-eyebrow !mb-0">{mission.number ? `Mission ${mission.number} of ${MISSIONS.length} · ${preset.name}` : mission.kicker.length < 40 ? mission.kicker : preset.name}</p>
           <h1 className="truncate font-display text-[1.15rem] font-semibold leading-tight">{mission.title}</h1>
         </div>
         <div className="game-progress" aria-label={`Quarter ${Math.min(clock + 1, mission.quarters)} of ${mission.quarters}`}>

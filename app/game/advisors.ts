@@ -4,7 +4,7 @@
 
 import { quarterLabel } from "../model/economy.ts";
 import type { Policy, QuarterState } from "../model/types.ts";
-import type { AdvisorId, MetricKey, Mission, Objective } from "./missions.ts";
+import { yearQuarters, yearValue, type AdvisorId, type MetricKey, type Mission, type Objective } from "./missions.ts";
 
 export type Advisor = { id: AdvisorId; name: string; role: string; cares: string; portrait: string; accent: string };
 
@@ -41,6 +41,14 @@ export function firstRisk(mission: Mission, forecast: QuarterState[], fromT: num
   let best: Risk | null = null;
   for (const o of mission.objectives) {
     if (Boolean(o.bonus) !== bonus || !metrics.includes(o.metric)) continue;
+    if (o.when === "year") {
+      const qs = yearQuarters(o, mission);
+      if (!qs.length || qs[qs.length - 1] < fromT) continue;
+      const value = yearValue(o, mission, forecast, forecast, fromT - 1);
+      const ok = o.op === "<=" ? value <= o.threshold : value >= o.threshold;
+      if (!ok && (!best || qs[qs.length - 1] < best.t)) best = { objective: o, t: qs[qs.length - 1], value };
+      continue;
+    }
     const start = o.when === "end" ? mission.quarters : Math.max(fromT, o.from ?? 1);
     for (let t = start; t <= mission.quarters; t++) {
       const v = forecast[t][o.metric];
@@ -62,7 +70,7 @@ function riskLine(id: AdvisorId, r: Risk): { fact: string; nudge: string } {
   const u = UNITS[o.metric] ?? "";
   // Spreads read best as whole basis points; everything else needs a decimal so near-misses don't look like hits.
   const d = o.metric === "spread" ? 0 : 1;
-  const when = quarterLabel(r.t);
+  const when = o.when === "year" ? `${o.year}` : quarterLabel(r.t);
   const goal = `${o.op === "<=" ? "at or below" : "at or above"} ${f(o.threshold, d)}${u}`;
   const value = `${f(r.value, d)}${u}`;
   switch (o.metric) {

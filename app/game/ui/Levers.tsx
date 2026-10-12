@@ -28,6 +28,7 @@ export default function Levers() {
   const metrics = Array.from(new Set(mission.objectives.map((o) => o.metric)));
   const pegged = policy.fxRegime === "peg";
   const devaluedNow = oneOffs.some((o) => o.kind === "devalue" && o.quarter === clock + 1);
+  const restructured = oneOffs.some((o) => o.kind === "restructure");
 
   const moved = (keys: (keyof Policy)[]) => keys.some((k) => policy[k] !== policyStart[k]);
 
@@ -115,15 +116,12 @@ export default function Levers() {
               <Toggle
                 label="Capital flow measures"
                 checked={policy.capitalControls}
-                onChange={(v) => {
-                  if (v && !startedControls && balance.trust < (MOVE_COSTS.controls.cost.trust ?? 0)) return;
-                  decide({ capitalControls: v });
-                }}
+                onChange={(v) => decide({ capitalControls: v })}
                 hint="Halves the currency impact of outflows; costs spread and a little growth."
               />
               {!startedControls ? (
                 <span className="game-hint inline-flex items-center gap-1">
-                  Imposing them costs <CostChips cost={MOVE_COSTS.controls.cost} /> {!policy.capitalControls && balance.trust < (MOVE_COSTS.controls.cost.trust ?? 0) ? "(not enough trust)" : ""}
+                  Imposing them costs <CostChips cost={MOVE_COSTS.controls.cost} /> {balance.trust < (MOVE_COSTS.controls.cost.trust ?? 0) ? "(you'll go into the red)" : ""}
                 </span>
               ) : null}
             </Lever>
@@ -136,12 +134,29 @@ export default function Levers() {
               </span>
               <span className="flex shrink-0 flex-col items-end gap-1">
                 <CostChips cost={{ votes: 1, trust: 2 }} />
-                <button type="button" className="lab-btn lab-btn-soft lab-btn-xs" disabled={devaluedNow || balance.votes < 1 || balance.trust < 2} onClick={() => addOneOff("devalue", clock + 1, 15)}>
+                <button type="button" className="lab-btn lab-btn-soft lab-btn-xs" disabled={devaluedNow} onClick={() => addOneOff("devalue", clock + 1, 15)}>
                   {devaluedNow ? "Scheduled" : "Devalue 15%"}
                 </button>
               </span>
             </div>
           ) : null}
+        </LeverGroup>
+      ) : null}
+
+      {unlocked.has("restructure") ? (
+        <LeverGroup title="Debt">
+          <div className="lab-field flex items-center justify-between gap-2">
+            <span>
+              <span className="block text-[0.78rem] font-medium">Restructure the debt</span>
+              <span className="game-hint">Cut the debt stock by 30% now. Spreads jump and credibility falls for about two years. Once per mission.</span>
+            </span>
+            <span className="flex shrink-0 flex-col items-end gap-1">
+              <CostChips cost={{ trust: 3 }} />
+              <button type="button" className="lab-btn lab-btn-soft lab-btn-xs" disabled={restructured} onClick={() => addOneOff("restructure", clock + 1, 30)}>
+                {restructured ? "Done" : "Restructure 30%"}
+              </button>
+            </span>
+          </div>
         </LeverGroup>
       ) : null}
 
@@ -155,14 +170,13 @@ export default function Levers() {
                 min={0}
                 max={8}
                 step={0.5}
-                disabled={!startedImf && policy.imfProgram === 0 && balance.votes < (MOVE_COSTS.imf.cost.votes ?? 0)}
                 format={(v) => (v === 0 ? "none" : `${trim(v)}% of GDP / yr`)}
                 onChange={(v) => decide({ imfProgram: v })}
                 hint="Adds to reserves and calms markets, but only pays out while you tighten by at least 0.5 a year."
               />
               {!startedImf ? (
                 <span className="game-hint inline-flex items-center gap-1">
-                  Starting a programme costs <CostChips cost={MOVE_COSTS.imf.cost} /> {policy.imfProgram === 0 && balance.votes < (MOVE_COSTS.imf.cost.votes ?? 0) ? "(not enough votes yet)" : ""}
+                  Starting a programme costs <CostChips cost={MOVE_COSTS.imf.cost} /> {balance.votes < (MOVE_COSTS.imf.cost.votes ?? 0) ? "(you'll go into the red)" : ""}
                 </span>
               ) : null}
               {policy.imfProgram > 0 && policy.fiscalAdjustment < 0.5 ? <span className="game-warn">Paused: the programme needs at least +0.5 pp of tightening.</span> : null}

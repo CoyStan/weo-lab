@@ -207,8 +207,15 @@ export const PRESETS: Preset[] = [
   },
 ];
 
+/** Economies built at runtime (real countries and historical episodes). */
+const REGISTRY = new Map<string, Preset>();
+
+export function registerPreset(preset: Preset) {
+  REGISTRY.set(preset.id, preset);
+}
+
 export function getPreset(id: string): Preset {
-  return PRESETS.find((p) => p.id === id) ?? PRESETS[0];
+  return PRESETS.find((p) => p.id === id) ?? REGISTRY.get(id) ?? PRESETS[0];
 }
 
 export function defaultAssumptions(presetId: string): Assumptions {

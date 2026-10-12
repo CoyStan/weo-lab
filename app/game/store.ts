@@ -9,7 +9,9 @@ import { sound } from "./audio";
 import { useSettings } from "./settings";
 import type { FocusKey } from "../store";
 import { headline } from "./explain";
-import { getMission, isSurprise, knownConfig, missionOutcome, MISSIONS, objectiveStatus, policyForTurn, type LeverId, type Mission, type ObjectiveStatus, type Outcome } from "./missions";
+import { buildEpisode, EPISODES, TODAY, todayMission } from "./economies";
+import { WEO } from "./data";
+import { getMission, registerMission, isSurprise, knownConfig, missionOutcome, MISSIONS, objectiveStatus, policyForTurn, type LeverId, type Mission, type ObjectiveStatus, type Outcome } from "./missions";
 import { ledger, type Entry } from "./politics";
 import type { InstitutionId } from "../model/types";
 
@@ -59,6 +61,8 @@ type GameState = {
   openSandbox: (keepScenario: boolean) => void;
   loadProgress: () => void;
   startMission: (id: string) => void;
+  startEpisode: (id: string) => void;
+  startToday: (iso: string) => void;
   beginPlay: () => void;
   decide: (changes: Partial<Policy>) => void;
   resetTurn: () => void;
@@ -147,6 +151,22 @@ export const useGame = create<GameState>((set, get) => ({
     set({ screen: "briefing", missionId: id, turns: [], modal: null, probe: null, announced: [], spotlight });
   },
 
+  startEpisode: (id) => {
+    const ep = EPISODES.find((e) => e.id === id);
+    if (!ep) return;
+    const { mission } = buildEpisode(WEO, ep);
+    registerMission(mission);
+    get().startMission(mission.id);
+  },
+
+  startToday: (iso) => {
+    const spec = TODAY.find((c) => c.iso === iso);
+    if (!spec) return;
+    const mission = todayMission(WEO, spec, Math.floor(Math.random() * 1_000_000) + 1);
+    registerMission(mission);
+    get().startMission(mission.id);
+  },
+
   beginPlay: () => {
     sound.startAmbient();
     const lab = useLab.getState();
@@ -185,7 +205,7 @@ export const useGame = create<GameState>((set, get) => ({
     const outcome = missionOutcome(mission, result, forecastAfter, after, config);
     const books = ledger(mission.politics, config, result.path, result.events, after);
     const election = books.elections.find((e) => e.quarter === after) ?? null;
-    const crisis = books.crisisAt === after && !config.shocks.some((s) => s.id === "surprise-confidence");
+    const crisis = mission.politics.trustCrisis !== false && books.crisisAt === after && !config.shocks.some((s) => s.id === "surprise-confidence");
     const prev = result.path[before];
     const now = result.path[after];
     const events = result.events.filter((e) => e.quarter === after);

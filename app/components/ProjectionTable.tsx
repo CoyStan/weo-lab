@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { VARIABLES } from "../model/constraints";
-import { quarterYear, START_YEAR, yearLabels } from "../model/economy";
+import { getStartYear, quarterYear, yearLabels } from "../model/economy";
 import type { ConstraintVar, QuarterState } from "../model/types";
 import { selectReference, useLab, type FocusKey } from "../store";
 import { fmt, METRICS } from "./format";
@@ -25,7 +25,7 @@ const ROWS: RowSpec[] = [
 ];
 
 export function annualize(path: QuarterState[], key: FocusKey, agg: "mean" | "end"): { year: number; value: number }[] {
-  const out: { year: number; value: number }[] = [{ year: START_YEAR - 1, value: path[0][key] }];
+  const out: { year: number; value: number }[] = [{ year: getStartYear() - 1, value: path[0][key] }];
   for (const year of yearLabels()) {
     const qs = path.filter((s) => s.t >= 1 && quarterYear(s.t) === year);
     if (!qs.length) continue;
@@ -36,7 +36,7 @@ export function annualize(path: QuarterState[], key: FocusKey, agg: "mean" | "en
 }
 
 export function buildCsv(scenario: QuarterState[], reference: QuarterState[], refLabel: string): string {
-  const years = [START_YEAR - 1, ...yearLabels()];
+  const years = [getStartYear() - 1, ...yearLabels()];
   const lines = [["Indicator", "Unit", "Path", ...years.map(String)].join(",")];
   for (const row of ROWS) {
     const m = METRICS[row.key];
@@ -59,7 +59,7 @@ export default function ProjectionTable() {
   const constraints = useLab((s) => s.config.constraints);
   const breaches = useLab((s) => s.result.breaches);
   const refLabel = compare === "pinned" ? "Pinned" : "WEO ref.";
-  const years = [START_YEAR - 1, ...yearLabels()];
+  const years = [getStartYear() - 1, ...yearLabels()];
   const nowYear = quarterYear(clock);
 
   const breachYears = useMemo(() => {
@@ -84,7 +84,7 @@ export default function ProjectionTable() {
             {years.map((y) => (
               <th key={y} scope="col" className={y === nowYear ? "text-[var(--lab-ink)]" : ""}>
                 {y}
-                {y === START_YEAR - 1 ? <span className="block text-[0.58rem] font-normal">start</span> : y === nowYear ? <span className="block text-[0.58rem] font-normal">now</span> : <span className="block text-[0.58rem] font-normal">proj.</span>}
+                {y === getStartYear() - 1 ? <span className="block text-[0.58rem] font-normal">start</span> : y === nowYear ? <span className="block text-[0.58rem] font-normal">now</span> : <span className="block text-[0.58rem] font-normal">proj.</span>}
               </th>
             ))}
           </tr>

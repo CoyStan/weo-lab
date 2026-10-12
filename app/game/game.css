@@ -1264,3 +1264,80 @@
   background: var(--lab-bad-bg);
   color: var(--lab-bad);
 }
+
+/* ---- History and the world today ---------------------------------------- */
+
+.game-tab-note {
+  margin-bottom: 0.75rem;
+  max-width: 46rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--lab-ink-2);
+}
+
+.game-country {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 0.2rem;
+  border: 1px solid var(--lab-line);
+  border-radius: var(--lab-radius-card);
+  background: var(--lab-paper);
+  padding: 0.65rem 0.8rem;
+  text-align: left;
+  box-shadow: var(--lab-panel-shadow);
+  transition:
+    transform 0.25s var(--game-ease),
+    border-color 0.25s var(--game-ease);
+}
+
+.game-country:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--lab-scenario) 45%, transparent);
+}
+
+.game-country strong {
+  font-family: var(--lab-font-display);
+  font-size: 1.05rem;
+}
+
+.game-country-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.game-compare {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.game-compare th,
+.game-compare td {
+  border-bottom: 1px solid var(--lab-line);
+  padding: 0.3rem 0.35rem;
+  text-align: right;
+}
+
+.game-compare th[scope="row"],
+.game-compare thead th:first-child {
+  text-align: left;
+  font-weight: 600;
+  color: var(--lab-ink-2);
+}
+
+.game-compare td span {
+  color: var(--lab-ink-2);
+}
+
+.game-compare td.is-better strong {
+  color: var(--lab-good);
+}
+
+.game-compare td.is-worse strong {
+  color: var(--lab-bad);
+}
