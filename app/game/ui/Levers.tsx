@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { regimeName } from "../../model/economy";
 import type { FxRegime, Policy, RateMode } from "../../model/types";
 import { useLab } from "../../store";
@@ -236,11 +236,13 @@ function ProbeLine({ metrics }: { metrics: MetricKey[] }) {
         <span>almost nothing you are judged on.</span>
       ) : (
         parts.map((p, i) => (
-          <span key={p.m} className="whitespace-nowrap">
-            {GAME_METRICS[p.m].label.toLowerCase()} {fmtNum(p.d, GAME_METRICS[p.m].digits, true)}
-            {deltaUnit(GAME_METRICS[p.m].unit)}
+          <Fragment key={p.m}>
+            <span className="whitespace-nowrap">
+              {GAME_METRICS[p.m].label.toLowerCase()} {fmtNum(p.d, GAME_METRICS[p.m].digits, true)}
+              {deltaUnit(GAME_METRICS[p.m].unit)}
+            </span>
             {i < parts.length - 1 ? ", " : ""}
-          </span>
+          </Fragment>
         ))
       )}
     </div>

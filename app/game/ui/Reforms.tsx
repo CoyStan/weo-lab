@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { quarterLabel } from "../../model/economy";
 import { canAdopt, INSTITUTIONS, type Institution } from "../politics";
 import { useGame } from "../store";
@@ -89,11 +90,13 @@ function ReformEffect({ inst }: { inst: Institution }) {
       {parts.length === 0
         ? "little you are judged on, this time."
         : parts.map((p, i) => (
-            <span key={p.m} className="whitespace-nowrap">
-              {GAME_METRICS[p.m].label.toLowerCase()} {fmtNum(p.d, GAME_METRICS[p.m].digits, true)}
-              {deltaUnit(GAME_METRICS[p.m].unit)}
+            <Fragment key={p.m}>
+              <span className="whitespace-nowrap">
+                {GAME_METRICS[p.m].label.toLowerCase()} {fmtNum(p.d, GAME_METRICS[p.m].digits, true)}
+                {deltaUnit(GAME_METRICS[p.m].unit)}
+              </span>
               {i < parts.length - 1 ? ", " : ""}
-            </span>
+            </Fragment>
           ))}
     </div>
   );

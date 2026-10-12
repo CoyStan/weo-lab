@@ -567,14 +567,22 @@
   color: var(--lab-bad);
 }
 
+/* The preview floats under the lever or reform instead of pushing the page down,
+   and lets the pointer through so the next lever can still be reached. */
 .game-probe {
-  margin-top: 0.3rem;
+  position: absolute;
+  z-index: 6;
+  top: calc(100% - 0.15rem);
+  right: 0.25rem;
+  left: 0.25rem;
   border-radius: 0.5rem;
-  background: var(--lab-surface);
+  background: var(--lab-paper);
   border: 1px solid color-mix(in srgb, var(--lab-scenario) 30%, transparent);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--lab-ink) 16%, transparent);
   padding: 0.35rem 0.5rem;
   font-size: 0.68rem;
   line-height: 1.45;
+  pointer-events: none;
   animation: game-fade 0.2s ease both;
 }
 
@@ -814,6 +822,7 @@
 /* ---- Goals ------------------------------------------------------------ */
 
 .game-goal {
+  position: relative;
   border: 1px solid var(--lab-line);
   border-radius: var(--lab-radius-card);
   background: var(--lab-surface);
@@ -872,7 +881,11 @@
   color: var(--lab-bad);
 }
 
+/* Pinned to the corner so it never rewraps the card's text. */
 .game-probe-chip {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.55rem;
   flex: none;
   border-radius: 999px;
   padding: 0.12rem 0.5rem;
@@ -1227,6 +1240,7 @@
 }
 
 .game-reform {
+  position: relative;
   border: 1px solid var(--lab-line);
   border-radius: 0.7rem;
   background: var(--lab-surface);
@@ -1243,7 +1257,8 @@
   background: color-mix(in srgb, var(--lab-good-mark) 6%, var(--lab-surface));
 }
 
-.game-reform.is-locked {
+/* Fade a locked reform's own content, not the preview floating from it. */
+.game-reform.is-locked > :not(.game-probe) {
   opacity: 0.72;
 }
 
@@ -1340,4 +1355,11 @@
 
 .game-compare td.is-worse strong {
   color: var(--lab-bad);
+}
+
+/* The hovered lever or reform sits above its neighbours so its floating preview does too. */
+.game-lever:hover,
+.game-lever:focus-within,
+.game-reform:hover {
+  z-index: 7;
 }

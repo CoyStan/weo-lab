@@ -248,6 +248,21 @@ export function Briefing() {
                 <li key={o.id} className="game-bullet is-star">{o.label}</li>
               ))}
             </ul>
+            <h2 className="game-section mt-3">Your advisors</h2>
+            <ul className="flex flex-col gap-1.5">
+              {mission.advisors.map((id) => {
+                const a = ADVISORS[id];
+                return (
+                  <li key={id} className="flex items-center gap-2">
+                    <img src={`${base}${a.portrait}`} alt="" width={30} height={30} className="game-portrait is-small" style={{ ["--advisor" as string]: a.accent }} />
+                    <span className="text-[0.74rem] leading-tight">
+                      <strong>{a.name}</strong>
+                      <span className="block text-[var(--lab-ink-2)]">Cares about {a.cares.toLowerCase()}</span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
           <div>
             <h2 className="game-section">Your tools</h2>
@@ -272,21 +287,6 @@ export function Briefing() {
                 </li>
               ))}
               {mission.politics.institutions.length > 4 ? <li className="text-[var(--lab-ink-2)]">and {mission.politics.institutions.length - 4} more reforms</li> : null}
-            </ul>
-            <h2 className="game-section mt-2">Your advisors</h2>
-            <ul className="flex flex-col gap-1.5">
-              {mission.advisors.map((id) => {
-                const a = ADVISORS[id];
-                return (
-                  <li key={id} className="flex items-center gap-2">
-                    <img src={`${base}${a.portrait}`} alt="" width={30} height={30} className="game-portrait is-small" style={{ ["--advisor" as string]: a.accent }} />
-                    <span className="text-[0.74rem] leading-tight">
-                      <strong>{a.name}</strong>
-                      <span className="block text-[var(--lab-ink-2)]">Cares about {a.cares.toLowerCase()}</span>
-                    </span>
-                  </li>
-                );
-              })}
             </ul>
             <p className="mt-2 text-[0.7rem] text-[var(--lab-ink-2)]">
               {mission.number === 0 ? `Data: IMF, ${WEO.vintage}. Policy rates, reserves and spreads are model estimates. ` : ""}
