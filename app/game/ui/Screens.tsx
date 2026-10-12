@@ -94,7 +94,8 @@ export function MissionSelect() {
               { value: "today", label: "World today" },
             ]}
           />
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <SoundToggle />
             <button type="button" className="lab-btn lab-btn-ghost lab-btn-sm" onClick={() => setScreen("title")}>Back</button>
             <button type="button" className="lab-btn lab-btn-soft lab-btn-sm" onClick={() => setScreen("sandbox")}>Free play</button>
           </div>
