@@ -15,7 +15,7 @@ import { getMission, registerMission, isSurprise, knownConfig, missionOutcome, M
 import { ledger, type Entry } from "./politics";
 import type { InstitutionId } from "../model/types";
 
-export type Screen = "title" | "missions" | "briefing" | "play" | "sandbox";
+export type Screen = "title" | "missions" | "briefing" | "play" | "sandbox" | "contagion";
 
 export type Recap = {
   quarter: number;
@@ -74,6 +74,8 @@ type GameState = {
   resetProgress: () => void;
   adopt: (id: InstitutionId) => void;
   unadopt: (id: InstitutionId) => void;
+  /** Keep the best result for a mode outside the missions (contagion origins). */
+  recordStars: (id: string, stars: number) => void;
 };
 
 const PROGRESS_KEY = "weo-lab.campaign.v1";
@@ -112,6 +114,14 @@ export const useGame = create<GameState>((set, get) => ({
   announced: [],
   sandboxKeep: false,
   spotlight: [],
+
+  recordStars: (id, stars) => {
+    const prev = get().progress.stars[id] ?? 0;
+    if (stars <= prev) return;
+    const progress = { stars: { ...get().progress.stars, [id]: stars } };
+    saveProgress(progress);
+    set({ progress });
+  },
 
   setScreen: (screen) => {
     if (screen === "sandbox") {

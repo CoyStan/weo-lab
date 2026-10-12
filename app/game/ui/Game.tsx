@@ -14,6 +14,8 @@ import SettingsPanel from "./Settings";
 import Modals from "./Modals";
 import Play from "./Play";
 import { Briefing, MissionSelect, TitleScreen } from "./Screens";
+import Contagion from "../../contagion/ui/Contagion";
+import "../../contagion/contagion.css";
 
 const IslandScene = dynamic(() => import("../../scene/IslandScene"), {
   ssr: false,
@@ -93,6 +95,8 @@ export default function Game() {
       {theme.css ? <style>{theme.css}</style> : null}
       {screen === "play" ? (
         <Play scene={<IslandScene />} />
+      ) : screen === "contagion" ? (
+        <Contagion />
       ) : (
         <div className="game-backdrop">
           <div className="game-backdrop-scene" aria-hidden="true">

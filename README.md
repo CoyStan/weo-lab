@@ -16,6 +16,7 @@ A policy game for economists, and for anyone curious. Run a stylised economy one
 - **Settings.** Choose and preview the music, set music and effects volumes, waves on or off, the visual design, island banners, reduced motion, tips, and reset progress. About has the disclaimer and credits.
 - **History.** Five real crises rebuilt from IMF data: Thailand 1997, Korea 1997, Argentina 2001, Iceland 2008 and Greece 2010. You start just before things went wrong, with the shocks that actually hit, and try to beat what happened; the goal cards draw history as a grey line, and the debrief compares your path with the real one year by year, then tells the real story.
 - **World today.** 21 countries, starting from their 2025 numbers in the IMF's World Economic Outlook, with the WEO projection as the line to beat and two seeded surprises per run.
+- **Contagion.** Pick one of 30 countries on a hex world map and start a financial crisis there, then try to contain it as an international stability fund (a fictional one). Each quarter you have a few staff teams, limited lending capacity and your credibility: precautionary credit lines as firewalls, emergency programmes, support for debt restructurings, technical assistance, and coordinated central-bank swap lines to calm markets. Trouble spreads through neighbours, trade partners, financial centres and global panic, and each country is as vulnerable as its WEO debt, current account, inflation and growth say. Win by ending the crisis where it started and keeping it to three more countries; if a financial centre is the origin, the G20 doubles the fund's resources. Your deputy can suggest a move four times a game.
 - **Free play.** The full lab: every lever, assumption, shock and constraint, charts, the WEO table and scenario sharing.
 
 **Live demo:** https://coystan.github.io/weo-lab/ (GitHub Pages, deployed from `main` by `.github/workflows/pages.yml`).
@@ -35,11 +36,12 @@ Open `http://localhost:3000`. `npm run build` writes a static site to `out/`; `n
 npm run check
 ```
 
-Runs the TypeScript check, the model and campaign tests (`npm run test:model`) and a production build. The campaign tests check that every mission is lost by doing nothing and that every star can be earned, so a model change cannot silently break the balance.
+Runs the TypeScript check, the model and campaign tests (`npm run test:model`) and a production build. The campaign tests check that every mission is lost by doing nothing and that every star can be earned, so a model change cannot silently break the balance. The contagion tests do the same for the world map: doing nothing loses from every origin, and the careful strategy wins from each one.
 
 ## Layout
 
 - `app/game/`: the campaign. `missions.ts` (goals, unlocks, shocks, outcomes), `advisors.ts`, `responses.ts`, `explain.ts`, the game store and `ui/`.
+- `app/contagion/`: contagion mode. `engine.ts` is a pure, seeded network model (spreading, recovery, panic, the fund's resources, outcomes), `strategy.ts` is a simple careful strategy (the deputy's advice, and the tests' proof that every origin is winnable), plus the store and `ui/`.
 - `app/WeoLab.tsx`: the free-play lab; `app/page.tsx` renders the game shell at `/`, and `?mode=sandbox` opens free play directly.
 - `app/model/`: economy simulation, shocks, presets, constraints, scoring and tests.
 - `app/scene/`: the procedural hex island (React Three Fiber).
@@ -48,7 +50,7 @@ Runs the TypeScript check, the model and campaign tests (`npm run test:model`) a
 
 ## Real data and calibration
 
-`scripts/fetch-weo.mjs` snapshots six WEO series (real GDP growth, inflation, general government gross debt and net lending, current account, unemployment) for 24 countries from the public IMF DataMapper API into `app/data/weo.json`, with the vintage and retrieval date. Each country borrows one of the four archetypes' structure and starts from its own numbers; policy rates, reserves and spreads are not in those series, so their starting values are model estimates.
+`scripts/fetch-weo.mjs` snapshots seven WEO series (real GDP growth, inflation, general government gross debt and net lending, current account, unemployment, and GDP in US dollars, used to weight countries in contagion mode) for 30 countries from the public IMF DataMapper API into `app/data/weo.json`, with the vintage and retrieval date. Each country borrows one of the four archetypes' structure and starts from its own numbers; policy rates, reserves and spreads are not in those series, so their starting values are model estimates.
 
 `app/game/calibrate.ts` then finds per-quarter residual impulses (demand, prices, the primary balance, a permanent output shift and a stock-flow adjustment to debt) so the model reproduces each year's growth, inflation, budget balance and year-end debt under unchanged policy (today) or under the historical policy path (episodes). The player plays against the same residuals, so the results are illustrative counterfactuals, not forecasts. Tests check that the calibration reproduces the data, that repeating history or doing nothing loses, and that a known alternative wins and is affordable in Votes and Trust.
 

@@ -58,6 +58,7 @@ export function TitleScreen() {
         <ul className="game-title-points">
           <li><strong>6 missions</strong> across four economies, from a first rate decision to a sudden stop.</li>
           <li><strong>One quarter per turn.</strong> Shocks arrive unannounced; the forecast only knows what you know.</li>
+          <li><strong>Contagion:</strong> start a crisis anywhere in the world, then try to contain it.</li>
           <li><strong>Free play</strong> opens the full lab: every lever, assumption, shock and constraint.</li>
         </ul>
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -69,7 +70,7 @@ export function TitleScreen() {
   );
 }
 
-type Tab = "campaign" | "history" | "today";
+type Tab = "campaign" | "history" | "today" | "contagion";
 
 export function MissionSelect() {
   const progress = useGame((s) => s.progress);
@@ -92,6 +93,7 @@ export function MissionSelect() {
               { value: "campaign", label: "Campaign" },
               { value: "history", label: "History" },
               { value: "today", label: "World today" },
+              { value: "contagion", label: "Contagion" },
             ]}
           />
           <div className="flex flex-wrap items-center gap-2">
@@ -139,6 +141,8 @@ export function MissionSelect() {
               ))}
             </ol>
           </>
+        ) : tab === "contagion" ? (
+          <ContagionTab />
         ) : (
           <>
             <p className="game-tab-note">Start from a country&rsquo;s latest numbers in the IMF&rsquo;s {WEO.vintage} and try to beat its projection. Each run draws two surprises.</p>
@@ -172,6 +176,27 @@ export function MissionSelect() {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function ContagionTab() {
+  const setScreen = useGame((s) => s.setScreen);
+  const stars = useGame((s) => s.progress.stars);
+  const contained = Object.entries(stars).filter(([k, v]) => k.startsWith("contagion-") && v > 0).length;
+  return (
+    <div className="game-mission game-contagion-intro">
+      <span className="game-mission-number">New mode · the whole world</span>
+      <span className="game-mission-title">Contagion</span>
+      <span className="game-mission-kicker">
+        Pick a country and start a financial crisis there. Then switch sides: you run an international stability fund with a few staff teams, limited money and your credibility, and try to stop the crisis spreading through trade, finance and panic. Thirty economies, each as vulnerable as its real IMF WEO numbers say.
+      </span>
+      <span className="game-mission-meta">12 quarters · {contained ? `${contained} of 30 origins contained` : "30 possible origins"}</span>
+      <span className="mt-3">
+        <button type="button" className="lab-btn lab-btn-primary lab-btn-md" onClick={() => setScreen("contagion")}>
+          Open the world map
+        </button>
+      </span>
     </div>
   );
 }

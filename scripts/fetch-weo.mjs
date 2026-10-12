@@ -13,10 +13,11 @@ const INDICATORS = {
   balance: "GGXCNL_NGDP",
   ca: "BCA_NGDPD",
   unemp: "LUR",
+  gdp: "NGDPD",
 };
 
 // Present-day countries and the countries of the historical episodes.
-const COUNTRIES = ["USA", "DEU", "JPN", "GBR", "ITA", "BRA", "MEX", "IND", "IDN", "TUR", "ZAF", "CHL", "COL", "POL", "EGY", "NGA", "KEN", "PAK", "PHL", "ARG", "THA", "ISL", "GRC", "KOR"];
+const COUNTRIES = ["USA", "DEU", "JPN", "GBR", "ITA", "BRA", "MEX", "IND", "IDN", "TUR", "ZAF", "CHL", "COL", "POL", "EGY", "NGA", "KEN", "PAK", "PHL", "ARG", "THA", "ISL", "GRC", "KOR", "CHN", "FRA", "CAN", "SAU", "AUS", "VNM"];
 const FIRST_YEAR = 1990;
 const LAST_YEAR = 2031;
 

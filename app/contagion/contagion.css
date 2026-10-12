@@ -1,0 +1,683 @@
+/* Contagion mode: a world map and the fund's desk, on the lab's theme tokens. */
+
+.ctg {
+  min-height: 100dvh;
+  padding: clamp(0.75rem, 2vw, 1.5rem);
+  background:
+    radial-gradient(ellipse at 30% 0%, color-mix(in srgb, var(--lab-info) 8%, transparent), transparent 60%),
+    var(--lab-bg);
+  animation: game-rise 0.5s var(--game-ease) both;
+}
+
+.ctg-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  max-width: 92rem;
+  margin: 0 auto 0.9rem;
+}
+
+.ctg-eyebrow,
+.ctg-kicker {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--lab-info);
+}
+
+.ctg-title {
+  font-family: var(--lab-font-display);
+  font-size: clamp(1.3rem, 2.4vw, 1.75rem);
+  font-weight: 600;
+  line-height: 1.05;
+}
+
+.ctg-layout {
+  display: grid;
+  max-width: 92rem;
+  margin: 0 auto;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) 22.5rem;
+  align-items: start;
+}
+
+@media (max-width: 1023px) {
+  .ctg-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ctg-map-wrap {
+  border: 1px solid var(--lab-line);
+  border-radius: var(--lab-radius-panel);
+  background: var(--lab-paper);
+  padding: 0.75rem;
+  box-shadow: var(--lab-panel-shadow);
+  overflow-x: auto;
+}
+
+.ctg-map {
+  display: block;
+  width: 100%;
+  min-width: 40rem;
+  height: auto;
+  user-select: none;
+}
+
+.ctg-sea polygon {
+  fill: color-mix(in srgb, var(--lab-info) 5%, transparent);
+  stroke: color-mix(in srgb, var(--lab-info) 10%, transparent);
+  stroke-width: 1;
+}
+
+.ctg-links line {
+  stroke: var(--lab-ink);
+  stroke-dasharray: 3 4;
+  animation: ctg-dash 1.2s linear infinite;
+}
+
+@keyframes ctg-dash {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+
+.ctg-hex {
+  cursor: pointer;
+  outline: none;
+}
+
+.ctg-hex-body {
+  stroke: color-mix(in srgb, var(--lab-ink) 18%, transparent);
+  stroke-width: 1;
+  transition:
+    fill 0.8s var(--game-ease),
+    stroke 0.2s ease,
+    transform 0.25s var(--game-ease);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.ctg-hex:hover .ctg-hex-body,
+.ctg-hex:focus-visible .ctg-hex-body {
+  stroke: var(--lab-ink);
+  stroke-width: 2;
+}
+
+.ctg-hex.is-selected .ctg-hex-body {
+  stroke: var(--lab-ink);
+  stroke-width: 3;
+}
+
+.ctg-hex.is-crisis .ctg-hex-body {
+  animation: ctg-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes ctg-pulse {
+  50% {
+    filter: brightness(1.12) saturate(1.15);
+  }
+}
+
+.ctg-hex.is-flash-crisis .ctg-hex-body {
+  animation:
+    ctg-flash 0.9s var(--game-ease) 1,
+    ctg-pulse 2.4s ease-in-out 0.9s infinite;
+}
+
+.ctg-hex.is-flash-recovery .ctg-hex-body {
+  animation: ctg-relief 1.1s var(--game-ease) 1;
+}
+
+@keyframes ctg-flash {
+  0% {
+    transform: scale(1.18);
+    filter: brightness(1.5);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes ctg-relief {
+  0% {
+    filter: brightness(1.35);
+  }
+}
+
+.ctg-hex.is-hinted .ctg-hex-body {
+  stroke: var(--lab-info);
+  stroke-width: 3.5;
+  stroke-dasharray: 6 4;
+}
+
+.ctg-hex-iso {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  fill: #10161c;
+  pointer-events: none;
+}
+
+.ctg-hex.is-crisis .ctg-hex-iso {
+  fill: #fff;
+}
+
+.ctg-hex-meter-bg {
+  fill: rgb(0 0 0 / 0.18);
+}
+
+.ctg-hex-meter {
+  fill: rgb(255 255 255 / 0.9);
+  transition: width 0.8s var(--game-ease);
+}
+
+.ctg-hex-mark {
+  font-size: 8px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  fill: rgb(0 0 0 / 0.55);
+  pointer-events: none;
+}
+
+.ctg-hex-ring {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.5;
+  stroke-opacity: 0.95;
+  pointer-events: none;
+}
+
+.ctg-hex-badge {
+  font-size: 14px;
+  font-weight: 800;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  fill: #fff;
+  paint-order: stroke;
+  stroke: rgb(0 0 0 / 0.45);
+  stroke-width: 2.5;
+  pointer-events: none;
+}
+
+.ctg-hex-badge.is-small {
+  font-size: 9px;
+}
+
+.ctg-hex-assist {
+  fill: #fff;
+  stroke: rgb(0 0 0 / 0.4);
+  pointer-events: none;
+}
+
+.ctg-hex-origin {
+  fill: none;
+  stroke: #7a0d0d;
+  stroke-width: 1.5;
+  stroke-dasharray: 2 3;
+  pointer-events: none;
+}
+
+.ctg-hex-stars {
+  font-size: 8px;
+  text-anchor: middle;
+  fill: #6b4d00;
+  pointer-events: none;
+}
+
+.ctg-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin-top: 0.5rem;
+  font-size: 0.66rem;
+  color: var(--lab-ink-2);
+}
+
+.ctg-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ctg-legend i {
+  display: inline-grid;
+  place-items: center;
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 3px;
+  font-style: normal;
+  font-weight: 800;
+  font-size: 0.7rem;
+}
+
+.ctg-legend i.is-ring {
+  border: 2px solid var(--lab-ink-2);
+}
+
+.ctg-legend i.is-plus {
+  background: var(--lab-ink-2);
+  color: var(--lab-paper);
+}
+
+.ctg-legend b {
+  font-size: 0.55rem;
+}
+
+/* ---- Dashboard -------------------------------------------------------- */
+
+.ctg-dash {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.2rem, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.ctg-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  border: 1px solid var(--lab-line);
+  border-radius: var(--lab-radius-control);
+  padding: 0.45rem 0.6rem;
+  background: var(--lab-surface, var(--lab-paper));
+}
+
+.ctg-stat-label {
+  font-size: 0.62rem;
+  color: var(--lab-ink-2);
+}
+
+.ctg-stat-value {
+  font-family: var(--lab-font-mono);
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.ctg-stat.is-good .ctg-stat-value {
+  color: var(--lab-good);
+}
+
+.ctg-stat.is-warn .ctg-stat-value {
+  color: var(--lab-warn);
+}
+
+.ctg-stat.is-bad .ctg-stat-value {
+  color: var(--lab-bad);
+}
+
+.ctg-stat-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--lab-ink) 10%, transparent);
+  overflow: hidden;
+}
+
+.ctg-stat-bar span {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  color: var(--lab-info);
+  transition: width 0.6s var(--game-ease);
+}
+
+.ctg-stat.is-warn .ctg-stat-bar span {
+  color: var(--lab-warn);
+}
+
+.ctg-stat.is-bad .ctg-stat-bar span {
+  color: var(--lab-bad);
+}
+
+.ctg-stat-pips {
+  display: flex;
+  gap: 3px;
+}
+
+.ctg-stat-pips i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--lab-ink) 14%, transparent);
+}
+
+.ctg-stat-pips i.is-on {
+  background: var(--lab-info);
+}
+
+/* ---- Side panel ------------------------------------------------------- */
+
+.ctg-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ctg-card {
+  border: 1px solid var(--lab-line);
+  border-radius: var(--lab-radius-panel);
+  background: var(--lab-paper);
+  padding: 0.9rem 1rem;
+  box-shadow: var(--lab-panel-shadow);
+}
+
+.ctg-country {
+  font-family: var(--lab-font-display);
+  font-size: 1.45rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.ctg-h3 {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.ctg-muted {
+  font-size: 0.66rem;
+  color: var(--lab-ink-2);
+}
+
+.ctg-level {
+  display: inline-block;
+  margin-top: 0.3rem;
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  background: var(--lab-good-bg);
+  color: var(--lab-good);
+}
+
+.ctg-level[data-level="Tough"] {
+  background: var(--lab-warn-bg);
+  color: var(--lab-warn);
+}
+
+.ctg-level[data-level="Hard"] {
+  background: var(--lab-bad-bg);
+  color: var(--lab-bad);
+}
+
+.ctg-status {
+  flex: none;
+  border-radius: 999px;
+  padding: 0.12rem 0.55rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  background: var(--lab-good-bg);
+  color: var(--lab-good);
+}
+
+.ctg-status.is-stressed {
+  background: var(--lab-warn-bg);
+  color: var(--lab-warn);
+}
+
+.ctg-status.is-crisis {
+  background: var(--lab-bad-bg);
+  color: var(--lab-bad);
+}
+
+.ctg-stress {
+  position: relative;
+  height: 8px;
+  margin-top: 0.6rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--lab-ink) 10%, transparent);
+}
+
+.ctg-stress span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  transition:
+    width 0.8s var(--game-ease),
+    background 0.8s var(--game-ease);
+}
+
+.ctg-stress i {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 1.5px;
+  background: var(--lab-ink-2);
+}
+
+.ctg-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem 0.9rem;
+  margin-top: 0.7rem;
+}
+
+.ctg-facts dt {
+  font-size: 0.62rem;
+  color: var(--lab-ink-2);
+}
+
+.ctg-facts dd {
+  font-family: var(--lab-font-mono);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.ctg-note {
+  margin-top: 0.8rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.ctg-protect {
+  margin-top: 0.6rem;
+  font-size: 0.7rem;
+  color: var(--lab-info);
+  font-weight: 600;
+}
+
+.ctg-warn {
+  margin-top: 0.5rem;
+  font-size: 0.7rem;
+  color: var(--lab-warn);
+}
+
+.ctg-how {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.45rem;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.ctg-actions {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.8rem;
+}
+
+.ctg-action {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 0.15rem;
+  border: 1px solid var(--lab-line);
+  border-radius: var(--lab-radius-control);
+  background: var(--lab-surface, var(--lab-paper));
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s var(--game-ease),
+    background 0.2s ease;
+}
+
+.ctg-action strong {
+  font-size: 0.78rem;
+}
+
+.ctg-action > span:last-child {
+  color: var(--lab-ink-2);
+}
+
+.ctg-action:not(:disabled):hover {
+  border-color: var(--lab-info);
+  transform: translateY(-1px);
+}
+
+.ctg-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ctg-action.is-advised {
+  border-color: var(--lab-info);
+  background: var(--lab-info-bg);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--lab-info) 30%, transparent);
+}
+
+.ctg-cost {
+  display: inline-flex;
+  gap: 0.35rem;
+  font-family: var(--lab-font-mono);
+  font-size: 0.64rem;
+  color: var(--lab-ink-2);
+  white-space: nowrap;
+}
+
+.ctg-advice {
+  margin-top: 0.55rem;
+  border-left: 3px solid var(--lab-info);
+  padding-left: 0.6rem;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.ctg-turn .game-end-btn {
+  width: 100%;
+}
+
+.ctg-news {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.ctg-news li {
+  border-left: 3px solid var(--lab-line-strong);
+  padding-left: 0.5rem;
+  animation: game-rise 0.45s var(--game-ease) both;
+}
+
+.ctg-news li.is-crisis {
+  border-color: var(--lab-bad);
+}
+
+.ctg-news li.is-recovery {
+  border-color: var(--lab-good);
+}
+
+.ctg-news li.is-event,
+.ctg-news li.is-warning {
+  border-color: var(--lab-warn);
+}
+
+.ctg-news li.is-fund {
+  border-color: var(--lab-info);
+}
+
+.ctg-news-q {
+  margin-right: 0.4rem;
+  font-family: var(--lab-font-mono);
+  font-size: 0.62rem;
+  color: var(--lab-ink-2);
+}
+
+/* ---- Debrief ---------------------------------------------------------- */
+
+.ctg-spark {
+  margin-top: 0.8rem;
+}
+
+.ctg-spark svg {
+  width: 100%;
+  height: auto;
+}
+
+.ctg-spark polyline {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.ctg-spark-crises {
+  stroke: var(--lab-bad);
+}
+
+.ctg-spark-panic {
+  stroke: var(--lab-info);
+  stroke-dasharray: 4 3;
+}
+
+.ctg-spark-limit {
+  stroke: var(--lab-ink-2);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.ctg-spark figcaption {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.64rem;
+  color: var(--lab-ink-2);
+}
+
+.ctg-spark .is-crises {
+  color: var(--lab-bad);
+}
+
+.ctg-spark .is-panic {
+  color: var(--lab-info);
+}
+
+.ctg-lesson {
+  margin-top: 0.8rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+.game-contagion-intro {
+  max-width: 44rem;
+}
+
+.game.is-reduced .ctg *,
+.game.is-reduced .ctg {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ctg *,
+  .ctg {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.ctg-boost {
+  margin-bottom: 0.5rem;
+  border-radius: var(--lab-radius-control);
+  background: var(--lab-info-bg);
+  padding: 0.4rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--lab-info);
+}

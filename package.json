@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "typecheck": "tsc --noEmit",
-    "test:model": "node --test --no-warnings \"app/model/*.test.ts\" \"app/game/*.test.ts\"",
+    "test:model": "node --test --no-warnings \"app/model/*.test.ts\" \"app/game/*.test.ts\" \"app/contagion/*.test.ts\"",
     "check": "npm run typecheck && npm run test:model && npm run build",
     "preview": "python3 -m http.server 3000 --directory out"
   },
