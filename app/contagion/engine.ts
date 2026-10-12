@@ -101,7 +101,8 @@ export type CountryState = {
 export type ActionKind = "creditLine" | "programme" | "restructure" | "assist" | "calm";
 export type Action = { kind: Exclude<ActionKind, "calm">; iso: string } | { kind: "calm" };
 
-export type News = { quarter: number; kind: "crisis" | "recovery" | "event" | "fund" | "warning"; text: string; iso?: string };
+/** `tag` names what happened (an action, an event, a failure) so the interface can dress it up. */
+export type News = { quarter: number; kind: "crisis" | "recovery" | "event" | "fund" | "warning" | "deputy"; text: string; iso?: string; tag?: string };
 
 export type GlobalEventKind = "rates" | "commodity" | "oil" | "tech" | "recovery";
 
@@ -236,7 +237,7 @@ export function createWorld(data: WeoLike, origin: string, seed: number): World 
     worldLoss: 0,
     spillLoss: 0,
     events,
-    news: [{ quarter: 0, kind: "crisis", iso: origin, text: `Crisis breaks out in ${def.name}.` }],
+    news: [{ quarter: 0, kind: "crisis", tag: "origin", iso: origin, text: `Crisis breaks out in ${def.name}.` }],
     pending: [],
     history: [{ quarter: 0, worldLoss: 0, panic: 20 + (def.center ? 15 : 0), crises: 1 }],
   };
@@ -316,27 +317,27 @@ export function act(world: World, action: Action): World {
   if (action.kind === "calm") {
     w.calmLeft -= 1;
     w.panic = Math.max(0, w.panic - 22);
-    w.news.push({ quarter: t + 1, kind: "fund", text: "Central banks announce coordinated swap lines. Markets breathe out." });
+    w.news.push({ quarter: t + 1, kind: "fund", tag: "calm", text: "Central banks announce coordinated swap lines. Markets breathe out." });
     return w;
   }
   const c = w.countries[action.iso];
   const name = def(action.iso).name;
   if (action.kind === "creditLine") {
     c.firewallUntil = t + 5;
-    w.news.push({ quarter: t + 1, kind: "fund", iso: c.iso, text: `${name} secures a precautionary credit line.` });
+    w.news.push({ quarter: t + 1, kind: "fund", tag: "creditLine", iso: c.iso, text: `${name} secures a precautionary credit line.` });
   } else if (action.kind === "programme") {
     c.programmeFrom = t + 1;
     c.programmeUntil = t + 5;
     c.stress = clamp(c.stress - RULES.programmeHit * effectiveness(w, c), 0, 100);
-    w.news.push({ quarter: t + 1, kind: "fund", iso: c.iso, text: `Emergency programme approved for ${name}.` });
+    w.news.push({ quarter: t + 1, kind: "fund", tag: "programme", iso: c.iso, text: `Emergency programme approved for ${name}.` });
   } else if (action.kind === "restructure") {
     c.restructured = true;
     c.debt *= 0.75;
     w.panic = clamp(w.panic + 4, 0, 100);
-    w.news.push({ quarter: t + 1, kind: "fund", iso: c.iso, text: `${name} restructures its debt; creditors take losses.` });
+    w.news.push({ quarter: t + 1, kind: "fund", tag: "restructure", iso: c.iso, text: `${name} restructures its debt; creditors take losses.` });
   } else {
     c.assistUntil = t + 4;
-    w.news.push({ quarter: t + 1, kind: "fund", iso: c.iso, text: `Technical team arrives in ${name}.` });
+    w.news.push({ quarter: t + 1, kind: "fund", tag: "assist", iso: c.iso, text: `Technical team arrives in ${name}.` });
   }
   return w;
 }
@@ -371,7 +372,7 @@ function applyEvent(w: World, kind: GlobalEventKind) {
   }
   if (kind === "rates") w.panic = clamp(w.panic + 12, 0, 100);
   if (kind === "recovery") w.panic = clamp(w.panic - 10, 0, 100);
-  w.news.push({ quarter: t, kind: "event", text: EVENT_TEXT[kind] });
+  w.news.push({ quarter: t, kind: "event", tag: kind, text: EVENT_TEXT[kind] });
 }
 
 /** Steps between two cells on the map (odd rows shifted right). */
@@ -437,7 +438,7 @@ export function step(world: World): World {
       w.news.push({ quarter: t, kind: "crisis", iso: c.iso, text: `Contagion reaches ${name}: crisis.` });
       if (c.programmeUntil >= t) {
         w.trust = clamp(w.trust - 1, 0, 10);
-        w.news.push({ quarter: t, kind: "warning", iso: c.iso, text: `${name}'s programme failed to hold. The fund's credibility suffers.` });
+        w.news.push({ quarter: t, kind: "warning", tag: "failed", iso: c.iso, text: `${name}'s programme failed to hold. The fund's credibility suffers.` });
       }
     }
     if (was === "crisis" && c.status !== "crisis") {

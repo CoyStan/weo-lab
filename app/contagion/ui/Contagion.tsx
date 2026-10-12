@@ -28,7 +28,8 @@ import {
   type World,
 } from "../engine";
 import { suggest } from "../strategy";
-import { useContagion } from "../store";
+import { ASKS, useContagion } from "../store";
+import { DEPUTY, deputyQuip, earnedBadges, headline, verdict } from "../flavour";
 
 const R = 34;
 const W = Math.sqrt(3) * R;
@@ -234,6 +235,19 @@ function WorldMap({
       {COUNTRIES.map((d) => (
         <Hex key={d.iso} d={d} c={world.countries[d.iso]} t={t} origin={world.origin === d.iso} selected={selected === d.iso} onSelect={onSelect} flash={flash[d.iso]} hinted={hint === d.iso} picking={picking} stars={stars[`contagion-${d.iso}`] ?? 0} />
       ))}
+      {/* Faces sit above every hex, so neighbours drawn later can't cover them. */}
+      {!picking ? (
+        <g aria-hidden="true">
+          {Object.entries(flash).map(([iso, kind]) => {
+            const p = center(def(iso).hex);
+            return (
+              <g key={`${iso}-${t}`} transform={`translate(${p.x.toFixed(1)} ${(p.y - R + 2).toFixed(1)})`}>
+                <text className={`ctg-hex-react is-${kind}`}>{kind === "crisis" ? (def(iso).center ? "😱" : "😬") : "😌"}</text>
+              </g>
+            );
+          })}
+        </g>
+      ) : null}
     </svg>
   );
 }
@@ -245,7 +259,7 @@ function Hex({ d, c, t, origin, selected, onSelect, flash, hinted, picking, star
   const label = picking ? `${name}, vulnerability ${Math.round(c.baseVuln * 100)}` : `${name}: ${STATUS_WORD[c.status]}, stress ${Math.round(c.stress)}`;
   return (
     <g
-      className={`ctg-hex is-${picking ? "pick" : c.status} ${selected ? "is-selected" : ""} ${flash ? `is-flash-${flash}` : ""} ${hinted ? "is-hinted" : ""}`}
+      className={`ctg-hex is-${picking ? "pick" : c.status} ${d.center && !picking && c.status !== "calm" ? "is-wobbly" : ""} ${selected ? "is-selected" : ""} ${flash ? `is-flash-${flash}` : ""} ${hinted ? "is-hinted" : ""}`}
       transform={`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`}
       role="button"
       tabIndex={0}
@@ -324,8 +338,9 @@ function Board() {
               disabled={over || (asksLeft === 0 && advice === undefined)}
               onClick={() => {
                 if (advice !== undefined) return;
-                spendAsk();
-                setAdvice(suggest(world));
+                const a = suggest(world);
+                spendAsk(a);
+                setAdvice(a);
               }}
             >
               Ask your deputy · {asksLeft} left
@@ -334,7 +349,13 @@ function Board() {
               Undo this quarter
             </button>
           </div>
-          {advice !== undefined ? <p className="ctg-advice">{adviceText(world, advice)}</p> : null}
+          {advice !== undefined ? (
+            <div className="ctg-advice">
+              <p className="ctg-deputy">{DEPUTY}</p>
+              <p>{adviceText(world, advice)}</p>
+              <p className="ctg-quip">&ldquo;{deputyQuip(world, advice)}&rdquo;</p>
+            </div>
+          ) : null}
           <button type="button" className="game-end-btn mt-3" disabled={over} onClick={endQuarter}>
             End quarter {world.quarter + 1} of {RULES.quarters}
           </button>
@@ -476,7 +497,14 @@ function News({ world }: { world: World }) {
         {items.map((n, i) => (
           <li key={`${n.quarter}-${i}-${n.text}`} className={`is-${n.kind}`}>
             <span className="ctg-news-q">{n.quarter === 0 ? "Start" : `Q${n.quarter}`}</span>
-            {n.text}
+            {headline(n, world.seed) ? (
+              <>
+                <strong className="ctg-news-head">{headline(n, world.seed)}</strong>
+                <span className="ctg-news-fact">{n.text}</span>
+              </>
+            ) : (
+              <span className="ctg-news-deputy">{n.text}</span>
+            )}
           </li>
         ))}
       </ul>
@@ -499,11 +527,17 @@ function Debrief() {
   const chooseAgain = useContagion((s) => s.chooseAgain);
   const setScreen = useGame((s) => s.setScreen);
   const recordStars = useGame((s) => s.recordStars);
+  const asksLeft = useContagion((s) => s.asksLeft);
   const won = result.kind === "won";
+  const badges = useMemo(() => earnedBadges(world, result, ASKS - asksLeft), [world, result, asksLeft]);
+  // Which badges were already earned before this game, read once when the card opens.
+  const [before] = useState(() => new Set(Object.keys(useGame.getState().progress.stars).filter((k) => k.startsWith("badge-"))));
+  const title = verdict(world, result);
 
   useEffect(() => {
     if (result.kind === "won") recordStars(`contagion-${world.origin}`, result.stars);
-  }, [result, world.origin, recordStars]);
+    for (const b of badges) recordStars(`badge-${b.id}`, 1);
+  }, [result, world.origin, recordStars, badges]);
 
   const peak = Math.max(...world.history.map((h) => h.crises));
   const hit = countriesHit(world);
@@ -514,8 +548,9 @@ function Debrief() {
       <div className={`game-card game-debrief ${won ? "" : "is-lost"}`} role="dialog" aria-modal="true" aria-labelledby="ctg-debrief-title">
         <p className="game-eyebrow">Contagion · started in {WEO.countries[world.origin].name}</p>
         <h2 id="ctg-debrief-title" className="font-display text-[1.7rem] font-semibold leading-tight">
-          {won ? "Contained." : "It got away."}
+          {title.title}
         </h2>
+        <p className="ctg-verdict">{won ? "Contained. " : "It got away. "}{title.line}</p>
         {won ? (
           <p className="game-mission-stars mt-1 text-[1.3rem]" aria-label={`${result.stars} of 3 stars`}>
             {[1, 2, 3].map((k) => (
@@ -537,6 +572,17 @@ function Debrief() {
           <li>{starTight(world) ? "★" : "☆"} Spread to {RULES.starHit} country at most, and no other financial centre</li>
           <li>{world.spillLoss <= RULES.starLoss ? "★" : "☆"} Spillover losses of {RULES.starLoss}% of world GDP or less</li>
         </ul>
+        {badges.length ? (
+          <ul className="ctg-badges" aria-label="Badges earned">
+            {badges.map((b) => (
+              <li key={b.id} title={b.text}>
+                <strong>{b.title}</strong>
+                {!before.has(`badge-${b.id}`) ? <span className="ctg-badge-new">New</span> : null}
+                <span>{b.text}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
         <Spark world={world} />
         <p className="ctg-lesson">{lesson}</p>
         <div className="mt-4 flex flex-wrap gap-2">

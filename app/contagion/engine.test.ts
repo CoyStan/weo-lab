@@ -80,3 +80,20 @@ test("a fallen financial centre brings the G20 top-up", () => {
   assert.ok(usa.boosted && !tha.boosted);
   assert.ok(usa.capacity > tha.capacity && usa.staff > tha.staff);
 });
+
+test("every news item gets a headline, and every ending a title", async () => {
+  const { headline, verdict, earnedBadges, deputyQuip } = await import("./flavour.ts");
+  for (const o of ["USA", "GRC", "THA"]) {
+    for (const smart of [false, true]) {
+      const w = play(o, 2, smart);
+      for (const n of w.news) {
+        const h = headline(n, w.seed);
+        assert.ok(h && !h.includes("{name}") && h.length > 10, `headline for ${n.kind}/${n.tag}`);
+      }
+      const r = outcome(w);
+      assert.ok(verdict(w, r).title.length > 3);
+      assert.ok(Array.isArray(earnedBadges(w, r, 0)));
+      assert.ok(deputyQuip(w, null).length > 10);
+    }
+  }
+});

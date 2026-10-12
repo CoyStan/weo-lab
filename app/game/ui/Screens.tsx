@@ -13,6 +13,7 @@ import { INSTITUTIONS } from "../politics";
 import { CostChips, TrustIcon, VotesIcon } from "./Capital";
 import { missionUnlocked, useGame } from "../store";
 import SoundToggle from "./SoundToggle";
+import { BADGES } from "../../contagion/flavour";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -184,6 +185,7 @@ function ContagionTab() {
   const setScreen = useGame((s) => s.setScreen);
   const stars = useGame((s) => s.progress.stars);
   const contained = Object.entries(stars).filter(([k, v]) => k.startsWith("contagion-") && v > 0).length;
+  const badges = BADGES.filter((b) => stars[`badge-${b.id}`]).length;
   return (
     <div className="game-mission game-contagion-intro">
       <span className="game-mission-number">New mode · the whole world</span>
@@ -191,7 +193,7 @@ function ContagionTab() {
       <span className="game-mission-kicker">
         Pick a country and start a financial crisis there. Then switch sides: you run an international stability fund with a few staff teams, limited money and your credibility, and try to stop the crisis spreading through trade, finance and panic. Thirty economies, each as vulnerable as its real IMF WEO numbers say.
       </span>
-      <span className="game-mission-meta">12 quarters · {contained ? `${contained} of 30 origins contained` : "30 possible origins"}</span>
+      <span className="game-mission-meta">12 quarters · {contained ? `${contained} of 30 origins contained` : "30 possible origins"} · {badges} of {BADGES.length} badges</span>
       <span className="mt-3">
         <button type="button" className="lab-btn lab-btn-primary lab-btn-md" onClick={() => setScreen("contagion")}>
           Open the world map

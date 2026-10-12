@@ -658,6 +658,169 @@
   max-width: 44rem;
 }
 
+/* ---- Personality ------------------------------------------------------- */
+
+/* A financial centre under strain trembles a little. */
+.ctg-hex.is-wobbly .ctg-hex-body {
+  animation: ctg-wobble 2.6s ease-in-out infinite;
+}
+
+.ctg-hex.is-wobbly.is-crisis .ctg-hex-body {
+  animation:
+    ctg-wobble 1.4s ease-in-out infinite,
+    ctg-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes ctg-wobble {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-1.6deg);
+  }
+  40% {
+    transform: rotate(1.4deg);
+  }
+  60% {
+    transform: rotate(-0.8deg);
+  }
+  80% {
+    transform: rotate(0.5deg);
+  }
+}
+
+/* A face pops up when a country falls or recovers, then drifts away. */
+.ctg-hex-react {
+  font-size: 20px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+  opacity: 0;
+  animation: ctg-react 2.4s var(--game-ease) 0.15s both;
+}
+
+@keyframes ctg-react {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.6);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0) scale(1.15);
+  }
+  25% {
+    transform: translateY(0) scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.95);
+  }
+}
+
+.ctg-hex.is-flash-recovery .ctg-hex-body {
+  animation:
+    ctg-relief 1.1s var(--game-ease) 1,
+    ctg-bounce 0.7s var(--game-ease) 1;
+}
+
+@keyframes ctg-bounce {
+  30% {
+    transform: scale(1.1);
+  }
+  60% {
+    transform: scale(0.96);
+  }
+}
+
+.ctg-news-head {
+  display: block;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.ctg-news-fact {
+  display: block;
+  font-size: 0.64rem;
+  color: var(--lab-ink-2);
+}
+
+.ctg-news li.is-deputy {
+  border-color: var(--lab-info);
+  font-style: italic;
+}
+
+.ctg-deputy {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--lab-info);
+}
+
+.ctg-quip {
+  margin-top: 0.3rem;
+  font-style: italic;
+  color: var(--lab-ink-2);
+}
+
+.ctg-verdict {
+  margin-top: 0.25rem;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.ctg-badges {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.8rem;
+}
+
+.ctg-badges li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.1rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--lab-warn-mark) 45%, var(--lab-line));
+  border-radius: min(var(--lab-radius-card), 14px);
+  background: color-mix(in srgb, var(--lab-warn-mark) 10%, var(--lab-paper));
+  padding: 0.45rem 0.65rem;
+  font-size: 0.74rem;
+  animation: ctg-badge 0.6s var(--game-ease) both;
+}
+
+.ctg-badges li:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.ctg-badges li:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
+.ctg-badges li > span:last-child {
+  grid-column: 1 / -1;
+  font-size: 0.66rem;
+  color: var(--lab-ink-2);
+}
+
+.ctg-badge-new {
+  justify-self: start;
+  border-radius: 999px;
+  background: var(--lab-warn-mark);
+  padding: 0 0.45rem;
+  font-size: 0.58rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+@keyframes ctg-badge {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+}
+
 .game.is-reduced .ctg *,
 .game.is-reduced .ctg {
   animation: none !important;
@@ -680,4 +843,15 @@
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--lab-info);
+}
+
+/* Without motion, the faces simply sit there until the next quarter. */
+.game.is-reduced .ctg-hex-react {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ctg-hex-react {
+    opacity: 1;
+  }
 }
