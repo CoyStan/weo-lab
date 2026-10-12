@@ -6,6 +6,8 @@ import type { Policy, ScenarioConfig } from "../model/types";
 import { useLab } from "../store";
 import { getMission, objectiveStatus, policyForTurn, type MetricKey, type Mission, type ObjectiveStatus } from "./missions";
 import { NUDGES } from "./nudges";
+import { ledger } from "./politics";
+import type { InstitutionId } from "../model/types";
 import { forecastFor, useGame } from "./store";
 
 export function withDecision(config: ScenarioConfig, quarter: number, changes: Partial<Policy>): ScenarioConfig {
@@ -34,8 +36,11 @@ export function useTurn() {
     return map;
   }, [mission, result, forecast, clock]);
 
+  const books = useMemo(() => (mission ? ledger(mission.politics, config, result.path, result.events, clock) : null), [mission, config, result, clock]);
+
   return {
     mission,
+    books,
     config,
     clock,
     actual: result.path,
@@ -58,12 +63,24 @@ export function useProbeEffect(metrics: MetricKey[]) {
   const missionId = useGame((s) => s.missionId);
   const mission = getMission(missionId ?? "");
   return useMemo(() => {
-    const nudge = probe ? NUDGES[probe] : undefined;
-    if (!nudge || !mission) return null;
+    if (!probe || !mission) return null;
     const end = mission.quarters;
+    let label: string;
+    let next: ScenarioConfig;
+    if (probe.startsWith("inst:")) {
+      const id = probe.slice(5) as InstitutionId;
+      if ((config.institutions ?? []).some((a) => a.id === id)) return null;
+      label = "Adopting it";
+      next = { ...config, institutions: [...(config.institutions ?? []), { id, quarter: clock + 1 }] };
+    } else {
+      const nudge = NUDGES[probe as keyof typeof NUDGES];
+      if (!nudge) return null;
+      label = nudge.label;
+      next = withDecision(config, clock + 1, nudge.changes(policyForTurn(config, clock)));
+    }
     const base = forecastFor(config, clock)[end];
-    const nudged = forecastFor(withDecision(config, clock + 1, nudge.changes(policyForTurn(config, clock))), clock)[end];
+    const nudged = forecastFor(next, clock)[end];
     const deltas = Object.fromEntries(metrics.map((m) => [m, nudged[m] - base[m]])) as Record<MetricKey, number>;
-    return { label: nudge.label, deltas, by: quarterLabel(end) };
+    return { label, deltas, by: quarterLabel(end) };
   }, [probe, mission, config, clock, metrics]);
 }

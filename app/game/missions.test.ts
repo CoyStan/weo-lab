@@ -1,16 +1,37 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { simulate } from "../model/economy.ts";
-import type { Policy } from "../model/types.ts";
+import type { Policy, ScenarioConfig } from "../model/types.ts";
+import { canAdopt, INSTITUTIONS, ledger } from "./politics.ts";
 import { knownConfig, MISSIONS, missionOutcome, objectiveStatus, type Mission } from "./missions.ts";
 
 type Plan = [quarter: number, changes: Partial<Policy>][];
 
-function play(mission: Mission, plan: Plan) {
+function withPlan(mission: Mission, plan: Plan): ScenarioConfig {
   const base = mission.setup();
-  const config = { ...base, decisions: [...base.decisions, ...plan.map(([quarter, changes]) => ({ quarter, changes }))] };
+  return { ...base, decisions: [...base.decisions, ...plan.map(([quarter, changes]) => ({ quarter, changes }))] };
+}
+
+function play(mission: Mission, plan: Plan, config: ScenarioConfig = withPlan(mission, plan)) {
   const result = simulate(config);
-  return missionOutcome(mission, result, result.path, mission.quarters);
+  return missionOutcome(mission, result, result.path, mission.quarters, config);
+}
+
+/** Adopt every affordable institution as soon as possible, in the mission's order. */
+function greedy(mission: Mission, start: ScenarioConfig): ScenarioConfig {
+  let config: ScenarioConfig = { ...start, institutions: [] };
+  for (let clock = 0; clock < mission.quarters; clock++) {
+    const r = simulate(config);
+    const l = ledger(mission.politics, config, r.path, r.events, clock);
+    const balance = { votes: l.votes, trust: l.trust };
+    for (const id of mission.politics.institutions) {
+      if (!canAdopt(id, mission.politics, config, balance).ok) continue;
+      config = { ...config, institutions: [...(config.institutions ?? []), { id, quarter: clock + 1 }] };
+      balance.votes -= INSTITUTIONS[id].cost.votes ?? 0;
+      balance.trust -= INSTITUTIONS[id].cost.trust ?? 0;
+    }
+  }
+  return config;
 }
 
 /** One known-good plan per mission, and one that should earn every star. */
@@ -25,6 +46,20 @@ const WINS: Record<string, { win: Plan; threeStars: Plan }> = {
 
 test("every mission is lost by doing nothing", () => {
   for (const m of MISSIONS) assert.equal(play(m, []).kind, "lost", `${m.id} should not be won passively`);
+});
+
+test("buying every institution without touching the levers does not win", () => {
+  for (const m of MISSIONS) assert.equal(play(m, [], greedy(m, m.setup())).kind, "lost", `${m.id} should not be won by institutions alone`);
+});
+
+test("the ledger is deterministic and elections bite", () => {
+  const m = MISSIONS.find((x) => x.id === "debt-mountain")!;
+  const config = greedy(m, withPlan(m, WINS[m.id].win));
+  const r = simulate(config);
+  const a = ledger(m.politics, config, r.path, r.events, m.quarters);
+  const b = ledger(m.politics, config, r.path, r.events, m.quarters);
+  assert.deepEqual(a, b);
+  assert.ok(a.elections.some((e) => !e.won), "spending every vote on reforms should cost the election");
 });
 
 test("every mission can be won, and every star can be earned", () => {

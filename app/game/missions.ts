@@ -5,9 +5,10 @@
 // objectives that decide the outcome. Everything here is pure so it can be
 // tested with node --test.
 
-import { baselineConfig, policyAt } from "../model/economy.ts";
+import { baselineConfig, policyAt, quarterLabel as quarterLabelFor } from "../model/economy.ts";
 import { getPreset } from "../model/presets.ts";
 import type { Policy, QuarterState, ScenarioConfig, ScheduledShock, ShockKind, SimResult } from "../model/types.ts";
+import { ledger, type PoliticsRules } from "./politics.ts";
 
 /** Controls the player can be given. Several map to more than one policy field. */
 export type LeverId =
@@ -65,6 +66,7 @@ export type Mission = {
   fail: FailRule[];
   /** Builds the scenario. Shocks whose id starts with "surprise" stay hidden until they hit. */
   setup: () => ScenarioConfig;
+  politics: PoliticsRules;
 };
 
 const shock = (id: string, kind: ShockKind, quarter: number, magnitude = 1): ScheduledShock => ({ id, kind, quarter, magnitude, source: "scheduled" });
@@ -93,6 +95,7 @@ export const MISSIONS: Mission[] = [
       { id: "growth-end", label: "Growth back to 3.5% or more by the end", metric: "growth", op: ">=", threshold: 3.5, when: "end", bonus: true },
     ],
     fail: [{ metric: "infl", op: ">", threshold: 12, message: "Inflation passed 12% and expectations came unanchored." }],
+    politics: { start: { votes: 4, trust: 2 }, elections: [], threshold: 0, institutions: ["forward-guidance"] },
     setup: () => {
       const base = baselineConfig("aurelia");
       return {
@@ -125,6 +128,7 @@ export const MISSIONS: Mission[] = [
       { id: "growth-end", label: "Growth at 3% or more at the end", metric: "growth", op: ">=", threshold: 3, when: "end", bonus: true },
     ],
     fail: [{ metric: "infl", op: ">", threshold: 12, message: "Inflation passed 12% and expectations came unanchored." }],
+    politics: { start: { votes: 4, trust: 3 }, elections: [], threshold: 0, institutions: ["forward-guidance"] },
     setup: () => {
       const base = baselineConfig("aurelia");
       return { ...base, decisions: [{ quarter: 0, changes: { ruleStrength: 0.6 } }], shocks: [shock("surprise-supply", "supply-shock", 4, 1.5)] };
@@ -153,6 +157,7 @@ export const MISSIONS: Mission[] = [
       { id: "debt-deep", label: "Debt at or below 105% at the end", metric: "debt", op: "<=", threshold: 105, when: "end", bonus: true },
     ],
     fail: [{ metric: "unemp", op: ">", threshold: 9, message: "Unemployment passed 9% and the government fell." }],
+    politics: { start: { votes: 5, trust: 3 }, elections: [8, 16], threshold: 3, institutions: ["fiscal-rule", "tax-admin", "debt-office", "investment-agency", "safety-net"] },
     setup: () => baselineConfig("castellan"),
   },
   {
@@ -178,6 +183,7 @@ export const MISSIONS: Mission[] = [
       { id: "debt", label: "Debt at or below 47% of GDP at the end", metric: "debt", op: "<=", threshold: 47, when: "end", bonus: true },
     ],
     fail: [{ metric: "reserves", op: "<", threshold: 4, message: "Reserves fell below four months of imports and the central bank lost its buffer." }],
+    politics: { start: { votes: 5, trust: 3 }, elections: [8], threshold: 3, institutions: ["swap-line", "macroprudential", "fiscal-rule", "tax-admin", "safety-net"] },
     setup: () => ({ ...baselineConfig("boreas"), shocks: [shock("surprise-bust", "commodity-bust", 3, 1.2)] }),
   },
   {
@@ -206,6 +212,7 @@ export const MISSIONS: Mission[] = [
       { event: "Peg abandoned", message: "Reserves ran out and the peg broke." },
       { metric: "reserves", op: "<", threshold: 0.8, message: "Reserves fell below a month of imports." },
     ],
+    politics: { start: { votes: 5, trust: 2 }, elections: [8], threshold: 2, institutions: ["swap-line", "fiscal-rule", "tax-admin", "debt-office", "cb-independence", "safety-net"] },
     setup: () => baselineConfig("dumara"),
   },
   {
@@ -232,6 +239,7 @@ export const MISSIONS: Mission[] = [
       { id: "growth", label: "Growth at 2.5% or more at the end", metric: "growth", op: ">=", threshold: 2.5, when: "end", bonus: true },
     ],
     fail: [{ metric: "spread", op: ">", threshold: 1000, message: "Spreads passed 1,000 bp and the sovereign lost market access." }],
+    politics: { start: { votes: 5, trust: 3 }, elections: [8, 16], threshold: 3, institutions: ["cb-independence", "inflation-targeting", "forward-guidance", "fiscal-rule", "tax-admin", "debt-office", "investment-agency", "safety-net", "swap-line", "macroprudential"] },
     setup: () => {
       const base = baselineConfig("aurelia");
       return { ...base, assumptions: { ...base.assumptions, rerConvention: "model" }, shocks: [shock("surprise-stop", "sudden-stop", 5, 2), shock("surprise-downgrade", "downgrade", 7, 1)] };
@@ -295,7 +303,11 @@ export type Outcome =
   | { kind: "won"; stars: number; bonusMet: string[] }
   | { kind: "lost"; reason: string; objectiveId?: string };
 
-export function missionOutcome(mission: Mission, actual: SimResult, forecast: QuarterState[], clock: number): Outcome {
+export function missionOutcome(mission: Mission, actual: SimResult, forecast: QuarterState[], clock: number, config?: ScenarioConfig): Outcome {
+  if (config) {
+    const lost = ledger(mission.politics, config, actual.path, actual.events, Math.min(clock, mission.quarters)).elections.find((e) => !e.won);
+    if (lost) return { kind: "lost", reason: `You lost the election in ${quarterLabelFor(lost.quarter)} with ${lost.votes} votes; you needed ${mission.politics.threshold}.` };
+  }
   for (const rule of mission.fail) {
     if ("event" in rule) {
       if (actual.events.some((e) => e.title === rule.event && e.quarter <= clock)) return { kind: "lost", reason: rule.message };

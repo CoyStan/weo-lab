@@ -49,6 +49,8 @@ type LabState = {
   decide: (changes: Partial<Policy>) => void;
   /** Record a decision for a specific quarter (the campaign decides for the quarter ahead). */
   decideAt: (quarter: number, changes: Partial<Policy>) => void;
+  /** Replace the scenario without touching the clock (campaign bookkeeping). */
+  replaceConfig: (config: ScenarioConfig) => void;
   removeDecision: (quarter: number) => void;
   clearDecisions: () => void;
   addShock: (kind: ShockKind, quarter: number, magnitude: number) => void;
@@ -174,6 +176,8 @@ export const useLab = create<LabState>((set, get) => ({
         : [...s.config.decisions, { quarter, changes }];
       return withConfig(s, { ...s.config, decisions });
     }),
+
+  replaceConfig: (config) => set((s) => withConfig(s, config)),
 
   removeDecision: (quarter) => set((s) => withConfig(s, { ...s.config, decisions: s.config.decisions.filter((d) => d.quarter !== quarter) })),
 

@@ -5,6 +5,8 @@ import { quarterLabel } from "../../model/economy";
 import { ADVISORS } from "../advisors";
 import { GAME_METRICS } from "../metrics";
 import { getMission, MISSIONS, type LeverId } from "../missions";
+import { INSTITUTIONS } from "../politics";
+import { CostChips, TrustIcon, VotesIcon } from "./Capital";
 import { missionUnlocked, useGame } from "../store";
 import SoundToggle from "./SoundToggle";
 
@@ -149,6 +151,23 @@ export function Briefing() {
                 <span key={l} className="lab-chip lab-chip-info">{LEVER_NAMES[l]}</span>
               ))}
             </div>
+            <h2 className="game-section mt-2">Political capital</h2>
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.74rem]">
+              <span className="game-counter is-votes"><VotesIcon /> {mission.politics.start.votes}</span>
+              <span className="game-counter is-trust"><TrustIcon /> {mission.politics.start.trust}</span>
+              <span className="text-[var(--lab-ink-2)]">
+                {mission.politics.elections.length ? `Elections end ${mission.politics.elections.map((q) => quarterLabel(q)).join(" and ")}; you need ${mission.politics.threshold} votes.` : "No elections in this mission."}
+              </span>
+            </p>
+            <ul className="mt-1 flex flex-col gap-0.5 text-[0.7rem]">
+              {mission.politics.institutions.slice(0, 4).map((id) => (
+                <li key={id} className="flex items-center justify-between gap-2">
+                  <span>{INSTITUTIONS[id].name}</span>
+                  <CostChips cost={INSTITUTIONS[id].cost} />
+                </li>
+              ))}
+              {mission.politics.institutions.length > 4 ? <li className="text-[var(--lab-ink-2)]">and {mission.politics.institutions.length - 4} more reforms</li> : null}
+            </ul>
             <h2 className="game-section mt-2">Your advisors</h2>
             <ul className="flex flex-col gap-1.5">
               {mission.advisors.map((id) => {

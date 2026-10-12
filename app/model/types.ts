@@ -95,6 +95,21 @@ export type OneOffAction = {
 
 export type Decision = { quarter: number; changes: Partial<Policy> };
 
+/** Institutions and reforms adopted for good from a given quarter (the campaign's upgrades). */
+export type InstitutionId =
+  | "cb-independence"
+  | "inflation-targeting"
+  | "forward-guidance"
+  | "fiscal-rule"
+  | "tax-admin"
+  | "debt-office"
+  | "investment-agency"
+  | "safety-net"
+  | "swap-line"
+  | "macroprudential";
+
+export type Adoption = { id: InstitutionId; quarter: number };
+
 export type ConstraintVar =
   | "debt"
   | "ob"
@@ -125,6 +140,8 @@ export type ScenarioConfig = {
   randomShocks: boolean;
   seed: number;
   constraints: Constraint[];
+  /** Optional: institutions adopted along the way. */
+  institutions?: Adoption[];
 };
 
 /**

@@ -10,6 +10,7 @@ import { getMission, MISSIONS, policyForTurn, type ObjectiveStatus } from "../mi
 import { responsesFor } from "../responses";
 import { useGame, type Recap } from "../store";
 import { AdviceList } from "./Advisors";
+import { TrustIcon, VotesIcon } from "./Capital";
 
 /** Focus the primary action when a card opens, and let Enter press it. */
 function usePrimary() {
@@ -97,6 +98,32 @@ function RecapCard({ recap }: { recap: Recap }) {
           })}
         </ul>
       ) : null}
+
+      {recap.election ? (
+        <p className={`game-banner ${recap.election.won ? "is-good" : "is-bad"}`}>
+          {recap.election.won ? `Election won with ${recap.election.votes} votes. Your mandate continues.` : `Election lost with ${recap.election.votes} votes.`}
+        </p>
+      ) : null}
+      {recap.crisis ? <p className="game-banner is-bad">Trust has collapsed. Markets will test you next quarter.</p> : null}
+
+      <h3 className="mt-3 mb-1 text-[0.7rem] font-semibold text-[var(--lab-ink-2)]">Political capital</h3>
+      <div className="flex flex-wrap items-start gap-x-5 gap-y-1">
+        {(["votes", "trust"] as const).map((c) => {
+          const list = recap.points.entries.filter((e) => e.currency === c);
+          const total = list.reduce((a, e) => a + e.amount, 0);
+          return (
+            <div key={c} className="min-w-[13rem] flex-1">
+              <div className="flex items-center gap-1.5 text-[0.78rem] font-semibold">
+                {c === "votes" ? <VotesIcon /> : <TrustIcon />} {c === "votes" ? "Votes" : "Trust"} {recap.points[c]}
+                <span className={`text-[0.7rem] ${total > 0 ? "text-[var(--lab-good)]" : total < 0 ? "text-[var(--lab-bad)]" : "text-[var(--lab-ink-2)]"}`}>({total > 0 ? "+" : ""}{total} this quarter)</span>
+              </div>
+              <ul className="mt-0.5 text-[0.68rem] leading-snug text-[var(--lab-ink-2)]">
+                {list.length ? list.map((e, i) => <li key={i}>{e.amount > 0 ? "+" : ""}{e.amount} {e.reason}</li>) : <li>No change</li>}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
 
       <h3 className="mt-3 mb-1 text-[0.7rem] font-semibold text-[var(--lab-ink-2)]">Your advisors on the quarter ahead</h3>
       <AdviceList advice={recap.advice} compact />

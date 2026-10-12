@@ -9,12 +9,17 @@ import type { LeverId, MetricKey } from "../missions";
 import { GAME_METRICS, deltaUnit, fmtNum } from "../metrics";
 import { useGame } from "../store";
 import { useProbeEffect, useTurn } from "../useTurn";
+import { MOVE_COSTS } from "../politics";
+import { CostChips } from "./Capital";
 
 const trim = (v: number, d = 2) => v.toFixed(d).replace(/\.?0+$/, "");
 
 /** Each lever's control, its plain-language hint and the nudge used to preview its effect. */
 export default function Levers() {
-  const { mission, policy, policyStart, deciding, clock, changed } = useTurn();
+  const { mission, policy, policyStart, deciding, clock, changed, books } = useTurn();
+  const balance = books ?? { votes: 0, trust: 0 };
+  const startedImf = policyStart.imfProgram > 0;
+  const startedControls = policyStart.capitalControls;
   const decide = useGame((s) => s.decide);
   const resetTurn = useGame((s) => s.resetTurn);
   const addOneOff = useLab((s) => s.addOneOff);
@@ -107,7 +112,20 @@ export default function Levers() {
           ) : null}
           {unlocked.has("controls") ? (
             <Lever id="controls" lever="controls" moved={moved(["capitalControls"])} metrics={metrics}>
-              <Toggle label="Capital flow measures" checked={policy.capitalControls} onChange={(v) => decide({ capitalControls: v })} hint="Halves the currency impact of outflows; costs spread and a little growth." />
+              <Toggle
+                label="Capital flow measures"
+                checked={policy.capitalControls}
+                onChange={(v) => {
+                  if (v && !startedControls && balance.trust < (MOVE_COSTS.controls.cost.trust ?? 0)) return;
+                  decide({ capitalControls: v });
+                }}
+                hint="Halves the currency impact of outflows; costs spread and a little growth."
+              />
+              {!startedControls ? (
+                <span className="game-hint inline-flex items-center gap-1">
+                  Imposing them costs <CostChips cost={MOVE_COSTS.controls.cost} /> {!policy.capitalControls && balance.trust < (MOVE_COSTS.controls.cost.trust ?? 0) ? "(not enough trust)" : ""}
+                </span>
+              ) : null}
             </Lever>
           ) : null}
           {unlocked.has("devalue") && policy.fxRegime !== "float" ? (
@@ -116,9 +134,12 @@ export default function Levers() {
                 <span className="block text-[0.78rem] font-medium">One-off devaluation</span>
                 <span className="game-hint">Reset the parity 15% weaker. Inflation and foreign-currency debt feel it at once.</span>
               </span>
-              <button type="button" className="lab-btn lab-btn-soft lab-btn-xs shrink-0" disabled={devaluedNow} onClick={() => addOneOff("devalue", clock + 1, 15)}>
-                {devaluedNow ? "Scheduled" : "Devalue 15%"}
-              </button>
+              <span className="flex shrink-0 flex-col items-end gap-1">
+                <CostChips cost={{ votes: 1, trust: 2 }} />
+                <button type="button" className="lab-btn lab-btn-soft lab-btn-xs" disabled={devaluedNow || balance.votes < 1 || balance.trust < 2} onClick={() => addOneOff("devalue", clock + 1, 15)}>
+                  {devaluedNow ? "Scheduled" : "Devalue 15%"}
+                </button>
+              </span>
             </div>
           ) : null}
         </LeverGroup>
@@ -128,7 +149,22 @@ export default function Levers() {
         <LeverGroup title="Support and reform">
           {unlocked.has("imf") ? (
             <Lever id="imf" lever="imf" moved={moved(["imfProgram"])} metrics={metrics}>
-              <Slider label="IMF programme" value={policy.imfProgram} min={0} max={8} step={0.5} format={(v) => (v === 0 ? "none" : `${trim(v)}% of GDP / yr`)} onChange={(v) => decide({ imfProgram: v })} hint="Adds to reserves and calms markets, but only pays out while you tighten by at least 0.5 a year." />
+              <Slider
+                label="IMF programme"
+                value={policy.imfProgram}
+                min={0}
+                max={8}
+                step={0.5}
+                disabled={!startedImf && policy.imfProgram === 0 && balance.votes < (MOVE_COSTS.imf.cost.votes ?? 0)}
+                format={(v) => (v === 0 ? "none" : `${trim(v)}% of GDP / yr`)}
+                onChange={(v) => decide({ imfProgram: v })}
+                hint="Adds to reserves and calms markets, but only pays out while you tighten by at least 0.5 a year."
+              />
+              {!startedImf ? (
+                <span className="game-hint inline-flex items-center gap-1">
+                  Starting a programme costs <CostChips cost={MOVE_COSTS.imf.cost} /> {policy.imfProgram === 0 && balance.votes < (MOVE_COSTS.imf.cost.votes ?? 0) ? "(not enough votes yet)" : ""}
+                </span>
+              ) : null}
               {policy.imfProgram > 0 && policy.fiscalAdjustment < 0.5 ? <span className="game-warn">Paused: the programme needs at least +0.5 pp of tightening.</span> : null}
             </Lever>
           ) : null}

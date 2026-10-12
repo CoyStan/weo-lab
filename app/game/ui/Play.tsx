@@ -8,7 +8,11 @@ import { sound } from "../audio";
 import { useSettings } from "../settings";
 import { useGame } from "../store";
 import SoundToggle from "./SoundToggle";
+import Capital from "./Capital";
+import Reforms from "./Reforms";
+import { Segmented } from "../../components/ui";
 import { useTurn } from "../useTurn";
+import { canAdopt } from "../politics";
 import Advisors from "./Advisors";
 import Goals from "./Goals";
 import Levers from "./Levers";
@@ -18,6 +22,11 @@ const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 export default function Play({ scene }: { scene: ReactNode }) {
   const { mission, clock, deciding, events, changed, statuses } = useTurn();
   const tips = useSettings((s) => s.tips);
+  const [panel, setPanel] = useState<"levers" | "reforms">("levers");
+  const { books, config } = useTurn();
+  const affordable = books
+    ? mission.politics.institutions.filter((id) => canAdopt(id, mission.politics, config, { votes: books.votes, trust: books.trust }).ok).length
+    : 0;
   const tense = mission.objectives.some((o) => !o.bonus && (statuses[o.id] === "at-risk" || statuses[o.id] === "failed"));
   useEffect(() => sound.setTense(tense), [tense]);
   const endQuarter = useGame((s) => s.endQuarter);
@@ -63,6 +72,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
             ))}
           </div>
         </div>
+        <Capital />
         <div className="ml-auto flex items-center gap-1.5">
           <SoundToggle />
           <button type="button" className="lab-btn lab-btn-ghost lab-btn-sm" onClick={rewind} disabled={clock === 0} title="Go back one quarter and decide again">Rewind</button>
@@ -73,14 +83,31 @@ export default function Play({ scene }: { scene: ReactNode }) {
 
       <main id="main-content" className="game-grid">
         <aside className="game-col game-col-levers" aria-label="Your levers">
-          <h2 className="game-col-title">Your levers</h2>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h2 className="game-col-title !mb-0">{panel === "levers" ? "Your levers" : "Reforms"}</h2>
+            <Segmented
+              ariaLabel="Levers or reforms"
+              value={panel}
+              onChange={setPanel}
+              options={[
+                { value: "levers", label: "Levers" },
+                { value: "reforms", label: affordable ? `Reforms · ${affordable}` : "Reforms" },
+              ]}
+            />
+          </div>
           {tips && mission.number === 1 && clock < 2 ? (
             <p className="game-coach">
               {clock === 0 ? "Try moving the policy rate. The dashed line on each goal card shows where that choice leads; the faint one is where you started." : "Inflation reacts slowly. Judge your rate by the forecast at the end, not by this quarter."}
             </p>
           ) : null}
-          <Levers />
-          <Hint text={mission.hint} />
+          {panel === "levers" ? (
+            <>
+              <Levers />
+              <Hint text={mission.hint} />
+            </>
+          ) : (
+            <Reforms />
+          )}
         </aside>
 
         <section className="game-stage" aria-label="Island">

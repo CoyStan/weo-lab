@@ -1126,3 +1126,141 @@
   animation: none !important;
   transition-duration: 0.01ms !important;
 }
+
+/* ---- Political capital ------------------------------------------------- */
+
+.game-counter {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  padding: 0.22rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.game-counter strong {
+  font-size: 0.86rem;
+}
+
+.game-counter.is-votes {
+  background: color-mix(in srgb, #a9503c 13%, transparent);
+  color: color-mix(in srgb, #a9503c 85%, var(--lab-ink));
+}
+
+.game-counter.is-trust {
+  background: color-mix(in srgb, #39705b 14%, transparent);
+  color: color-mix(in srgb, #39705b 85%, var(--lab-ink));
+}
+
+.game-counter.is-negative {
+  outline: 2px solid var(--lab-alert);
+}
+
+.game-counter-float {
+  position: absolute;
+  right: -0.2rem;
+  top: -0.6rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  pointer-events: none;
+  animation: game-float 1.6s var(--game-ease) forwards;
+}
+
+.game-counter-float.is-up {
+  color: var(--lab-good);
+}
+
+.game-counter-float.is-down {
+  color: var(--lab-bad);
+}
+
+@keyframes game-float {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+}
+
+.game-election {
+  border-radius: 999px;
+  border: 1px dashed var(--lab-line-strong);
+  padding: 0.2rem 0.55rem;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--lab-ink-2);
+  white-space: nowrap;
+}
+
+.game-election.is-risk {
+  border-color: var(--lab-alert);
+  color: var(--lab-bad);
+}
+
+.game-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.game-cost.is-votes {
+  background: color-mix(in srgb, #a9503c 13%, transparent);
+  color: color-mix(in srgb, #a9503c 85%, var(--lab-ink));
+}
+
+.game-cost.is-trust {
+  background: color-mix(in srgb, #39705b 14%, transparent);
+  color: color-mix(in srgb, #39705b 85%, var(--lab-ink));
+}
+
+.game-reform {
+  border: 1px solid var(--lab-line);
+  border-radius: 0.7rem;
+  background: var(--lab-surface);
+  padding: 0.5rem 0.6rem;
+  transition: border-color 0.2s var(--game-ease);
+}
+
+.game-reform:hover {
+  border-color: color-mix(in srgb, var(--lab-scenario) 40%, transparent);
+}
+
+.game-reform.is-owned {
+  border-color: color-mix(in srgb, var(--lab-good-mark) 55%, transparent);
+  background: color-mix(in srgb, var(--lab-good-mark) 6%, var(--lab-surface));
+}
+
+.game-reform.is-locked {
+  opacity: 0.72;
+}
+
+.game-banner {
+  margin-top: 0.6rem;
+  border-radius: 0.6rem;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.game-banner.is-good {
+  background: var(--lab-good-bg);
+  color: var(--lab-good);
+}
+
+.game-banner.is-bad {
+  background: var(--lab-bad-bg);
+  color: var(--lab-bad);
+}

@@ -10,6 +10,8 @@ import { useSettings } from "./settings";
 import type { FocusKey } from "../store";
 import { headline } from "./explain";
 import { getMission, isSurprise, knownConfig, missionOutcome, MISSIONS, objectiveStatus, policyForTurn, type LeverId, type Mission, type ObjectiveStatus, type Outcome } from "./missions";
+import { ledger, type Entry } from "./politics";
+import type { InstitutionId } from "../model/types";
 
 export type Screen = "title" | "missions" | "briefing" | "play" | "sandbox";
 
@@ -21,6 +23,10 @@ export type Recap = {
   headline: { paper: string; text: string };
   advice: Advice[];
   statuses: { id: string; before: ObjectiveStatus; after: ObjectiveStatus }[];
+  /** Political capital earned or lost in the quarter, and balances after it. */
+  points: { entries: Entry[]; votes: number; trust: number };
+  election: { votes: number; won: boolean } | null;
+  crisis: boolean;
 };
 
 export type Modal =
@@ -29,8 +35,8 @@ export type Modal =
   | { kind: "debrief"; outcome: Outcome }
   | null;
 
-/** The lever the pointer is resting on; its preview nudge lives in nudges.ts. */
-export type Probe = LeverId | null;
+/** The lever or reform the pointer is resting on; lever nudges live in nudges.ts. */
+export type Probe = LeverId | `inst:${InstitutionId}` | null;
 
 type Progress = { stars: Record<string, number> };
 
@@ -62,6 +68,8 @@ type GameState = {
   restart: () => void;
   setProbe: (probe: Probe) => void;
   resetProgress: () => void;
+  adopt: (id: InstitutionId) => void;
+  unadopt: (id: InstitutionId) => void;
 };
 
 const PROGRESS_KEY = "weo-lab.campaign.v1";
@@ -174,7 +182,10 @@ export const useGame = create<GameState>((set, get) => ({
 
     const result = useLab.getState().result;
     const forecastAfter = forecastFor(config, after);
-    const outcome = missionOutcome(mission, result, forecastAfter, after);
+    const outcome = missionOutcome(mission, result, forecastAfter, after, config);
+    const books = ledger(mission.politics, config, result.path, result.events, after);
+    const election = books.elections.find((e) => e.quarter === after) ?? null;
+    const crisis = books.crisisAt === after && !config.shocks.some((s) => s.id === "surprise-confidence");
     const prev = result.path[before];
     const now = result.path[after];
     const events = result.events.filter((e) => e.quarter === after);
@@ -186,6 +197,9 @@ export const useGame = create<GameState>((set, get) => ({
       headline: headline(config.presetId, prev, now, events),
       advice: advise({ mission, now, forecast: forecastAfter, policy: policyForTurn(config, after) }),
       statuses: mission.objectives.map((o) => ({ id: o.id, before: objectiveStatus(o, mission, result.path, forecastBefore, before), after: objectiveStatus(o, mission, result.path, forecastAfter, after) })),
+      points: { entries: books.entries.filter((e) => e.quarter === after && e.kind === "earned"), votes: books.votes, trust: books.trust },
+      election: election ? { votes: election.votes, won: election.won } : null,
+      crisis,
     };
 
     const turns = [...get().turns, config];
@@ -197,6 +211,12 @@ export const useGame = create<GameState>((set, get) => ({
       }
       set({ turns, modal: { kind: "debrief", outcome } });
       return;
+    }
+    // Trust ran out: markets turn on the country next quarter.
+    if (crisis && after < mission.quarters) {
+      const shocked = { ...config, shocks: [...config.shocks, { id: "surprise-confidence", kind: "downgrade" as const, quarter: after + 1, magnitude: 1.3, source: "scheduled" as const }] };
+      useLab.getState().replaceConfig(shocked);
+      turns[turns.length - 1] = shocked;
     }
     set({ turns, modal: { kind: "recap", recap } });
     void announced;
@@ -233,6 +253,21 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   setProbe: (probe) => set({ probe }),
+
+  adopt: (id) => {
+    const lab = useLab.getState();
+    const quarter = lab.clock + 1;
+    if ((lab.config.institutions ?? []).some((a) => a.id === id)) return;
+    sound.play("choose");
+    lab.replaceConfig({ ...lab.config, institutions: [...(lab.config.institutions ?? []), { id, quarter }] });
+  },
+
+  unadopt: (id) => {
+    const lab = useLab.getState();
+    const quarter = lab.clock + 1;
+    sound.play("back");
+    lab.replaceConfig({ ...lab.config, institutions: (lab.config.institutions ?? []).filter((a) => !(a.id === id && a.quarter === quarter)) });
+  },
 
   resetProgress: () => {
     saveProgress({ stars: {} });

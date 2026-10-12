@@ -126,8 +126,15 @@ export function simulate(config: ScenarioConfig): SimResult {
   let inflationSpiralLogged = false;
   let marketAccessLogged = false;
 
+  const adopted = config.institutions ?? [];
+  const sinceAdoption = (id: string, t: number) => {
+    const a = adopted.find((x) => x.id === id && x.quarter <= t);
+    return a ? t - a.quarter : -1;
+  };
+
   for (let t = 1; t <= HORIZON; t++) {
     const prev = path[t - 1];
+    const has = (id: string) => sinceAdoption(id, t) >= 0;
     const pol = policyAt(preset.defaultPolicy, decisions, t);
     const { impulse: imp, active } = impulseAt(shocks, t);
 
@@ -195,11 +202,12 @@ export function simulate(config: ScenarioConfig): SimResult {
     // Potential output.
     const debtOverhang = Math.max(0, prev.debt - 90) * 0.004;
     const hysteresis = prev.gap < -3 ? 0.05 : 0;
-    const potGrowth = A.potentialGrowth + 0.3 * effReform.prod + 0.15 * effReform.trade + 0.1 * effReform.labor + 0.12 * investDelta - debtOverhang - hysteresis;
+    const potGrowth = A.potentialGrowth + 0.3 * effReform.prod + 0.15 * effReform.trade + 0.1 * effReform.labor + (has("investment-agency") ? 0.18 : 0.12) * investDelta - debtOverhang - hysteresis;
     const potLevel = prev.potLevel * (1 + potGrowth / 400) * imp.potentialLevelMult;
 
     // Expectations anchored by credibility.
-    const anchor = prev.cred / 100;
+    // An inflation-targeting framework anchors expectations as if credibility were 10 points higher.
+    const anchor = Math.min(1, (prev.cred + (has("inflation-targeting") ? 10 : 0)) / 100);
     const inflExp = anchor * pol.inflationTarget + (1 - anchor) * prev.infl;
     const realRatePrev = prev.rate - inflExp;
 
@@ -241,7 +249,8 @@ export function simulate(config: ScenarioConfig): SimResult {
     // account, capital flows and the financing gap, net of the initial equilibrium; the
     // PPP drift is the inflation differential. A float resolves both into depreciation;
     // a peg absorbs the fundamentals with reserves and lets the real rate appreciate.
-    const fundamentals = fundamentalPressure(preset, prev.rate, usRate, prev.spread, prev.ca, imp.capitalFlowAdd, pol.capitalControls) - pressure0 + (P.k3 * P.financingGap) / 4 + riskPremium / 800;
+    const flows = imp.capitalFlowAdd < 0 && has("macroprudential") ? imp.capitalFlowAdd * 0.7 : imp.capitalFlowAdd;
+    const fundamentals = fundamentalPressure(preset, prev.rate, usRate, prev.spread, prev.ca, flows, pol.capitalControls) - pressure0 + (P.k3 * P.financingGap) / 4 + riskPremium / 800;
     const pppDrift = (prev.infl - WORLD_INFLATION) / 4;
     const pressure = fundamentals + pppDrift;
     let dE = 0;
@@ -273,7 +282,7 @@ export function simulate(config: ScenarioConfig): SimResult {
 
     // Inflation: hybrid Phillips curve with pass-through from real depreciation surprises and oil.
     // The PPP-consistent part of nominal depreciation is the inflation already in the system.
-    const backward = 0.35 + 0.4 * (1 - prev.cred / 100);
+    const backward = Math.max(0.2, 0.35 + 0.4 * (1 - prev.cred / 100) - (has("cb-independence") ? 0.05 : 0));
     const infl = Math.max(-3, backward * prev.infl + (1 - backward) * inflExp + P.kappa * gap + P.passthrough * dRer + P.oilInflation * oilChangeQ + imp.inflAdd);
     const inflParts = {
       expectations: (1 - backward) * (inflExp - prev.infl),
@@ -327,18 +336,20 @@ export function simulate(config: ScenarioConfig): SimResult {
       (pol.capitalControls ? 60 : 0) -
       (programActive && onTrack ? 40 : 0) +
       15 * Math.max(0, prev.infl - pol.inflationTarget - 3) +
-      (pegBreak ? 300 : 0);
+      (pegBreak ? 300 : 0) -
+      (has("fiscal-rule") ? 30 : 0);
     const spreadBaseline = 4 * Math.max(0, init.debt - P.debtThreshold) + 60 * Math.max(0, 3 - init.reserves) + 25 * Math.max(0, -init.ca - 4) + 15 * Math.max(0, init.infl - preset.defaultPolicy.inflationTarget - 3);
     const spread = Math.max(20, 0.6 * prev.spread + 0.4 * (spreadTarget - spreadBaseline));
 
     // Fiscal block and debt dynamics.
     const exporterOilRevenue = P.oilImportShare < 0 ? -P.oilImportShare * 0.4 * oilDev : 0;
     const commodityRevenue = P.commodityRevenueShare * commodityDev + exporterOilRevenue;
-    const pb = structPB + P.autoStabilizer * gap + commodityRevenue - investDelta - imp.spendingAdd;
+    const taxAdmin = sinceAdoption("tax-admin", t);
+    const pb = structPB + P.autoStabilizer * gap + commodityRevenue - investDelta - imp.spendingAdd + (taxAdmin >= 0 ? 0.4 * Math.min(1, (taxAdmin + 1) / 4) : 0);
     // New debt is priced off the policy rate and spread; the stock reprices as it rolls over.
     const marketRate = rate + spread / 100 + P.termPremium;
     const marketRate0 = init.rate + init.spread / 100 + P.termPremium;
-    const iEffTarget = init.iEff + P.marketDebtShare * (marketRate - marketRate0);
+    const iEffTarget = init.iEff + P.marketDebtShare * (marketRate - marketRate0) - (has("debt-office") ? 0.3 : 0);
     const iEff = 0.95 * prev.iEff + 0.05 * iEffTarget;
     const interest = (iEff / 100) * prev.debt;
     const ob = pb - interest;
@@ -367,14 +378,14 @@ export function simulate(config: ScenarioConfig): SimResult {
       0.2 * investDelta;
 
     // Reserves.
-    let reservesPct = prev.reservesPct - absorbed * P.k5 + imfDisb;
+    let reservesPct = prev.reservesPct - absorbed * P.k5 + imfDisb + (sinceAdoption("swap-line", t) === 0 ? 1.5 * monthOfImports : 0);
     if (pegBreak) reservesPct = Math.max(reservesPct, 0.5 * monthOfImports);
     reservesPct = Math.max(0.1 * monthOfImports, reservesPct);
     const reserves = reservesPct / monthOfImports;
 
     // Labour market.
     const nairu = prev.nairu + (P.nairu - 0.6 * effReform.labor - prev.nairu) * 0.1;
-    const unemp = Math.max(1, nairu - P.okun * gap);
+    const unemp = Math.max(1, nairu - P.okun * (has("safety-net") ? 0.8 : 1) * gap);
 
     // Growth, year on year.
     gdpHist.push(gdpLevel);
@@ -391,7 +402,9 @@ export function simulate(config: ScenarioConfig): SimResult {
     if (haircut > 0) dCred -= 20;
     if (devalueAdd > 0) dCred -= 5;
     if (pegBreak) dCred -= 15;
-    dCred += imp.credAdd;
+    dCred += imp.credAdd < 0 && has("forward-guidance") ? imp.credAdd / 2 : imp.credAdd;
+    if (has("cb-independence")) dCred += 0.25;
+    if (has("fiscal-rule")) dCred += 0.1;
     const cred = clamp(prev.cred + dCred, 5, 100);
 
     if (pegBreak) events.push({ quarter: t, kind: "crisis", title: "Peg abandoned", detail: "Reserves ran out; the currency drops 20% and floats from here.", severity: "bad" });
