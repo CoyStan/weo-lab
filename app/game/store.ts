@@ -5,6 +5,7 @@ import { simulate } from "../model/economy";
 import type { Policy, QuarterState, ScenarioConfig, ScheduledShock, SimEvent } from "../model/types";
 import { useLab } from "../store";
 import { advise, type Advice } from "./advisors";
+import { sound } from "./audio";
 import { headline } from "./explain";
 import { getMission, isSurprise, knownConfig, missionOutcome, MISSIONS, objectiveStatus, policyForTurn, type LeverId, type Mission, type ObjectiveStatus, type Outcome } from "./missions";
 
@@ -95,12 +96,16 @@ export const useGame = create<GameState>((set, get) => ({
   sandboxKeep: false,
 
   setScreen: (screen) => {
-    if (screen === "sandbox") useLab.setState({ labels: "all", spotlight: [] });
+    if (screen === "sandbox") {
+      useLab.setState({ labels: "all", spotlight: [] });
+      sound.stopAmbient();
+    }
     set({ screen, modal: null, probe: null, sandboxKeep: false });
   },
 
   openSandbox: (keepScenario) => {
     useLab.setState({ labels: "all", spotlight: [] });
+    sound.stopAmbient();
     set({ screen: "sandbox", modal: null, probe: null, sandboxKeep: keepScenario });
   },
 
@@ -128,12 +133,14 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   beginPlay: () => {
+    sound.startAmbient();
     const lab = useLab.getState();
     const news = newsFor(lab.config, lab.clock, get().announced);
     set({ screen: "play", turns: [lab.config], modal: news.length ? { kind: "shock", shocks: news } : null, announced: [...get().announced, ...news.map((s) => s.id)] });
   },
 
   decide: (changes) => {
+    sound.play("tick");
     const lab = useLab.getState();
     lab.decideAt(lab.clock + 1, changes);
   },
@@ -152,6 +159,7 @@ export const useGame = create<GameState>((set, get) => ({
     const lab = useLab.getState();
     const before = lab.clock;
     if (before >= mission.quarters) return;
+    sound.play("confirm");
     const config = lab.config;
     const forecastBefore = forecastFor(config, before);
     const after = before + 1;
@@ -204,6 +212,7 @@ export const useGame = create<GameState>((set, get) => ({
     const turns = get().turns;
     const lab = useLab.getState();
     if (lab.clock === 0 || turns.length < 2) return;
+    sound.play("back");
     // turns[clock] is the config that was in force when the last quarter ended; the turn before starts from turns[clock - 1]'s successor.
     const config = turns[lab.clock];
     const clock = lab.clock - 1;

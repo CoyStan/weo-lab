@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { sound } from "../audio";
 import { quarterLabel } from "../../model/economy";
 import { SHOCKS } from "../../model/shocks";
 import { useLab } from "../../store";
@@ -21,6 +22,22 @@ function usePrimary() {
 
 export default function Modals() {
   const modal = useGame((s) => s.modal);
+
+  // Each card announces itself; the debrief plays a stinger and a ping per star.
+  useEffect(() => {
+    if (!modal) return;
+    if (modal.kind === "recap") sound.play("open");
+    else if (modal.kind === "shock") {
+      sound.play("alert");
+      sound.stinger("shock");
+    } else if (modal.outcome.kind === "won") {
+      sound.stinger("win");
+      const stars = modal.outcome.stars;
+      const timers = Array.from({ length: stars }, (_, i) => window.setTimeout(() => sound.stinger("star"), 700 + i * 180));
+      return () => timers.forEach(clearTimeout);
+    } else if (modal.outcome.kind === "lost") sound.stinger("lose");
+  }, [modal]);
+
   if (!modal) return null;
   return (
     <div className="game-modal-backdrop" role="presentation">
@@ -125,6 +142,7 @@ function ShockCard({ ids }: { ids: string[] }) {
             type="button"
             className="game-choice"
             onClick={() => {
+              sound.play("choose");
               if (Object.keys(o.changes).length) decide(o.changes);
               close();
             }}

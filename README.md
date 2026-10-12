@@ -11,6 +11,7 @@ A policy game for economists, and for anyone curious. Run a stylised economy one
 - **Advisors.** A central bank governor, a finance minister and an IMF mission chief comment on the forecast in plain language, and react as you move levers. They disagree, which is the point.
 - **Why did it move?** Inflation, activity and debt are decomposed each quarter into what pushed them (demand, expectations, the currency, oil, interest against growth, and so on).
 - **Rewind and hints.** Step back a quarter at any time, or ask for a hint.
+- **Sound.** A quiet sea with occasional music-box notes that turns minor, with a low drone, when a goal is at risk; interface sounds for levers, turns and cards; stingers for shocks, wins and losses. The speaker button cycles sound on, effects only and off, and remembers the choice. Nothing plays before your first click.
 - **Free play.** The full lab: every lever, assumption, shock and constraint, charts, the WEO table and scenario sharing.
 
 **Live demo:** https://coystan.github.io/weo-lab/ (GitHub Pages, deployed from `main` by `.github/workflows/pages.yml`).
@@ -40,6 +41,10 @@ Runs the TypeScript check, the model and campaign tests (`npm run test:model`) a
 - `app/scene/`: the procedural hex island (React Three Fiber).
 - `app/components/`: panels, charts and the top bar.
 - `app/themes/`: the selectable visual themes; check one with `node app/themes/check-theme.ts <id>`.
+
+## Credits
+
+Interface sounds: [Interface Sounds](https://kenney.nl/assets/interface-sounds) by Kenney, CC0 (`public/audio/`). The ambience and stingers are synthesised in the browser (`app/game/audio.ts`). Advisor portraits come from the Palari art library.
 
 ## Origin
 

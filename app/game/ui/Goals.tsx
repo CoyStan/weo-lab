@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { quarterLabel, START_YEAR } from "../../model/economy";
 import type { QuarterState } from "../../model/types";
+import { sound } from "../audio";
 import { explain } from "../explain";
 import { deltaUnit, fmtNum, GAME_METRICS, unitShort } from "../metrics";
 import type { MetricKey, Objective, ObjectiveStatus } from "../missions";
@@ -85,7 +86,15 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
 
       {meta.explain && clock > 0 ? (
         <div className="mt-1">
-          <button type="button" className="game-why" aria-expanded={why} onClick={() => setWhy((v) => !v)}>
+          <button
+            type="button"
+            className="game-why"
+            aria-expanded={why}
+            onClick={() => {
+              if (!why) sound.play("pluck");
+              setWhy((v) => !v);
+            }}
+          >
             {why ? "Hide" : "Why did it move?"}
           </button>
           {why ? <WhyBars metric={metric} state={actual[clock]} prev={actual[clock - 1]} /> : null}

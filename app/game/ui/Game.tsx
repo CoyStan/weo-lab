@@ -7,6 +7,7 @@ import "../game.css";
 import { useLab } from "../../store";
 import { getTheme } from "../../themes";
 import WeoLab from "../../WeoLab";
+import { sound } from "../audio";
 import { useGame } from "../store";
 import Modals from "./Modals";
 import Play from "./Play";
@@ -43,6 +44,30 @@ export default function Game() {
     }
     setTheme(getTheme(params.get("theme") ?? saved).id);
   }, [loadProgress, setScreen, setTheme]);
+
+  // Browsers allow audio only after a gesture: unlock on the first one, then start the sea.
+  useEffect(() => {
+    const first = () => {
+      sound.unlock();
+      sound.preload();
+      if (useGame.getState().screen !== "sandbox") sound.startAmbient();
+    };
+    const click = (e: PointerEvent) => {
+      const el = (e.target as HTMLElement | null)?.closest("button");
+      if (!el || !el.closest(".game")) return;
+      // Buttons with their own sound handle it themselves.
+      if (el.matches(".game-end-btn, .game-choice, .game-why, .game-sound, .lab-segmented button")) return;
+      sound.play("select", 0.8);
+    };
+    window.addEventListener("pointerdown", first, { once: true });
+    window.addEventListener("keydown", first, { once: true });
+    window.addEventListener("pointerdown", click);
+    return () => {
+      window.removeEventListener("pointerdown", first);
+      window.removeEventListener("keydown", first);
+      window.removeEventListener("pointerdown", click);
+    };
+  }, []);
 
   useEffect(() => {
     const url = new URL(window.location.href);

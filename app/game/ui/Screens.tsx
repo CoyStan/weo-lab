@@ -6,6 +6,7 @@ import { ADVISORS } from "../advisors";
 import { GAME_METRICS } from "../metrics";
 import { getMission, MISSIONS, type LeverId } from "../missions";
 import { missionUnlocked, useGame } from "../store";
+import SoundToggle from "./SoundToggle";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -53,7 +54,10 @@ export function TitleScreen() {
           <li><strong>One quarter per turn.</strong> Shocks arrive unannounced; the forecast only knows what you know.</li>
           <li><strong>Free play</strong> opens the full lab: every lever, assumption, shock and constraint.</li>
         </ul>
-        <p className="mt-4 text-[0.66rem] text-[var(--lab-ink-2)]">Stylised economies and an illustrative model. Not official IMF data or projections.</p>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <SoundToggle />
+          <p className="text-[0.66rem] text-[var(--lab-ink-2)]">Stylised economies and an illustrative model. Not official IMF data or projections.</p>
+        </div>
       </div>
     </div>
   );

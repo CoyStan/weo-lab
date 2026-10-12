@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { quarterLabel } from "../../model/economy";
 import { getPreset } from "../../model/presets";
 import { MISSIONS } from "../missions";
+import { sound } from "../audio";
 import { useGame } from "../store";
+import SoundToggle from "./SoundToggle";
 import { useTurn } from "../useTurn";
 import Advisors from "./Advisors";
 import Goals from "./Goals";
@@ -13,7 +15,9 @@ import Levers from "./Levers";
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export default function Play({ scene }: { scene: ReactNode }) {
-  const { mission, clock, deciding, events, changed } = useTurn();
+  const { mission, clock, deciding, events, changed, statuses } = useTurn();
+  const tense = mission.objectives.some((o) => !o.bonus && (statuses[o.id] === "at-risk" || statuses[o.id] === "failed"));
+  useEffect(() => sound.setTense(tense), [tense]);
   const endQuarter = useGame((s) => s.endQuarter);
   const modal = useGame((s) => s.modal);
   const setScreen = useGame((s) => s.setScreen);
@@ -58,6 +62,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
           </div>
         </div>
         <div className="ml-auto flex items-center gap-1.5">
+          <SoundToggle />
           <button type="button" className="lab-btn lab-btn-ghost lab-btn-sm" onClick={rewind} disabled={clock === 0} title="Go back one quarter and decide again">Rewind</button>
           <button type="button" className="lab-btn lab-btn-ghost lab-btn-sm" onClick={restart}>Restart</button>
           <button type="button" className="lab-btn lab-btn-soft lab-btn-sm" onClick={() => setScreen("missions")}>Missions</button>
@@ -114,7 +119,15 @@ function Hint({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="game-hint-box">
-      <button type="button" className="game-why" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+      <button
+        type="button"
+        className="game-why"
+        aria-expanded={open}
+        onClick={() => {
+          if (!open) sound.play("pluck");
+          setOpen((v) => !v);
+        }}
+      >
         {open ? "Hide the hint" : "Need a hint?"}
       </button>
       {open ? <p>{text}</p> : null}
