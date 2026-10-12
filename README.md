@@ -2,6 +2,8 @@
 
 A 3D policy sandbox for macroeconomists, built with Next.js 16, React Three Fiber and a small quarterly open-economy model (`app/model/`). Calibrations are illustrative, not official IMF data.
 
+**Live demo:** https://coystan.github.io/weo-lab/ (GitHub Pages, deployed from `main` by `.github/workflows/pages.yml`).
+
 ## Local development
 
 ```bash
@@ -9,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3000`. `npm run build` writes a static site to `out/`; `npm run preview` serves it.
 
 ## Checks
 
