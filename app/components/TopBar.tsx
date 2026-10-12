@@ -80,7 +80,7 @@ export default function TopBar() {
         </button>
         <div className="flex items-baseline gap-2">
           <h1 className="font-display text-[1.25rem] font-semibold leading-none tracking-tight text-[var(--lab-ink)]">WEO Scenario Lab</h1>
-          <span className="lab-stamp text-[var(--lab-bad)]" title="Stylised economies and an illustrative model; not official IMF data or projections.">Illustrative</span>
+          <span className="lab-stamp text-[var(--lab-bad)]" title="An independent educational game, not affiliated with or endorsed by the IMF. Stylised economies and an illustrative model; not forecasts or policy advice.">Illustrative</span>
         </div>
         <div className="flex items-center gap-2 lg:ml-2">
           <Segmented ariaLabel="Economy" size="md" value={config.presetId} onChange={setPreset} options={PRESETS.map((p) => ({ value: p.id, label: p.name, title: p.tagline }))} />

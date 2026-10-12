@@ -2,9 +2,11 @@
 
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
+import { useLab } from "../store";
 
-/** True when the viewer prefers reduced motion. Read inside the canvas, where no React context is needed. */
+/** True when the viewer prefers reduced motion, or chose it in settings. Read inside the canvas, where no React context is needed. */
 export function useReducedMotionFlag(): boolean {
+  const forced = useLab((s) => s.reduceMotion);
   const [reduced, setReduced] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -13,7 +15,7 @@ export function useReducedMotionFlag(): boolean {
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
   }, []);
-  return reduced;
+  return reduced || forced;
 }
 
 /**

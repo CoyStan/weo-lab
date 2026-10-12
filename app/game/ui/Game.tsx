@@ -8,7 +8,9 @@ import { useLab } from "../../store";
 import { getTheme } from "../../themes";
 import WeoLab from "../../WeoLab";
 import { sound } from "../audio";
+import { useSettings } from "../settings";
 import { useGame } from "../store";
+import SettingsPanel from "./Settings";
 import Modals from "./Modals";
 import Play from "./Play";
 import { Briefing, MissionSelect, TitleScreen } from "./Screens";
@@ -31,6 +33,11 @@ export default function Game() {
   const themeId = useLab((s) => s.theme);
   const setTheme = useLab((s) => s.setTheme);
   const theme = getTheme(themeId);
+  const reducedMotion = useSettings((s) => s.reducedMotion);
+  const loadSettings = useSettings((s) => s.load);
+
+  useEffect(() => loadSettings(), [loadSettings]);
+  useEffect(() => useLab.setState({ reduceMotion: reducedMotion }), [reducedMotion]);
 
   useEffect(() => {
     loadProgress();
@@ -82,7 +89,7 @@ export default function Game() {
   if (screen === "sandbox") return <WeoLab key="sandbox" restoreSaved={!sandboxKeep} />;
 
   return (
-    <div className="lab game min-h-dvh bg-[var(--lab-bg)] text-[var(--lab-ink)]" data-theme={theme.id} style={{ ...(theme.vars as React.CSSProperties), colorScheme: theme.scheme }}>
+    <div className={`lab game ${reducedMotion ? "is-reduced" : ""} min-h-dvh bg-[var(--lab-bg)] text-[var(--lab-ink)]`} data-theme={theme.id} style={{ ...(theme.vars as React.CSSProperties), colorScheme: theme.scheme }}>
       {theme.css ? <style>{theme.css}</style> : null}
       {screen === "play" ? (
         <Play scene={<IslandScene />} />
@@ -95,6 +102,7 @@ export default function Game() {
         </div>
       )}
       <Modals />
+      <SettingsPanel />
     </div>
   );
 }

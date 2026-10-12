@@ -35,6 +35,8 @@ type LabState = {
   labels: "all" | "focus";
   /** Districts whose labels stay visible in "focus" mode (the campaign's watched goals). */
   spotlight: FocusKey[];
+  /** Reduced motion chosen in settings, on top of the system preference. */
+  reduceMotion: boolean;
   /** Bumped to ask the 3D camera to fly home. */
   cameraHome: number;
   storyId: string | null;
@@ -139,6 +141,7 @@ export const useLab = create<LabState>((set, get) => ({
   showFan: false,
   labels: "all",
   spotlight: [],
+  reduceMotion: false,
   cameraHome: 0,
   storyId: null,
   theme: "palari",

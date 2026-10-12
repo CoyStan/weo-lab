@@ -56,7 +56,7 @@ export function TitleScreen() {
         </ul>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <SoundToggle />
-          <p className="text-[0.66rem] text-[var(--lab-ink-2)]">Stylised economies and an illustrative model. Not official IMF data or projections.</p>
+          <p className="max-w-[24rem] text-[0.66rem] leading-snug text-[var(--lab-ink-2)]">An independent educational game, not affiliated with or endorsed by the IMF. Economies and results are illustrative; details in Settings, About.</p>
         </div>
       </div>
     </div>

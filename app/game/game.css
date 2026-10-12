@@ -1008,3 +1008,121 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---- Settings ---------------------------------------------------------- */
+
+.game-settings {
+  width: min(100%, 36rem);
+  max-height: calc(100dvh - 2rem);
+  display: flex;
+  flex-direction: column;
+}
+
+.game-settings-body {
+  margin-top: 0.9rem;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.game-tracks {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.game-track {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid var(--lab-line);
+  border-radius: 0.7rem;
+  background: var(--lab-surface);
+  padding: 0.5rem 0.7rem;
+  text-align: left;
+  transition: border-color 0.2s var(--game-ease);
+}
+
+.game-track strong {
+  display: block;
+  font-size: 0.8rem;
+}
+
+.game-track span span,
+.game-track > span:last-child > span {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--lab-ink-2);
+}
+
+.game-track:hover {
+  border-color: color-mix(in srgb, var(--lab-scenario) 45%, transparent);
+}
+
+.game-track.is-on {
+  border-color: var(--lab-scenario);
+  background: color-mix(in srgb, var(--lab-scenario) 6%, var(--lab-surface));
+}
+
+.game-track-dot {
+  flex: none;
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  border: 2px solid var(--lab-line-strong);
+}
+
+.game-track.is-on .game-track-dot {
+  border-color: var(--lab-scenario);
+  background: radial-gradient(circle, var(--lab-scenario) 45%, transparent 50%);
+}
+
+.game-themes {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+}
+
+.game-theme {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--lab-line);
+  border-radius: 0.6rem;
+  background: var(--lab-surface);
+  padding: 0.4rem 0.55rem;
+  font-size: 0.74rem;
+  text-align: left;
+}
+
+.game-theme.is-on {
+  border-color: var(--lab-scenario);
+}
+
+.game-theme-swatch {
+  display: inline-flex;
+  flex: none;
+  height: 0.9rem;
+  width: 1.8rem;
+  overflow: hidden;
+  border-radius: 0.2rem;
+  border: 1px solid var(--lab-line-strong);
+}
+
+.game-theme-swatch span {
+  flex: 1;
+}
+
+.game-disclaimer {
+  border-left: 3px solid var(--lab-warn-mark);
+  background: var(--lab-warn-bg);
+  border-radius: 0 0.5rem 0.5rem 0;
+  padding: 0.5rem 0.7rem;
+}
+
+.game.is-reduced *,
+.game.is-reduced *::before,
+.game.is-reduced *::after {
+  animation: none !important;
+  transition-duration: 0.01ms !important;
+}

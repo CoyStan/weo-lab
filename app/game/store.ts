@@ -6,6 +6,8 @@ import type { Policy, QuarterState, ScenarioConfig, ScheduledShock, SimEvent } f
 import { useLab } from "../store";
 import { advise, type Advice } from "./advisors";
 import { sound } from "./audio";
+import { useSettings } from "./settings";
+import type { FocusKey } from "../store";
 import { headline } from "./explain";
 import { getMission, isSurprise, knownConfig, missionOutcome, MISSIONS, objectiveStatus, policyForTurn, type LeverId, type Mission, type ObjectiveStatus, type Outcome } from "./missions";
 
@@ -44,6 +46,8 @@ type GameState = {
   announced: string[];
   /** Free play opened from a mission keeps that scenario instead of restoring the saved one. */
   sandboxKeep: boolean;
+  /** Island districts tied to the current mission's goals. */
+  spotlight: FocusKey[];
 
   setScreen: (screen: Screen) => void;
   openSandbox: (keepScenario: boolean) => void;
@@ -57,6 +61,7 @@ type GameState = {
   rewind: () => void;
   restart: () => void;
   setProbe: (probe: Probe) => void;
+  resetProgress: () => void;
 };
 
 const PROGRESS_KEY = "weo-lab.campaign.v1";
@@ -94,6 +99,7 @@ export const useGame = create<GameState>((set, get) => ({
   progress: { stars: {} },
   announced: [],
   sandboxKeep: false,
+  spotlight: [],
 
   setScreen: (screen) => {
     if (screen === "sandbox") {
@@ -127,9 +133,10 @@ export const useGame = create<GameState>((set, get) => ({
     useLab.getState().loadConfig(mission.setup());
     const watched = new Set<string>(mission.objectives.map((o) => o.metric));
     if (mission.unlocks.includes("rate") || mission.unlocks.includes("rule")) watched.add("rate");
-    const spotlight = (["infl", "growth", "debt", "reserves", "unemp", "cred", "rate", "ca"] as const).filter((k) => watched.has(k));
-    useLab.setState({ clock: 0, playing: false, focus: null, storyId: null, past: [], future: [], labels: "focus", spotlight: [...spotlight] });
-    set({ screen: "briefing", missionId: id, turns: [], modal: null, probe: null, announced: [] });
+    const spotlight: FocusKey[] = (["infl", "growth", "debt", "reserves", "unemp", "cred", "rate", "ca"] as const).filter((k) => watched.has(k));
+    const mode = useSettings.getState().labels;
+    useLab.setState({ clock: 0, playing: false, focus: null, storyId: null, past: [], future: [], labels: mode === "all" ? "all" : "focus", spotlight: mode === "hover" ? [] : spotlight });
+    set({ screen: "briefing", missionId: id, turns: [], modal: null, probe: null, announced: [], spotlight });
   },
 
   beginPlay: () => {
@@ -226,4 +233,9 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   setProbe: (probe) => set({ probe }),
+
+  resetProgress: () => {
+    saveProgress({ stars: {} });
+    set({ progress: { stars: {} } });
+  },
 }));

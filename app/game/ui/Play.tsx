@@ -5,6 +5,7 @@ import { quarterLabel } from "../../model/economy";
 import { getPreset } from "../../model/presets";
 import { MISSIONS } from "../missions";
 import { sound } from "../audio";
+import { useSettings } from "../settings";
 import { useGame } from "../store";
 import SoundToggle from "./SoundToggle";
 import { useTurn } from "../useTurn";
@@ -16,6 +17,7 @@ const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export default function Play({ scene }: { scene: ReactNode }) {
   const { mission, clock, deciding, events, changed, statuses } = useTurn();
+  const tips = useSettings((s) => s.tips);
   const tense = mission.objectives.some((o) => !o.bonus && (statuses[o.id] === "at-risk" || statuses[o.id] === "failed"));
   useEffect(() => sound.setTense(tense), [tense]);
   const endQuarter = useGame((s) => s.endQuarter);
@@ -72,7 +74,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
       <main id="main-content" className="game-grid">
         <aside className="game-col game-col-levers" aria-label="Your levers">
           <h2 className="game-col-title">Your levers</h2>
-          {mission.number === 1 && clock < 2 ? (
+          {tips && mission.number === 1 && clock < 2 ? (
             <p className="game-coach">
               {clock === 0 ? "Try moving the policy rate. The dashed line on each goal card shows where that choice leads; the faint one is where you started." : "Inflation reacts slowly. Judge your rate by the forecast at the end, not by this quarter."}
             </p>
