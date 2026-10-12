@@ -281,7 +281,7 @@
   flex-direction: column;
   gap: 0.15rem;
   border: 1px solid var(--lab-line);
-  border-radius: var(--lab-radius-control);
+  border-radius: min(var(--lab-radius-card), 14px);
   padding: 0.45rem 0.6rem;
   background: var(--lab-surface, var(--lab-paper));
 }
@@ -505,7 +505,7 @@
   flex-direction: column;
   gap: 0.15rem;
   border: 1px solid var(--lab-line);
-  border-radius: var(--lab-radius-control);
+  border-radius: min(var(--lab-radius-card), 14px);
   background: var(--lab-surface, var(--lab-paper));
   padding: 0.5rem 0.65rem;
   text-align: left;
@@ -674,7 +674,7 @@
 
 .ctg-boost {
   margin-bottom: 0.5rem;
-  border-radius: var(--lab-radius-control);
+  border-radius: min(var(--lab-radius-card), 14px);
   background: var(--lab-info-bg);
   padding: 0.4rem 0.65rem;
   font-size: 0.72rem;
