@@ -5,10 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
     "typecheck": "tsc --noEmit",
     "test:model": "node --test \"app/model/*.test.ts\"",
-    "check": "npm run typecheck && npm run test:model && npm run build"
+    "check": "npm run typecheck && npm run test:model && npm run build",
+    "preview": "python3 -m http.server 3000 --directory out"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",

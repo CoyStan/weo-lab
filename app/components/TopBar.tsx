@@ -73,7 +73,7 @@ export default function TopBar() {
     <header className="shrink-0 px-3 pt-2">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <Link href="/" className="inline-flex shrink-0 items-center gap-2" aria-label="Palari home">
-          <Image src="/brand/palari-logo.svg" alt="" width={542} height={220} className="h-7 w-auto" />
+          <Image src={`${process.env.NEXT_PUBLIC_BASE_PATH}/brand/palari-logo.svg`} alt="" width={542} height={220} className="h-7 w-auto" />
         </Link>
         <div className="flex items-baseline gap-2">
           <h1 className="font-display text-[1.25rem] font-semibold leading-none tracking-tight text-[var(--lab-ink)]">WEO Scenario Lab</h1>
