@@ -109,12 +109,13 @@ function District({ focusKey, position, labelY, labelX = 0, title, value, bad, t
   const focus = useLab((s) => s.focus);
   const setFocus = useLab((s) => s.setFocus);
   const labels = useLab((s) => s.labels);
+  const spotlit = useLab((s) => s.spotlight.includes(focusKey));
   const breachedNow = useBreachedNow();
   const breached = (BREACH_MAP[focusKey] ?? []).some((v) => breachedNow.has(v));
   const [hover, setHover] = useState(false);
   const group = useRef<THREE.Group>(null);
   const active = hover || focus === focusKey;
-  const showLabel = labels === "all" || active || breached;
+  const showLabel = labels === "all" || active || breached || spotlit;
 
   useEffect(() => {
     if (!hover) return;

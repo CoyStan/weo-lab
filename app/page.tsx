@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import WeoLab from "./WeoLab";
+import Game from "./game/ui/Game";
 
 export const metadata: Metadata = {
   title: "WEO Scenario Lab",
   description:
-    "A 3D policy sandbox for macroeconomists: set fiscal, monetary, exchange-rate and structural policy on a stylised economy, stress it with shocks, add programme constraints, and test how much a projection depends on WEO assumptions.",
+    "A policy game for economists: run a stylised economy one quarter at a time, through six missions or in free play, with rates, budgets, exchange rates, shocks and an IMF programme.",
   robots: { index: false, follow: false },
 };
 
 export default function WeoLabPage() {
-  return <WeoLab />;
+  return <Game />;
 }

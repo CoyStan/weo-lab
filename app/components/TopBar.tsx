@@ -1,12 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRef, useState } from "react";
 import { STORYLINES } from "../model/storylines";
 import { THEMES } from "../themes";
 import { HORIZON, quarterLabel, quarterYear, yearLabels } from "../model/economy";
 import { PRESETS } from "../model/presets";
+import { useGame } from "../game/store";
 import { encodeConfig, selectReference, useLab } from "../store";
 import { buildCsv } from "./ProjectionTable";
 import { Btn, Segmented } from "./ui";
@@ -72,9 +72,12 @@ export default function TopBar() {
   return (
     <header className="shrink-0 px-3 pt-2">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <Link href="/" className="inline-flex shrink-0 items-center gap-2" aria-label="Palari home">
+        <button type="button" onClick={() => useGame.getState().setScreen("title")} className="inline-flex shrink-0 items-center gap-2" aria-label="Back to the campaign">
           <Image src={`${process.env.NEXT_PUBLIC_BASE_PATH}/brand/palari-logo.svg`} alt="" width={542} height={220} className="h-7 w-auto" />
-        </Link>
+        </button>
+        <button type="button" className="lab-btn lab-btn-soft lab-btn-sm" onClick={() => useGame.getState().setScreen("missions")} title="Back to the missions">
+          Campaign
+        </button>
         <div className="flex items-baseline gap-2">
           <h1 className="font-display text-[1.25rem] font-semibold leading-none tracking-tight text-[var(--lab-ink)]">WEO Scenario Lab</h1>
           <span className="lab-stamp text-[var(--lab-bad)]" title="Stylised economies and an illustrative model; not official IMF data or projections.">Illustrative</span>

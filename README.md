@@ -1,6 +1,17 @@
 # WEO Scenario Lab
 
-A 3D policy sandbox for macroeconomists, built with Next.js 16, React Three Fiber and a small quarterly open-economy model (`app/model/`). Calibrations are illustrative, not official IMF data.
+A policy game for economists, and for anyone curious. Run a stylised economy one quarter at a time, through six missions or in free play. Built with Next.js 16, React Three Fiber and a small quarterly open-economy model (`app/model/`). Calibrations are illustrative, not official IMF data.
+
+## How it plays
+
+- **Campaign.** Six short missions across four economies, each teaching one idea: monetary lags, how hard a policy rule should react, fiscal consolidation, the exchange rate as a shock absorber, an IMF programme behind a peg, and a sudden stop with every tool unlocked. Levers unlock as you go.
+- **One quarter per turn.** You decide for the coming quarter, then press *End quarter* (or Enter). A newspaper-style recap shows what happened.
+- **See before you commit.** Each goal card shows the outturn so far, the staff forecast under your current settings (dashed) and the forecast from before this quarter's changes (faint). Resting the pointer on a lever shows what nudging it would do to each goal.
+- **Surprises.** Some shocks are announced, others arrive unannounced; the forecast only knows what you know. When one hits, a card offers two or three ready-made responses.
+- **Advisors.** A central bank governor, a finance minister and an IMF mission chief comment on the forecast in plain language, and react as you move levers. They disagree, which is the point.
+- **Why did it move?** Inflation, activity and debt are decomposed each quarter into what pushed them (demand, expectations, the currency, oil, interest against growth, and so on).
+- **Rewind and hints.** Step back a quarter at any time, or ask for a hint.
+- **Free play.** The full lab: every lever, assumption, shock and constraint, charts, the WEO table and scenario sharing.
 
 **Live demo:** https://coystan.github.io/weo-lab/ (GitHub Pages, deployed from `main` by `.github/workflows/pages.yml`).
 
@@ -19,11 +30,12 @@ Open `http://localhost:3000`. `npm run build` writes a static site to `out/`; `n
 npm run check
 ```
 
-Runs the TypeScript check, the model tests (`npm run test:model`) and a production build.
+Runs the TypeScript check, the model and campaign tests (`npm run test:model`) and a production build. The campaign tests check that every mission is lost by doing nothing and that every star can be earned, so a model change cannot silently break the balance.
 
 ## Layout
 
-- `app/WeoLab.tsx`: the lab shell; `app/page.tsx` renders it at `/`.
+- `app/game/`: the campaign. `missions.ts` (goals, unlocks, shocks, outcomes), `advisors.ts`, `responses.ts`, `explain.ts`, the game store and `ui/`.
+- `app/WeoLab.tsx`: the free-play lab; `app/page.tsx` renders the game shell at `/`, and `?mode=sandbox` opens free play directly.
 - `app/model/`: economy simulation, shocks, presets, constraints, scoring and tests.
 - `app/scene/`: the procedural hex island (React Three Fiber).
 - `app/components/`: panels, charts and the top bar.

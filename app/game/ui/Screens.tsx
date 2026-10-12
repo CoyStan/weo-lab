@@ -1,0 +1,178 @@
+"use client";
+
+import { getPreset } from "../../model/presets";
+import { quarterLabel } from "../../model/economy";
+import { ADVISORS } from "../advisors";
+import { GAME_METRICS } from "../metrics";
+import { getMission, MISSIONS, type LeverId } from "../missions";
+import { missionUnlocked, useGame } from "../store";
+
+const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
+const LEVER_NAMES: Record<LeverId, string> = {
+  rate: "Policy rate",
+  rule: "Policy rule",
+  fiscal: "Budget tightening",
+  mix: "Cuts or taxes",
+  investment: "Public investment",
+  fxRegime: "Exchange-rate regime",
+  intervention: "FX intervention",
+  controls: "Capital flow measures",
+  reforms: "Structural reforms",
+  imf: "IMF programme",
+  devalue: "Devaluation",
+  restructure: "Debt restructuring",
+};
+
+export function TitleScreen() {
+  const progress = useGame((s) => s.progress);
+  const startMission = useGame((s) => s.startMission);
+  const setScreen = useGame((s) => s.setScreen);
+  const won = MISSIONS.filter((m) => (progress.stars[m.id] ?? 0) > 0).length;
+  const next = MISSIONS.find((m) => missionUnlocked(m, progress) && !(progress.stars[m.id] > 0)) ?? MISSIONS[MISSIONS.length - 1];
+
+  return (
+    <div className="game-overlay">
+      <div className="game-title-card">
+        <p className="game-eyebrow">A policy game for economists, and for anyone curious</p>
+        <h1 className="game-title">WEO Scenario Lab</h1>
+        <p className="game-subtitle">Run an economy one quarter at a time. Set rates, budgets and exchange rates, hear out your advisors, and see what your choices do before you commit.</p>
+        <div className="mt-6 flex flex-wrap items-center gap-2.5">
+          <button type="button" className="lab-btn lab-btn-primary lab-btn-md game-cta" onClick={() => startMission(next.id)} autoFocus>
+            {won === 0 ? "Start the campaign" : `Continue: ${next.title}`}
+          </button>
+          <button type="button" className="lab-btn lab-btn-soft lab-btn-md" onClick={() => setScreen("missions")}>
+            Missions{won ? ` · ${won} of ${MISSIONS.length} won` : ""}
+          </button>
+          <button type="button" className="lab-btn lab-btn-ghost lab-btn-md" onClick={() => setScreen("sandbox")}>
+            Free play
+          </button>
+        </div>
+        <ul className="game-title-points">
+          <li><strong>6 missions</strong> across four economies, from a first rate decision to a sudden stop.</li>
+          <li><strong>One quarter per turn.</strong> Shocks arrive unannounced; the forecast only knows what you know.</li>
+          <li><strong>Free play</strong> opens the full lab: every lever, assumption, shock and constraint.</li>
+        </ul>
+        <p className="mt-4 text-[0.66rem] text-[var(--lab-ink-2)]">Stylised economies and an illustrative model. Not official IMF data or projections.</p>
+      </div>
+    </div>
+  );
+}
+
+export function MissionSelect() {
+  const progress = useGame((s) => s.progress);
+  const startMission = useGame((s) => s.startMission);
+  const setScreen = useGame((s) => s.setScreen);
+  return (
+    <div className="game-overlay is-scroll">
+      <div className="game-missions">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h1 className="font-display text-[1.6rem] font-semibold leading-none">Missions</h1>
+          <div className="flex gap-2">
+            <button type="button" className="lab-btn lab-btn-ghost lab-btn-sm" onClick={() => setScreen("title")}>Back</button>
+            <button type="button" className="lab-btn lab-btn-soft lab-btn-sm" onClick={() => setScreen("sandbox")}>Free play</button>
+          </div>
+        </div>
+        <ol className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+          {MISSIONS.map((m) => {
+            const open = missionUnlocked(m, progress);
+            const stars = progress.stars[m.id] ?? 0;
+            const preset = getPreset(m.presetId);
+            return (
+              <li key={m.id}>
+                <button type="button" className={`game-mission ${open ? "" : "is-locked"}`} disabled={!open} onClick={() => startMission(m.id)}>
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="game-mission-number">Mission {m.number}</span>
+                    <span className="game-mission-stars" aria-label={`${stars} of 3 stars`}>
+                      {[1, 2, 3].map((n) => (
+                        <span key={n} className={n <= stars ? "is-on" : ""}>★</span>
+                      ))}
+                    </span>
+                  </span>
+                  <span className="game-mission-title">{m.title}</span>
+                  <span className="game-mission-meta">{preset.name} · {preset.archetype} · {m.quarters} quarters</span>
+                  <span className="game-mission-kicker">{open ? m.kicker : "Win the previous mission to unlock."}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    </div>
+  );
+}
+
+export function Briefing() {
+  const missionId = useGame((s) => s.missionId);
+  const beginPlay = useGame((s) => s.beginPlay);
+  const setScreen = useGame((s) => s.setScreen);
+  const mission = getMission(missionId ?? "");
+  if (!mission) return null;
+  const preset = getPreset(mission.presetId);
+  const primary = mission.objectives.filter((o) => !o.bonus);
+  const bonus = mission.objectives.filter((o) => o.bonus);
+
+  return (
+    <div className="game-overlay is-scroll">
+      <div className="game-card game-briefing" role="dialog" aria-labelledby="briefing-title">
+        <p className="game-eyebrow">Mission {mission.number} of {MISSIONS.length} · {preset.name}, {preset.archetype.toLowerCase()}</p>
+        <h1 id="briefing-title" className="game-title is-small">{mission.title}</h1>
+        <div className="mt-2 flex flex-col gap-2 text-[0.86rem] leading-relaxed">
+          {mission.briefing.map((p) => (
+            <p key={p}>{p}</p>
+          ))}
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <h2 className="game-section">To win</h2>
+            <ul className="flex flex-col gap-1 text-[0.78rem]">
+              {primary.map((o) => (
+                <li key={o.id} className="game-bullet">{o.label}</li>
+              ))}
+            </ul>
+            <h2 className="game-section mt-2">For extra stars</h2>
+            <ul className="flex flex-col gap-1 text-[0.78rem]">
+              {bonus.map((o) => (
+                <li key={o.id} className="game-bullet is-star">{o.label}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h2 className="game-section">Your tools</h2>
+            <div className="flex flex-wrap gap-1">
+              {mission.unlocks.map((l) => (
+                <span key={l} className="lab-chip lab-chip-info">{LEVER_NAMES[l]}</span>
+              ))}
+            </div>
+            <h2 className="game-section mt-2">Your advisors</h2>
+            <ul className="flex flex-col gap-1.5">
+              {mission.advisors.map((id) => {
+                const a = ADVISORS[id];
+                return (
+                  <li key={id} className="flex items-center gap-2">
+                    <img src={`${base}${a.portrait}`} alt="" width={30} height={30} className="game-portrait is-small" style={{ ["--advisor" as string]: a.accent }} />
+                    <span className="text-[0.74rem] leading-tight">
+                      <strong>{a.name}</strong>
+                      <span className="block text-[var(--lab-ink-2)]">Cares about {a.cares.toLowerCase()}</span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="mt-2 text-[0.7rem] text-[var(--lab-ink-2)]">
+              {mission.quarters} quarters, {quarterLabel(1)} to {quarterLabel(mission.quarters)}. Watched: {Array.from(new Set(mission.objectives.map((o) => GAME_METRICS[o.metric].label.toLowerCase()))).join(", ")}.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
+          <button type="button" className="lab-btn lab-btn-ghost lab-btn-md" onClick={() => setScreen("missions")}>All missions</button>
+          <button type="button" className="lab-btn lab-btn-primary lab-btn-md game-cta" onClick={beginPlay} autoFocus>
+            Take the job
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

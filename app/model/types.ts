@@ -127,6 +127,20 @@ export type ScenarioConfig = {
   constraints: Constraint[];
 };
 
+/**
+ * What moved a variable this quarter, in the variable's own units. The parts
+ * sum to the change from the previous quarter (any rounding or clamping sits in
+ * "other"), so the lab can answer "why did this happen?".
+ */
+export type Drivers = {
+  /** Change in annualised inflation, pp. */
+  infl: { expectations: number; demand: number; currency: number; oil: number; shocks: number; other: number };
+  /** Change in the output gap, pp of potential. */
+  gap: { fading: number; monetary: number; fiscal: number; external: number; commodities: number; currency: number; confidence: number; shocks: number; other: number };
+  /** Change in public debt, pp of GDP. */
+  debt: { interestGrowth: number; primary: number; currency: number; other: number };
+};
+
 export type QuarterState = {
   t: number;
   label: string;
@@ -176,6 +190,7 @@ export type QuarterState = {
   /** FX pressure this quarter (what a float would have depreciated), %. */
   pressure: number;
   activeShocks: ShockKind[];
+  drivers: Drivers;
 };
 
 export type EventSeverity = "info" | "warn" | "bad" | "good";

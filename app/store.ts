@@ -33,6 +33,8 @@ type LabState = {
   lastEdit: number;
   showFan: boolean;
   labels: "all" | "focus";
+  /** Districts whose labels stay visible in "focus" mode (the campaign's watched goals). */
+  spotlight: FocusKey[];
   /** Bumped to ask the 3D camera to fly home. */
   cameraHome: number;
   storyId: string | null;
@@ -43,6 +45,8 @@ type LabState = {
   setAssumption: <K extends keyof Assumptions>(key: K, value: Assumptions[K]) => void;
   resetAssumptions: () => void;
   decide: (changes: Partial<Policy>) => void;
+  /** Record a decision for a specific quarter (the campaign decides for the quarter ahead). */
+  decideAt: (quarter: number, changes: Partial<Policy>) => void;
   removeDecision: (quarter: number) => void;
   clearDecisions: () => void;
   addShock: (kind: ShockKind, quarter: number, magnitude: number) => void;
@@ -75,6 +79,7 @@ type LabState = {
   redo: () => void;
   setShowFan: (on: boolean) => void;
   setLabels: (mode: "all" | "focus") => void;
+  setSpotlight: (keys: FocusKey[]) => void;
   homeCamera: () => void;
   loadStory: (id: string, config: ScenarioConfig) => void;
   setTheme: (id: string) => void;
@@ -133,6 +138,7 @@ export const useLab = create<LabState>((set, get) => ({
   lastEdit: 0,
   showFan: false,
   labels: "all",
+  spotlight: [],
   cameraHome: 0,
   storyId: null,
   theme: "palari",
@@ -150,6 +156,15 @@ export const useLab = create<LabState>((set, get) => ({
   decide: (changes) =>
     set((s) => {
       const quarter = Math.max(1, s.clock);
+      const existing = s.config.decisions.find((d) => d.quarter === quarter);
+      const decisions = existing
+        ? s.config.decisions.map((d) => (d.quarter === quarter ? { ...d, changes: { ...d.changes, ...changes } } : d))
+        : [...s.config.decisions, { quarter, changes }];
+      return withConfig(s, { ...s.config, decisions });
+    }),
+
+  decideAt: (quarter, changes) =>
+    set((s) => {
       const existing = s.config.decisions.find((d) => d.quarter === quarter);
       const decisions = existing
         ? s.config.decisions.map((d) => (d.quarter === quarter ? { ...d, changes: { ...d.changes, ...changes } } : d))
@@ -260,6 +275,8 @@ export const useLab = create<LabState>((set, get) => ({
   setShowFan: (on) => set({ showFan: on }),
 
   setLabels: (mode) => set({ labels: mode }),
+
+  setSpotlight: (keys) => set({ spotlight: keys }),
 
   homeCamera: () => set((s) => ({ cameraHome: s.cameraHome + 1, focus: null })),
 

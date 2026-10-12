@@ -13,7 +13,7 @@ import { getPreset, WEO_REFERENCE, WORLD_INFLATION } from "./presets.ts";
 import type { Preset } from "./presets.ts";
 import { generateRandomShocks, impulseAt } from "./shocks.ts";
 import { SHOCKS } from "./shocks.ts";
-import type { Decision, FxRegime, Policy, QuarterState, ScenarioConfig, ScheduledShock, SimEvent, SimResult } from "./types.ts";
+import type { Decision, Drivers, FxRegime, Policy, QuarterState, ScenarioConfig, ScheduledShock, SimEvent, SimResult } from "./types.ts";
 import { evaluateConstraints } from "./constraints.ts";
 
 export const HORIZON = 24;
@@ -34,6 +34,12 @@ export function yearLabels(): number[] {
 
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 
+export const ZERO_DRIVERS: Drivers = {
+  infl: { expectations: 0, demand: 0, currency: 0, oil: 0, shocks: 0, other: 0 },
+  gap: { fading: 0, monetary: 0, fiscal: 0, external: 0, commodities: 0, currency: 0, confidence: 0, shocks: 0, other: 0 },
+  debt: { interestGrowth: 0, primary: 0, currency: 0, other: 0 },
+};
+
 /** Policy in force at quarter t: preset defaults plus every decision taken at or before t. */
 export function policyAt(defaults: Policy, decisions: Decision[], t: number): Policy {
   let p: Policy = { ...defaults };
@@ -48,6 +54,8 @@ function fundamentalPressure(preset: Preset, rate: number, usRate: number, sprea
   const flowTerm = flows < 0 ? (controls ? 0.5 : 1) * flows : flows;
   return -P.k1 * interestDiff + (P.k2 * -ca) / 4 - P.k3 * flowTerm;
 }
+
+const sum = (parts: Record<string, number>) => Object.values(parts).reduce((a, b) => a + b, 0);
 
 export function simulate(config: ScenarioConfig): SimResult {
   const preset = getPreset(config.presetId);
@@ -95,6 +103,7 @@ export function simulate(config: ScenarioConfig): SimResult {
     imfDisb: 0,
     pressure: 0,
     activeShocks: [],
+    drivers: ZERO_DRIVERS,
   };
   path.push(initial);
 
@@ -211,11 +220,22 @@ export function simulate(config: ScenarioConfig): SimResult {
     // High inflation erodes real incomes and raises uncertainty; it does not buy output for long.
     const inflationDrag = -0.03 * Math.max(0, prev.infl - 12);
 
+    const monetaryImpulse = -(P.sigma / 4) * (realRatePrev - P.neutralRealRate);
     const gap = clamp(
-      P.rhoGap * prev.gap - (P.sigma / 4) * (realRatePrev - P.neutralRealRate) + fiscalImpulse + externalImpulse + oilImpulse + commodityImpulse + rerImpulse + riskImpulse + controlsCost + inflationDrag + imp.gapAdd,
+      P.rhoGap * prev.gap + monetaryImpulse + fiscalImpulse + externalImpulse + oilImpulse + commodityImpulse + rerImpulse + riskImpulse + controlsCost + inflationDrag + imp.gapAdd,
       -15,
       10,
     );
+    const gapParts = {
+      fading: (P.rhoGap - 1) * prev.gap,
+      monetary: monetaryImpulse,
+      fiscal: fiscalImpulse,
+      external: externalImpulse,
+      commodities: oilImpulse + commodityImpulse,
+      currency: rerImpulse,
+      confidence: riskImpulse + controlsCost + inflationDrag,
+      shocks: imp.gapAdd,
+    };
 
     // FX block. "Fundamentals" is the pressure from interest differentials, the current
     // account, capital flows and the financing gap, net of the initial equilibrium; the
@@ -255,6 +275,13 @@ export function simulate(config: ScenarioConfig): SimResult {
     // The PPP-consistent part of nominal depreciation is the inflation already in the system.
     const backward = 0.35 + 0.4 * (1 - prev.cred / 100);
     const infl = Math.max(-3, backward * prev.infl + (1 - backward) * inflExp + P.kappa * gap + P.passthrough * dRer + P.oilInflation * oilChangeQ + imp.inflAdd);
+    const inflParts = {
+      expectations: (1 - backward) * (inflExp - prev.infl),
+      demand: P.kappa * gap,
+      currency: P.passthrough * dRer,
+      oil: P.oilInflation * oilChangeQ,
+      shocks: imp.inflAdd,
+    };
 
     // Policy rate.
     let rate: number;
@@ -318,7 +345,12 @@ export function simulate(config: ScenarioConfig): SimResult {
     const gdpLevel = potLevel * (1 + gap / 100);
     const growthQ = (gdpLevel / prev.gdpLevel - 1) * 400;
     const nominalGrowth = growthQ + infl;
-    let debt = (prev.debt * (1 + iEff / 400)) / (1 + nominalGrowth / 400) - pb / 4 + P.fxDebtShare * prev.debt * (dE / 100) + imp.debtOneOff;
+    const debtParts = {
+      interestGrowth: (prev.debt * (1 + iEff / 400)) / (1 + nominalGrowth / 400) - prev.debt,
+      primary: -pb / 4,
+      currency: P.fxDebtShare * prev.debt * (dE / 100),
+    };
+    let debt = prev.debt + debtParts.interestGrowth + debtParts.primary + debtParts.currency + imp.debtOneOff;
     if (haircut > 0) debt *= 1 - haircut / 100;
     debt = clamp(debt, 0, 400);
     const gfn = Math.max(0, -ob) + prev.debt / P.avgMaturity;
@@ -409,6 +441,11 @@ export function simulate(config: ScenarioConfig): SimResult {
       imfDisb,
       pressure,
       activeShocks: active,
+      drivers: {
+        infl: { ...inflParts, other: infl - prev.infl - sum(inflParts) },
+        gap: { ...gapParts, other: gap - prev.gap - sum(gapParts) },
+        debt: { ...debtParts, other: debt - prev.debt - sum(debtParts) },
+      },
     });
     void globalGrowth;
   }

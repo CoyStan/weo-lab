@@ -156,3 +156,26 @@ test("the risk fan brackets the median and widens with the horizon", async () =>
   assert.ok(width(0) < 1e-9, "no uncertainty at the starting point");
   assert.ok(width(HORIZON) > width(4), "uncertainty should grow");
 });
+
+test("drivers add up to each quarter's change, with little left unexplained", () => {
+  const sum = (o: Record<string, number>) => Object.values(o).reduce((a, b) => a + b, 0);
+  const stressed: ScenarioConfig = {
+    ...baselineConfig("aurelia"),
+    shocks: [
+      { id: "a", kind: "oil-spike", quarter: 3, magnitude: 1.2, source: "scheduled" },
+      { id: "b", kind: "sudden-stop", quarter: 6, magnitude: 1, source: "scheduled" },
+    ],
+  };
+  for (const config of [stressed, ...PRESETS.map((p) => baselineConfig(p.id))]) {
+    const { path } = simulate(config);
+    for (let t = 1; t < path.length; t++) {
+      const s = path[t];
+      const p = path[t - 1];
+      assert.ok(Math.abs(sum(s.drivers.infl) - (s.infl - p.infl)) < 1e-9, `inflation drivers at ${s.label}`);
+      assert.ok(Math.abs(sum(s.drivers.gap) - (s.gap - p.gap)) < 1e-9, `gap drivers at ${s.label}`);
+      assert.ok(Math.abs(sum(s.drivers.debt) - (s.debt - p.debt)) < 1e-9, `debt drivers at ${s.label}`);
+      assert.ok(Math.abs(s.drivers.infl.other) < 0.01, `unexplained inflation ${s.drivers.infl.other} at ${s.label}`);
+      assert.ok(Math.abs(s.drivers.gap.other) < 0.01, `unexplained gap ${s.drivers.gap.other} at ${s.label}`);
+    }
+  }
+});

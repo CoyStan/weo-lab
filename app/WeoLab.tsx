@@ -33,7 +33,7 @@ const IslandScene = dynamic(() => import("./scene/IslandScene"), {
 
 type DeskTab = "policy" | "assumptions" | "shocks";
 
-export default function WeoLab() {
+export default function WeoLab({ restoreSaved = true }: { restoreSaved?: boolean }) {
   const [tab, setTab] = useState<DeskTab>("policy");
   const playing = useLab((s) => s.playing);
   const speed = useLab((s) => s.speed);
@@ -57,8 +57,9 @@ export default function WeoLab() {
     const hash = window.location.hash;
     const match = hash.match(/[#&]s=([A-Za-z0-9_-]+)/);
     const fromLink = match ? decodeConfig(match[1]) : null;
-    const restored = fromLink ?? loadSavedConfig();
+    const restored = fromLink ?? (restoreSaved ? loadSavedConfig() : null);
     if (restored) loadConfig(restored);
+    else if (!restoreSaved) useLab.setState({ clock: 0, playing: false });
     const params = new URLSearchParams(window.location.search);
     let savedTheme: string | null = null;
     try {
@@ -68,6 +69,8 @@ export default function WeoLab() {
     }
     setTheme(getTheme(params.get("theme") ?? savedTheme).id);
     markHydrated();
+    // Only on mount: later prop changes must not reload the scenario.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadConfig, markHydrated, setTheme]);
 
   useEffect(() => {
