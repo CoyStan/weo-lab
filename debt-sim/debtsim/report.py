@@ -30,14 +30,19 @@ def load(out: Path):
 
 
 def paired(df, a, b, metric, by, relative=True):
-    """Mean paired difference a - b (in % of b if relative) with MC standard error."""
+    """Mean paired difference a - b with MC standard error over replications. If
+    relative, both are divided by the mean of b in the cell (ratio of means, in %)."""
     key = ["design", "T", "rep"] + [k for k in ("set", "b_label") if k in df.columns]
     x = df[df["config"] == a].set_index(key)[metric]
     y = df[df["config"] == b].set_index(key)[metric]
-    d = (x / y - 1) * 100 if relative else x - y
-    d = d.dropna().reset_index()
-    g = d.groupby(by)[metric]
-    return pd.DataFrame({"mean": g.mean(), "se": g.std() / np.sqrt(g.count()), "n": g.count()})
+    d = pd.DataFrame({"d": x - y, "y": y}).dropna().reset_index()
+    g = d.groupby(by)
+    out = pd.DataFrame({"mean": g["d"].mean(), "se": g["d"].std() / np.sqrt(g["d"].count()),
+                        "n": g["d"].count()})
+    if relative:
+        base = g["y"].mean()
+        out["mean"], out["se"] = out["mean"] / base * 100, out["se"] / base * 100
+    return out
 
 
 def fmt(m, s, digits=1):
@@ -141,7 +146,8 @@ def write_tables(fm, th, meta, out: Path):
 
 def _dot_panel(ax, fm, pairs, st, design, title):
     for k, (a, b) in enumerate(pairs):
-        t = paired(fm[(fm["set"] == st) & (fm["design"] == design)], a, b, "crps", ["T"])
+        t = paired(fm[(fm["set"] == st) & (fm["design"] == design)], a, b, "crps",
+                   ["T"]).reindex(TS)
         x = np.arange(len(t)) + (k - (len(pairs) - 1) / 2) * 0.16
         ax.errorbar(x, t["mean"], yerr=2 * t["se"], fmt="o", ms=5, lw=1.5, capsize=0,
                     color=CFG_COLOR[a], label=f"{a} vs {b}")
@@ -208,7 +214,8 @@ def write_figures(fm, th, meta, out: Path):
     for ax, d in zip(axes, DESIGNS):
         for k, c in enumerate(cfgs):
             t = d85[(d85["design"] == d) & (d85["config"] == c)].groupby("T")["err_s"]
-            ax.errorbar(np.arange(3) + (k - 3) * 0.1, t.mean(), yerr=2 * t.sem(), fmt="o",
+            ax.errorbar(np.arange(3) + (k - 3) * 0.1, t.mean().reindex(TS),
+                        yerr=2 * t.sem().reindex(TS), fmt="o",
                         ms=5, lw=1.5, color=CFG_COLOR[c], label=c)
         ax.set_xticks(range(3), [f"T={t}" for t in TS])
         ax.set_title(f"{d}: |s_hat - s| at training p85", fontsize=9, color=INK)
