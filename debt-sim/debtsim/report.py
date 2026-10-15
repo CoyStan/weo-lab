@@ -220,7 +220,7 @@ def write_figures(fm, th, meta, out: Path, tag=""):
         t = fm[(fm["set"] == st) & fm["config"].isin(cfgs)]
         p = t.groupby(["design", "config"])["cov80"].mean().unstack("config")[cfgs]
         for k, c in enumerate(cfgs):
-            ax.plot(np.arange(len(DESIGNS)) + (k - 3) * 0.1, p.loc[DESIGNS, c], "o", ms=6,
+            ax.plot(np.arange(len(DESIGNS)) + (k - 3) * 0.1, p[c].reindex(DESIGNS), "o", ms=6,
                     color=CFG_COLOR[c], label=c)
         ax.axhline(0.8, color=MUTED, lw=0.8, ls="--")
         ax.set_xticks(range(len(DESIGNS)), DESIGNS)

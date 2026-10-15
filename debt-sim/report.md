@@ -282,10 +282,50 @@ Expected patterns, checked rather than forced:
 
   Each of these favours B1 and makes the derivative and threshold tasks very hard. A DGP with stronger nonlinearity inside the data range, or with informative lags, could reverse the ranking.
 - **The neural models are miscalibrated as specified.** A tiny network, a country embedding and early stopping on 3 years produce out-of-sample under-dispersion. Better regularisation or post-hoc recalibration of the driver quantiles might change the B1 comparison. We did not try either, to keep to the specification.
-- **R = 20 per cell.** Many high-debt differences have standard errors of 2–10 percentage points. Statements about small T cells (T = 15) rest on 20 replications. The R = 100 extension for D2 and D2H is in Section 10.
+- **R = 20 per cell for D1 and D3.** Many high-debt differences there have standard errors of 2–10 percentage points, and statements about small T cells (T = 15) rest on 20 replications. D2 and D2H were extended to R = 100 (Section 10), which confirmed the R = 20 conclusions.
 - **High-debt test states and continuation panels are drawn from the true DGP** given the replication's country effects. The high-debt states run up to 0.1 above the training maximum, so they include mild extrapolation.
 - **Tuning:** none of the grid values was chosen by looking at test results. The grid is reported in full, and the only tuning rule evaluated (SEL) uses validation data only.
 
 ## 10. R = 100 extension (D2 and D2H)
 
-Running at the time of writing; results will be added here.
+D2 and D2H were rerun with R = 100 replications per T: 600 replications in total, the first 20 of each cell being the main-study replications. Tables are in `results/phase3/tables_r100/` and figures in `results/phase3/figures_r100/`. Averaged over T, each design has 300 paired replications. Standard errors are about half those at R = 20.
+
+| comparison | set | D2, R = 20 | D2, R = 100 | D2H, R = 20 | D2H, R = 100 |
+|:--|:--|:--|:--|:--|:--|
+| C3 vs C2 | test | +0.3 (0.4) | +0.6 (0.2)* | +1.4 (0.7)* | +1.2 (0.3)* |
+| C3 vs C2 | high | +7.4 (2.0)* | +11.2 (2.1)* | +18.0 (5.7)* | +19.8 (3.2)* |
+| C3 vs C2 | 3-yr | −1.7 (0.6)* | −1.6 (0.3)* | −0.4 (1.0) | −0.6 (0.3) |
+| C4_p1 vs C3 | high | −3.2 (0.9)* | −5.1 (1.2)* | −7.0 (3.1)* | −6.8 (1.8)* |
+| C4_p10 vs C3 | high | −4.5 (1.1)* | −5.8 (1.2)* | −7.3 (3.7) | −8.8 (1.9)* |
+| C2_p1 vs C2 | high | −0.4 (0.4) | −0.2 (0.2) | +1.0 (1.2) | +0.3 (1.0) |
+| SEL vs C2 | high | +4.6 (1.8)* | +7.3 (1.8)* | +11.7 (5.2)* | +13.4 (2.6)* |
+| C2 vs C1 | test | −1.0 (0.4)* | −0.9 (0.1)* | −2.1 (1.5) | −1.1 (0.3)* |
+| C2 vs C1 | high | −2.0 (1.3) | −2.3 (0.6)* | −4.3 (2.1)* | −4.4 (1.3)* |
+| C2 vs B1 | test | +4.7 (0.6)* | +4.5 (0.2)* | +4.9 (0.3)* | +4.7 (0.2)* |
+| C2 vs B1 | high | +7.4 (0.9)* | +7.1 (0.4)* | +8.5 (1.3)* | +10.5 (1.2)* |
+| C2 vs B1 | 3-yr | +4.4 (0.5)* | +4.9 (0.4)* | +5.2 (0.9)* | +5.0 (0.4)* |
+
+**What changes with R = 100:**
+- **No sign changes.** Every conclusion in Sections 3–8 holds for D2 and D2H.
+- **C3 at high debt is worse than R = 20 suggested.** In D2 the harm is +11.2% (2.1), and it is largest at small T: +18.4 (5.7), +7.2 (2.1) and +7.8 (1.8) at T = 15, 25 and 40. The expected pattern "C3 gains mainly at small T and high debt" is reversed under this DGP: small T and high debt are where it hurts most.
+- **C3 on the regular test panels.** The +0.6% (0.2) increase, within noise at R = 20, is now significant.
+- **C4 vs C3 at high debt.** The penalty repair is −5 to −9% and significant in both designs. C4 remains worse than C2 at high debt.
+- **C2 + penalties alone** is indistinguishable from C2 at high debt.
+- **The SEL rule** is again worse than C2 at high debt (+7% and +13%). Its choices stay spread across all six cells, with C3 the modal choice at 25–37%.
+- **The gap to B1** is unchanged, at 4.5–5% on the test panels and 7–10% at high debt.
+- **Calibration** is unchanged: 80% coverage on the test panels is 0.71–0.73 for the neural models and 0.79 for B1; at high debt it is 0.61–0.66 against 0.74–0.76.
+
+**Drivers at high debt** (R = 100):
+- C3 vs C2 worsens pinball losses for growth (+9.5% D2, +11.3% D2H) and adjustments (+9.7%, +6.3%), and the energy score (+5.4%, +3.6%).
+- C4 vs C3 improves interest (−2.5% D2, −25% D2H) and the energy score (−2.0%, −13%).
+
+**Derivatives at p85** (R = 100, × 1000):
+- C3 vs C2 raises the slope error by +9.9 (2.5) in D2 and +3.7 (1.7) in D2H.
+- C4_p1 vs C3 lowers it by −7.0 (1.4) and −3.9 (1.2).
+- B1's slope error is significantly smaller than C2's in both designs: by 4.2 (0.8) and 2.9 (0.8).
+
+**Thresholds** (R = 100):
+- **False certification at p85** stays low: at most 2% in D2, and 10–11% for the C2 + penalty cells in D2H.
+- **At b = 1.1 in D2**, the certification rates are C2 0.24, C2_p10 0.30, C3 0.10, C4_p1 0.13, SEL 0.15 and B1 0.
+- **Under the D2H rule**, the oracle again finds a usable b in 50% of replications. Models certify correctly in 0–5% of replications, and certifications by the C2 cells still sit mostly at b where the true slope is negative.
+- **Pooling:** without the high-debt countries, certifications fall further (C2 10%, C3 5%, B1 1%), at a lower median b (0.58–0.67).
