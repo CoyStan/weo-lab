@@ -1,4 +1,6 @@
 """Ground truth by Monte Carlo with common random numbers: drift, derivatives, crossing."""
+from functools import lru_cache
+
 import numpy as np
 from scipy.optimize import brentq
 
@@ -56,3 +58,10 @@ class TruthMC:
             return np.nan
         k = idx[0]
         return brentq(self.drift, grid[k], grid[k + 1], xtol=1e-8)
+
+
+@lru_cache(maxsize=None)
+def cached_truth(design_name, n_draws=200_000):
+    """Ground truth for the typical country at g = 0 (cached per process)."""
+    from .config import DESIGNS
+    return TruthMC(DESIGNS[design_name], n_draws=n_draws)
