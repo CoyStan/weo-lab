@@ -187,9 +187,16 @@ def new_net(train_df, target_cols, n_countries, seed):
     return QuantileNet(xm, xs, ym, ys, n_countries, len(target_cols))
 
 
-def fit(train_df, target_cols, cfg: TrainCfg, n_countries, seed, copula=None):
+def fit(train_df, target_cols, cfg: TrainCfg, n_countries, seed, copula=None,
+        copula_val=None):
     """Full-batch Adam with early stopping on the last N_VAL_YEARS training years,
-    then (cfg.refit) a refit on all training years for the selected number of epochs."""
+    then (cfg.refit) a refit on all training years for the selected number of epochs.
+
+    The early-stopping stage uses `copula_val` (rank vectors from the training-proper
+    years only) so validation years never enter its training loss; the refit uses
+    `copula`. When copula_val is given for a driver model, info["val_hd_crps"] holds
+    the stage-1 model's debt CRPS on validation states with d above the training 75th
+    percentile (used by the validation-only selection rule)."""
     sc = scales_for(train_df)
     colloc = make_colloc(train_df, cfg.n_grid_pen) if cfg.pen > 0 else None
     full = make_batch(train_df, target_cols)
@@ -197,9 +204,9 @@ def fit(train_df, target_cols, cfg: TrainCfg, n_countries, seed, copula=None):
     is_val = full.year >= T - N_VAL_YEARS
     tr, va = subset(full, ~is_val), subset(full, is_val)
 
-    def run(batch, n_epochs, val=None):
+    def run(batch, n_epochs, val=None, cop=None):
         net = new_net(train_df, target_cols, n_countries, seed)
-        obj = Objective(cfg, sc, copula, colloc, seed)
+        obj = Objective(cfg, sc, cop, colloc, seed)
         opt = torch.optim.AdamW(net.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
         best, best_ep, best_state, history = np.inf, 0, None, []
         for ep in range(1, n_epochs + 1):
@@ -221,9 +228,20 @@ def fit(train_df, target_cols, cfg: TrainCfg, n_countries, seed, copula=None):
             net.load_state_dict(best_state)
         return net, best_ep, history
 
-    net, best_ep, history = run(tr, cfg.max_epochs, va)
-    best_ep = max(best_ep, cfg.eval_every)
+    net, best_ep, history = run(tr, cfg.max_epochs, va, copula_val or copula)
+    info = {"best_epoch": max(best_ep, cfg.eval_every), "history": history}
+    if copula_val is not None and list(target_cols) == W_COLS:
+        hv = subset(va, va.x[:, 0].numpy() > sc["q75"])
+        info["val_hd_n"] = len(hv.d_next)
+        info["val_hd_crps"] = val_debt_crps(net, hv, copula_val, seed) if len(hv.d_next) else np.nan
     if cfg.refit:
-        net, _, _ = run(full, best_ep)
-    net.info = {"best_epoch": best_ep, "history": history}
+        net, _, _ = run(full, info["best_epoch"], cop=copula)
+    net.info = info
     return net
+
+
+@torch.no_grad()
+def val_debt_crps(net, b: Batch, copula, seed, S=256):
+    u = torch.as_tensor(copula.sample(b.country, S, np.random.default_rng((seed, 6))))
+    w = net.to_raw(net.quantile_std(net.coefs(b.x, b.cid), u))
+    return crps_samples(debt_from_w(w, b.x[:, :1]), b.d_next).mean().item()

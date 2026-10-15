@@ -21,8 +21,11 @@ def _pooled_debt(design, n_rep, T, seed0=10_000):
     out = Parallel(n_jobs=-1)(delayed(simulate_panel)(design, 25, T, 50, seed0 + s)
                               for s in range(n_rep))
     d = np.concatenate([o[0]["d"].values for o in out])
-    redraws = sum(o[2] for o in out)
-    return d, redraws
+    n_c = 25 * n_rep
+    cens = dict(cens_burnin=sum(o[2]["censored_burnin"] for o in out) / n_c,
+                cens_sample=sum(o[2]["censored_sample"] for o in out) / n_c,
+                cens_panels=np.mean([len(o[2]["censored"]) > 0 for o in out]))
+    return d, cens
 
 
 def ground_truth(design, b_pcts, pooled_d, grid):
@@ -58,14 +61,14 @@ def run_phase1(out: Path, n_rep=40, T=40):
     grid = np.round(np.arange(0.2, D_UPPER + 1e-9, 0.01), 4)
     truth_rows, curves, data_rows, pooled = [], [], [], {}
     for name, design in DESIGNS.items():
-        d, redraws = _pooled_debt(design, n_rep, T)
+        d, cens = _pooled_debt(design, n_rep, T)
         pooled[name] = d
         qs = np.quantile(d, [0.01, 0.05, 0.25, 0.5, 0.75, 0.85, 0.9, 0.95, 0.99])
         b_pcts = B_RULE_PCTS if name == "D2H" else (85, 95)
         rows, curve_df, r = ground_truth(design, b_pcts, d, grid)
         truth_rows += rows
         curves.append(curve_df)
-        data_rows.append(dict(design=name, n_obs=len(d), redraw_rate=redraws / n_rep,
+        data_rows.append(dict(design=name, n_obs=len(d), **cens,
                               share_in_20_110=float(np.mean((d > 0.2) & (d < 1.1))),
                               **{f"q{int(round(p * 100)):02d}": q for p, q in
                                  zip([0.01, 0.05, 0.25, 0.5, 0.75, 0.85, 0.9, 0.95, 0.99], qs)},

@@ -5,8 +5,9 @@ import numpy as np
 
 from .config import DESIGNS
 from .data import W_COLS
-from .metrics import evaluate
-from .models import forecast_draws, drift_at
+from .metrics import evaluate, crps, interval
+from .models import forecast_draws, drift_at, recursive_draws
+from .data import H_REC
 from .phase1 import D_UPPER, M_GRID
 from .threshold import bounds
 from .truth import cached_truth
@@ -29,17 +30,28 @@ def true_M(name, b):
     return float(curv[grid >= b - 1e-9].max())
 
 
-def forecast_metrics(F, configs, S=1000, seed=0):
+def forecast_metrics(F, configs, S=500, seed=0):
+    """One-step metrics on the continuation test panels and the high-debt set, and
+    3-year recursive debt metrics on test origins with an observed d_{t+3}.
+    Draws use common random numbers across configurations. SEL reuses its cell."""
     rep = F.rep
     sd_w = rep.train[W_COLS].std().values
     sd_all = rep.train[W_COLS + ["d_next"]].std().values
     rows = []
-    for set_name, df in (("test", rep.test), ("high", rep.high)):
-        for c in configs:
-            rng = np.random.default_rng((rep.seed, seed, 17))   # common draws across configs
-            w, dn = forecast_draws(F, c, df, S, rng)
-            m = evaluate(w, dn, df, sd_w, sd_all)
-            rows.append(dict(config=c, set=set_name, **m))
+    origins = rep.test[rep.test["d_h3"].notna()]
+    for c in configs:
+        src = F.selected if c == "SEL" else c
+        rng = np.random.default_rng((rep.seed, seed, 17))
+        for set_name, df in (("test", rep.test), ("high", rep.high)):
+            w, dn = forecast_draws(F, src, df, S, rng)
+            rows.append(dict(config=c, set=set_name, **evaluate(w, dn, df, sd_w, sd_all)))
+        dh = recursive_draws(F, src, origins, S, H_REC, rng)
+        y = origins["d_h3"].values
+        m = {"crps": float(np.mean(crps(dh, y)))}
+        for lev in (0.8, 0.9):
+            cov, wd = interval(dh, y, lev)
+            m[f"cov{int(lev * 100)}"], m[f"width{int(lev * 100)}"] = cov.mean(), wd.mean()
+        rows.append(dict(config=c, set="rec3", **m))
     return rows
 
 
@@ -67,7 +79,7 @@ def local_support(train, b):
     return len(near) >= SUPPORT_MIN_OBS and near["country"].nunique() >= SUPPORT_MIN_COUNTRIES
 
 
-def drift_and_threshold(F, configs):
+def drift_and_threshold(F, configs, suffix=""):
     rep = F.rep
     name = rep.design.name
     r_true = truth_for(name)[1]
@@ -92,4 +104,6 @@ def drift_and_threshold(F, configs):
                 row = threshold_rows(F, c, chosen[1], "rule", name, r_true)
                 row["rule_pct"] = chosen[0]
                 rows.append(row)
+    for r in rows:
+        r["config"] = r["config"] + suffix
     return rows

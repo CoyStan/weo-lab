@@ -58,3 +58,20 @@ def test_identity_function():
     d = rng.uniform(0.2, 1.2, 100)
     ref = (np.exp(w[:, 0]) / np.exp(w[:, 1])) * d - w[:, 2] + w[:, 3]
     assert np.allclose(identity_next_debt(d, w), ref)
+
+
+def test_censoring_is_on_current_state():
+    import pandas as pd
+    from debtsim.dgp import censor, MAX_DEBT
+    df = pd.DataFrame({"country": [0] * 5 + [1] * 3, "year": list(range(5)) + list(range(3)),
+                       "d": [1.0, 1.5, 1.7, 1.2, 1.9, 0.5, 0.6, 0.7],
+                       "d_next": [1.5, 1.7, 1.2, 1.9, 2.5, 0.6, 0.7, 0.8]})
+    kept, cens = censor(df)
+    # the transition that crosses MAX_DEBT (1.5 -> 1.7) is kept, everything after is dropped,
+    # even when debt later falls back below the threshold
+    assert kept[kept.country == 0]["year"].tolist() == [0, 1]
+    assert kept[kept.country == 1]["year"].tolist() == [0, 1, 2]
+    assert cens == {0}
+    kept2, _ = censor(df, censored={1})
+    assert 1 not in set(kept2["country"])
+    assert (kept["d"] <= MAX_DEBT).all()

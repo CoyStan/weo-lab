@@ -6,27 +6,20 @@ import numpy as np
 import torch
 
 from .copula import RankCopula
-from .data import X_COLS, W_COLS, oracle_draws
+from .data import X_COLS, W_COLS, N_VAL_YEARS, oracle_draws
 from .dgp import typical_effects
 from .nets import pit
 from .train import TrainCfg, fit, model_drift, tensors, debt_from_w, coef_d_derivs
 from .truth import cached_truth
 
 N_FOLDS = 3
-NEURAL = ("C2", "C3", "C4")
 C1_COLS = W_COLS + ["dd"]     # C1 models d_{t+1} on the change scale dd = d_{t+1} - d_t
 
-
-@dataclass
-class Tuning:
-    lam_d: float = 0.5
-    pen: float = 1.0
-
-    @classmethod
-    def from_pilot(cls, path):
-        import json
-        c = json.loads(open(path).read())["chosen"]
-        return cls(c["lam_d"], c["pen"])
+# Neural grid: (name, lambda_d, penalty weight). (0, 0) is C2.
+GRID = (("C2", 0.0, 0.0), ("C2_p1", 0.0, 1.0), ("C2_p10", 0.0, 10.0),
+        ("C3", 2.0, 0.0), ("C4_p1", 2.0, 1.0), ("C4_p10", 2.0, 10.0))
+CELLS = tuple(g[0] for g in GRID)
+NEURAL = CELLS + ("SEL",)     # SEL: the cell chosen by validation-only high-debt CRPS
 
 
 @dataclass
@@ -34,9 +27,13 @@ class Fitted:
     rep: object
     nets: dict = field(default_factory=dict)
     copula: RankCopula = None
+    copula_val: RankCopula = None
     copula_ext: RankCopula = None
     c1_weights: np.ndarray = None
     b1: dict = None
+    b1h: dict = None
+    g_ar: tuple = None
+    selected: str = None
     timings: dict = field(default_factory=dict)
 
 
@@ -72,10 +69,12 @@ def _fit_fixed(df, target_cols, cfg, n_c, seed, epochs):
     return net
 
 
-def fit_b1(train):
-    """Linear location-scale quantile regression of d_{t+1} on (d, g, lagged drivers)."""
+def fit_b1(train, target="d_next"):
+    """Linear location-scale quantile regression of the target on (d, g, lagged drivers):
+    OLS location, OLS on absolute residuals for scale, empirical standardized residuals."""
+    train = train[train[target].notna()]
     X = np.column_stack([np.ones(len(train)), train[X_COLS].values])
-    y = train["d_next"].values
+    y = train[target].values
     beta = np.linalg.lstsq(X, y, rcond=None)[0]
     res = y - X @ beta
     gamma = np.linalg.lstsq(X, np.abs(res), rcond=None)[0]
@@ -83,20 +82,40 @@ def fit_b1(train):
     return {"beta": beta, "gamma": gamma, "e": res / scale}
 
 
-def fit_all(rep, tuning: Tuning, base_cfg: TrainCfg = None, configs=("C1", "C2", "C3", "C4", "B1")):
+def fit_g_ar(train):
+    """AR(1) for the global factor from the training years (used for recursive paths)."""
+    g = train.groupby("year")[["g", "g_next"]].first()
+    rho = float(np.polyfit(g["g"], g["g_next"], 1)[0])
+    sd = float(np.std(g["g_next"] - rho * g["g"]))
+    return rho, sd
+
+
+def fit_all(rep, configs=("C1", "B1") + CELLS, base_cfg: TrainCfg = None):
     base = base_cfg or TrainCfg()
     tr, n_c, seed = rep.train, len(rep.fx["i0"]), rep.seed
     F = Fitted(rep)
+    F.g_ar = fit_g_ar(tr)
     tic = time.time()
-    F.nets["C2"] = fit(tr, W_COLS, base, n_c, seed + 2)
-    F.timings["C2"] = time.time() - tic
-    ep = F.nets["C2"].info["best_epoch"]
-
-    tic = time.time()
+    ep = fit(tr, W_COLS, base, n_c, seed + 2).info["best_epoch"]
     u_drv = _fold_pits(tr, W_COLS, base, n_c, seed + 5, ep)
     F.copula = RankCopula(u_drv, tr["year"].values, tr["country"].values, n_c, seed)
+    proper = tr["year"].values < tr["year"].max() + 1 - N_VAL_YEARS
+    F.copula_val = RankCopula(u_drv[proper], tr["year"].values[proper],
+                              tr["country"].values[proper], n_c, seed)
     F.timings["copula"] = time.time() - tic
-
+    for k, (name, lam, pen) in enumerate(GRID):
+        if name not in configs:
+            continue
+        tic = time.time()
+        F.nets[name] = fit(tr, W_COLS, replace(base, lam_d=lam, pen=pen), n_c, seed + 2,
+                           copula=F.copula, copula_val=F.copula_val)
+        F.timings[name] = time.time() - tic
+    fitted = [c for c in CELLS if c in F.nets]
+    if fitted:
+        scores = {c: F.nets[c].info.get("val_hd_crps", np.nan) for c in fitted}
+        F.selected = min(fitted, key=lambda c: (np.nan_to_num(scores[c], nan=np.inf),
+                                                CELLS.index(c)))
+        F.nets["SEL"] = F.nets[F.selected]
     if "C1" in configs:
         tic = time.time()
         for k, col in enumerate(C1_COLS):
@@ -107,20 +126,9 @@ def fit_all(rep, tuning: Tuning, base_cfg: TrainCfg = None, configs=("C1", "C2",
                                   tr["country"].values, n_c, seed)
         F.c1_weights = _c1_weights(F, tr)
         F.timings["C1"] = time.time() - tic
-    if "C3" in configs:
-        tic = time.time()
-        F.nets["C3"] = fit(tr, W_COLS, replace(base, lam_d=tuning.lam_d), n_c, seed + 3,
-                           copula=F.copula)
-        F.timings["C3"] = time.time() - tic
-    if "C4" in configs:
-        tic = time.time()
-        F.nets["C4"] = fit(tr, W_COLS, replace(base, lam_d=tuning.lam_d, pen=tuning.pen),
-                           n_c, seed + 4, copula=F.copula)
-        F.timings["C4"] = time.time() - tic
     if "B1" in configs:
-        tic = time.time()
         F.b1 = fit_b1(tr)
-        F.timings["B1"] = time.time() - tic
+        F.b1h = fit_b1(tr, "d_h3")
     return F
 
 
@@ -165,10 +173,7 @@ def forecast_draws(F: Fitted, cfgname, df, S, rng):
     if cfgname == "C0":
         return oracle_draws(rep.design, rep.fx, df, S, rng)
     if cfgname == "B1":
-        X = np.column_stack([np.ones(n), df[X_COLS].values])
-        loc, scale = X @ F.b1["beta"], np.maximum(X @ F.b1["gamma"], 1e-3)
-        e = rng.choice(F.b1["e"], (n, S))
-        return None, loc[:, None] + scale[:, None] * e
+        return None, _b1_draws(F.b1, df, S, rng)
     x = tensors(df, X_COLS)
     cid = torch.as_tensor(df["country"].values)
     if cfgname in NEURAL:
@@ -189,6 +194,59 @@ def forecast_draws(F: Fitted, cfgname, df, S, rng):
         z = project_identity(np.stack(cols, -1), d, F.c1_weights)
         return z[..., :4], z[..., 4]
     raise ValueError(cfgname)
+
+
+def _b1_draws(m, df, S, rng):
+    X = np.column_stack([np.ones(len(df)), df[X_COLS].values])
+    loc, scale = X @ m["beta"], np.maximum(X @ m["gamma"], 1e-3)
+    return loc[:, None] + scale[:, None] * rng.choice(m["e"], (len(df), S))
+
+
+def _step_inputs(d, lags, g):
+    return torch.as_tensor(np.concatenate([d[..., None], lags, g[..., None]], -1)
+                           .reshape(-1, len(X_COLS)))
+
+
+def recursive_draws(F: Fitted, cfgname, df, S, H, rng):
+    """Draws of d_{t+H} by iterating the one-step model H times along simulated paths
+    (global factor from the training AR(1)). B1 uses a direct H-step regression."""
+    rep = F.rep
+    n = len(df)
+    if cfgname == "C0":
+        from .data import oracle_paths
+        return oracle_paths(rep.design, rep.fx, df, S, H, rng)
+    if cfgname == "B1":
+        return _b1_draws(F.b1h, df, S, rng)
+    rho, sg = F.g_ar
+    d = np.repeat(df["d"].values[:, None], S, 1)
+    g = np.repeat(df["g"].values[:, None], S, 1)
+    lags = np.repeat(df[["li_lag", "ln_lag", "p_lag", "a_lag"]].values[:, None], S, 1)
+    countries = df["country"].values
+    cid = torch.as_tensor(np.repeat(countries, S))
+    for _ in range(H):
+        x = _step_inputs(d, lags, g)
+        with torch.no_grad():
+            if cfgname in NEURAL:
+                net = F.nets[cfgname]
+                u = torch.as_tensor(F.copula.sample(countries, S, rng).reshape(-1, 4))
+                w = net.to_raw(net.quantile_std(net.coefs(x, cid), u)).numpy().reshape(n, S, 4)
+                d_new = np.exp(w[..., 0] - w[..., 1]) * d - w[..., 2] + w[..., 3]
+            elif cfgname == "C1":
+                u = F.copula_ext.sample(countries, S, rng).reshape(-1, 5)
+                cols = []
+                for k, col in enumerate(C1_COLS):
+                    net = F.nets[f"C1_{col}"]
+                    q = net.to_raw(net.quantile_std(net.coefs(x, cid),
+                                                    torch.as_tensor(u[:, k:k + 1])))
+                    cols.append(q.numpy()[:, 0].reshape(n, S))
+                cols[4] = cols[4] + d
+                z = project_identity(np.stack(cols, -1), d, F.c1_weights)
+                w, d_new = z[..., :4], z[..., 4]
+            else:
+                raise ValueError(cfgname)
+        g = rho * g + sg * rng.standard_normal((n, S))
+        d, lags = np.clip(d_new, -1.0, 10.0), w
+    return d
 
 
 def reference_state(train, b, frac=0.1):

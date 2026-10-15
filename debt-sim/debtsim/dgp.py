@@ -110,53 +110,68 @@ def typical_effects(design: Design, market_access=False):
             "ks": 1.0 + (design.ma_kscale - 1.0) * m}
 
 
-MAX_DEBT = 1.6   # a path above this (incl. burn-in) is an explosive draw and is redrawn
+MAX_DEBT = 1.6    # censoring point: a country's series stops once its debt exceeds this
+DEBT_CAP = 10.0   # numerical guard for paths that have already been censored
 
 
-def simulate_panel(design: Design, n_countries=25, n_years=45, burn_in=50, seed=0,
-                   max_tries=50):
-    """Simulate an annual panel, redrawing (with a new sub-seed) any panel in which a
-    country's debt explodes above MAX_DEBT. Returns (df, effects, n_redraws)."""
-    for k in range(max_tries):
-        df, fx, peak = _simulate_once(design, n_countries, n_years, burn_in, (seed, k))
-        if peak <= MAX_DEBT:
-            return df, fx, k
-    raise RuntimeError("no non-explosive panel found")
-
-
-def _simulate_once(design, n_countries, n_years, burn_in, seed, effects=None, d0=None):
-    rng = np.random.default_rng(seed)
-    fx = effects if effects is not None else draw_country_effects(design, n_countries, rng)
-    total = burn_in + n_years
-    d = np.where(fx.get("ma", 0) > 0, 0.9, 0.5) * np.ones(n_countries) if d0 is None else np.asarray(d0, float).copy()
-    g = rng.standard_normal()
-    w_prev = np.full((n_countries, 4), np.nan)
+def simulate_path(design: Design, fx, d0, g0, w_prev0, n_years, rng, year0=0):
+    """Simulate n_years transitions for all countries from the given state, without
+    censoring. Returns (rows DataFrame, final state (d, g, w_prev))."""
+    d, g, w_prev = np.asarray(d0, float).copy(), float(g0), np.asarray(w_prev0, float).copy()
+    n_countries = len(d)
     sg = np.sqrt(1 - design.rho ** 2)
     rows = []
-    peak = -np.inf
-    for t in range(total):
+    for t in range(n_years):
         g_next = design.rho * g + sg * rng.standard_normal()
         e = draw_shocks(design, n_countries, rng)
         w = drivers(design, d, g_next, e, fx)
-        d_next = identity_next_debt(d, w)
-        peak = max(peak, float(np.max(np.where(np.isfinite(d_next), d_next, np.inf))))
-        if peak > MAX_DEBT:
-            return None, fx, peak
-        if t >= burn_in:
-            rows.append(pd.DataFrame({
-                "country": np.arange(n_countries), "year": t - burn_in,
-                "d": d, "g": g, "g_next": g_next,
-                "li_lag": w_prev[:, 0], "ln_lag": w_prev[:, 1],
-                "p_lag": w_prev[:, 2], "a_lag": w_prev[:, 3],
-                "li": w[:, 0], "ln": w[:, 1], "p": w[:, 2], "a": w[:, 3],
-                "d_next": d_next,
-            }))
+        d_next = np.minimum(identity_next_debt(d, w), DEBT_CAP)
+        rows.append(pd.DataFrame({
+            "country": np.arange(n_countries), "year": year0 + t,
+            "d": d, "g": g, "g_next": g_next,
+            "li_lag": w_prev[:, 0], "ln_lag": w_prev[:, 1],
+            "p_lag": w_prev[:, 2], "a_lag": w_prev[:, 3],
+            "li": w[:, 0], "ln": w[:, 1], "p": w[:, 2], "a": w[:, 3],
+            "d_next": d_next,
+        }))
         d, g, w_prev = d_next, g_next, w
     df = pd.concat(rows, ignore_index=True)
     df["i"] = np.expm1(df["li"])
     df["n"] = np.expm1(df["ln"])
-    df["ma"] = fx["ma"][df["country"].values]
-    return df, fx, peak
+    df["ma"] = np.asarray(fx["ma"])[df["country"].values]
+    return df, (d, g, w_prev)
+
+
+def censor(df, censored=()):
+    """Censoring on the current state: within each country, drop every transition from
+    the first one whose starting debt exceeds MAX_DEBT onward, and all transitions of
+    countries already censored. The transition that first crosses MAX_DEBT is kept
+    (its outcome is observed). Returns (kept rows, set of censored countries)."""
+    df = df.sort_values(["country", "year"])
+    over = (df["d"] > MAX_DEBT) | df["country"].isin(list(censored))
+    stopped = over.groupby(df["country"]).cummax()
+    newly = set(df.loc[stopped, "country"].unique()) | set(censored)
+    return df[~stopped].reset_index(drop=True), newly
+
+
+def simulate_panel(design: Design, n_countries=25, n_years=45, burn_in=50, seed=0):
+    """Simulate an annual panel with burn-in, censoring explosive countries.
+
+    Returns (df, effects, info) where info holds the censoring counts and the final
+    uncensored state (for continuation panels).
+    """
+    rng = np.random.default_rng(seed)
+    fx = draw_country_effects(design, n_countries, rng)
+    d0 = np.where(fx["ma"] > 0, 0.9, 0.5)
+    full, state = simulate_path(design, fx, d0, rng.standard_normal(),
+                                np.full((n_countries, 4), np.nan), burn_in + n_years, rng,
+                                year0=-burn_in)
+    burn = full[full["year"] < 0]
+    cens_burn = set(burn.loc[burn["d_next"] > MAX_DEBT, "country"].unique())
+    sample, cens = censor(full[full["year"] >= 0], cens_burn)
+    info = {"censored_burnin": len(cens_burn), "censored_sample": len(cens - cens_burn),
+            "censored": cens, "state": state, "full": full[full["year"] >= 0]}
+    return sample, fx, info
 
 
 # ---------------------------------------------------------------- true quantiles
