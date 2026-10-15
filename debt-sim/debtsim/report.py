@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-DESIGNS = ["D1", "D2", "D3", "D2H"]
+DESIGNS = ["D1", "D2", "D3", "D2H"]   # figure panels; missing designs plot empty
 TS = [15, 25, 40]
 SETS = {"test": "one-step, test panels", "high": "one-step, high-debt states",
         "rec3": "3-year recursive"}
@@ -23,10 +23,13 @@ plt.rcParams.update({"font.size": 9, "axes.edgecolor": MUTED, "axes.labelcolor":
                      "grid.linewidth": 0.6, "legend.frameon": False})
 
 
-def load(out: Path):
+def load(out: Path, max_rep=None, designs=None):
     p = out / "phase3"
-    return (pd.read_csv(p / "forecast_metrics.csv"), pd.read_csv(p / "threshold_metrics.csv"),
-            pd.read_csv(p / "replication_meta.csv"))
+    dfs = [pd.read_csv(p / f) for f in ("forecast_metrics.csv", "threshold_metrics.csv",
+                                         "replication_meta.csv")]
+    keep = lambda d: d[((d["rep"] < max_rep) if max_rep else True)
+                       & (d["design"].isin(designs) if designs else True)]
+    return tuple(keep(d) for d in dfs)
 
 
 def paired(df, a, b, metric, by, relative=True):
@@ -70,8 +73,30 @@ def level_table(fm, configs, metric, st, digits=3):
     return p.round(digits).reset_index().to_markdown(index=False)
 
 
-def write_tables(fm, th, meta, out: Path):
-    tdir = out / "phase3" / "tables"
+def cert_summary(df, by):
+    """Certification rates over all replications, and bound properties among certified."""
+    df = df.assign(chosen=df["b"].notna(), cert=df["cert"].astype(bool),
+                   cert_true=df["cert_true"].fillna(False).astype(bool))
+    df = df.assign(correct=df["cert"] & df["cert_true"])
+    g = df.groupby(by)
+    out = pd.DataFrame({"n": g.size(), "b chosen": g["chosen"].mean(),
+                        "certified": g["cert"].mean(), "correctly certified": g["correct"].mean()})
+    c = df[df["cert"]].copy()
+    c["L<=r (M=0.24)"] = c["L_M0.24"] <= c["r_true"]
+    c["L<=r (true M)"] = c["L_Mtrue"] <= c["r_true"]
+    c["U<=D"] = c["valid_Mtrue"].astype(bool)
+    c["r in [L,U] (true M)"] = c["cover_Mtrue"].astype(bool)
+    gc = c.groupby(by)
+    for col in ["L<=r (M=0.24)", "L<=r (true M)", "U<=D", "r in [L,U] (true M)"]:
+        out[col + " | cert"] = gc[col].mean()
+    for col, name in [("b", "median b"), ("L_Mtrue", "median L (true M)"),
+                      ("U_Mtrue", "median U")]:
+        out[name + " | cert"] = gc[col].median()
+    return out.round(2).reset_index().to_markdown(index=False)
+
+
+def write_tables(fm, th, meta, out: Path, tag=""):
+    tdir = out / "phase3" / f"tables{tag}"
     tdir.mkdir(exist_ok=True)
     T = {}
     main_pairs = [("C3", "C2"), ("C4_p1", "C3"), ("C4_p10", "C3"), ("SEL", "C2")]
@@ -82,6 +107,30 @@ def write_tables(fm, th, meta, out: Path):
                  ("C4_p1", "B1"), ("C1", "B1")], "crps", [st])
         T[f"crps_vs_oracle_{st}"] = diff_table(
             fm, [(c, "C0") for c in ["C1", "B1", "C2", "C3", "C4_p1", "SEL"]], "crps", [st])
+    summ = []
+    for a, b in [("C3", "C2"), ("C4_p1", "C3"), ("C4_p10", "C3"), ("C2_p1", "C2"),
+                 ("SEL", "C2"), ("C2", "C1"), ("C2", "B1"), ("C3", "B1"), ("C4_p1", "B1"),
+                 ("C1", "B1"), ("B1", "C0"), ("C2", "C0")]:
+        for st in SETS:
+            t = paired(fm[fm["set"] == st], a, b, "crps", ["design"])
+            summ.append({"comparison": f"{a} vs {b}", "set": st,
+                         **{d: fmt(t.loc[d, "mean"], t.loc[d, "se"]) for d in t.index}})
+    T["summary_by_design"] = pd.DataFrame(summ).to_markdown(index=False)
+    hi = []
+    for m in ("pinball_li", "pinball_ln", "pinball_p", "pinball_a", "pinball_drivers", "energy"):
+        for a, b in [("C3", "C2"), ("C4_p1", "C3"), ("C4_p10", "C3")]:
+            t = paired(fm[fm["set"] == "high"], a, b, m, ["design"])
+            hi.append({"metric": m, "comparison": f"{a} vs {b}",
+                       **{d: fmt(t.loc[d, "mean"], t.loc[d, "se"]) for d in t.index}})
+    T["drivers_high_by_design"] = pd.DataFrame(hi).to_markdown(index=False)
+    der = []
+    d85 = th[th["b_label"] == "p85"]
+    for a, b in [("C3", "C2"), ("C4_p1", "C3"), ("C4_p10", "C3"), ("C2", "C1"), ("C2", "B1")]:
+        for m in ("err_v", "err_s"):
+            t = paired(d85, a, b, m, ["design"], relative=False) * 1000
+            der.append({"metric": m + " x1000", "comparison": f"{a} vs {b}",
+                        **{d: fmt(t.loc[d, "mean"], t.loc[d, "se"], 2) for d in t.index}})
+    T["deriv_by_design"] = pd.DataFrame(der).to_markdown(index=False)
     T["grid_crps"] = diff_table(fm, [(c, "C2") for c in
                                      ["C2_p1", "C2_p10", "C3", "C4_p1", "C4_p10"]],
                                 "crps", ["test", "high", "rec3"], by=("design",))
@@ -118,27 +167,16 @@ def write_tables(fm, th, meta, out: Path):
     a = thr[(thr["b_label"] == "p85") & ~thr["config"].str.endswith("_nopool")]
     T["false_cert_p85"] = (a.groupby(["design", "T", "config"])["false_cert"].mean()
                            .unstack("config").round(2).reset_index().to_markdown(index=False))
-    # fixed b = 1.1 diagnostic
+    # fixed b = 1.1 diagnostic (true certificate applies) and the D2H reference rule
     f = thr[(thr["b_label"] == "fixed") & ~thr["config"].str.endswith("_nopool")]
-    cols = ["cert", "cover_M0.24", "coverL_M0.24", "cover_Mtrue", "coverL_Mtrue",
-            "width_Mtrue"]
-    T["fixed_b"] = (f.groupby(["design", "config"])[cols].mean().round(2).reset_index()
-                    .to_markdown(index=False))
-    # D2H rule
+    T["fixed_b"] = cert_summary(f, ["design", "config"])
     r = thr[(thr["design"] == "D2H") & (thr["b_label"] == "rule")]
     if len(r):
-        r = r.assign(chosen=r["b"].notna(),
-                     correct_cert=r["cert"] & r["cert_true"].fillna(False).astype(bool))
-        cols = ["chosen", "cert", "correct_cert", "coverL_M0.08", "coverL_M0.24",
-                "coverL_M0.4", "coverL_Mtrue", "valid_Mtrue", "cover_Mtrue"]
-        T["rule_d2h"] = (r.groupby(["T", "config"])[cols].mean().round(2).reset_index()
-                         .to_markdown(index=False))
+        T["rule_d2h"] = cert_summary(r, ["config"])
+        T["rule_d2h_T"] = cert_summary(r, ["T", "config"])
         T["rule_d2h_pct"] = (r.groupby("config")["rule_pct"].value_counts(normalize=True)
                              .unstack(fill_value=0).round(2).reset_index()
                              .to_markdown(index=False))
-        lw = r[r["cert"]].assign(L_gap=lambda x: x["L_Mtrue"] - x["r_true"])
-        T["rule_d2h_L"] = (lw.groupby("config")[["b", "L_M0.24", "L_Mtrue", "U_Mtrue", "r_true"]]
-                           .median().round(3).reset_index().to_markdown(index=False))
     for k, v in T.items():
         (tdir / f"{k}.md").write_text(v + "\n")
     return T
@@ -156,8 +194,8 @@ def _dot_panel(ax, fm, pairs, st, design, title):
     ax.set_title(title, fontsize=9, color=INK)
 
 
-def write_figures(fm, th, meta, out: Path):
-    fdir = out / "phase3" / "figures"
+def write_figures(fm, th, meta, out: Path, tag=""):
+    fdir = out / "phase3" / f"figures{tag}"
     fdir.mkdir(exist_ok=True)
     # 1-2. CRPS gains of C3 over C2 and C4 over C3, and each vs B1
     for name, pairs in (("crps_components", [("C3", "C2"), ("C4_p1", "C3"), ("SEL", "C2")]),
@@ -229,7 +267,7 @@ def write_figures(fm, th, meta, out: Path):
     if len(r):
         cfgs = [c for c in ["C0", "C2", "C3", "C4_p1", "B1", "C2_nopool", "C3_nopool",
                             "B1_nopool"] if c in set(r["config"])]
-        fig, ax = plt.subplots(figsize=(8, 3.4))
+        fig, ax = plt.subplots(figsize=(9, 4))
         rng = np.random.default_rng(0)
         for k, c in enumerate(cfgs):
             v = r.loc[r["config"] == c, "L_Mtrue"].clip(upper=2.2)
@@ -237,7 +275,7 @@ def write_figures(fm, th, meta, out: Path):
                     color=CFG_COLOR.get(c.replace("_nopool", ""), MUTED))
             ax.text(k, 2.25, f"n={len(v)}", ha="center", fontsize=7, color=MUTED)
         ax.axhline(r["r_true"].iloc[0], color=INK, lw=1, ls="--")
-        ax.text(len(cfgs) - 0.5, r["r_true"].iloc[0], " true r", va="center", fontsize=8)
+        ax.text(-0.45, r["r_true"].iloc[0] + 0.02, "true r", fontsize=8, color=INK)
         ax.set_xticks(range(len(cfgs)), cfgs, rotation=20)
         ax.set_ylabel("lower bound L (true M)")
         ax.set_title("D2H: certified lower bounds under the data-driven reference rule "
@@ -247,8 +285,10 @@ def write_figures(fm, th, meta, out: Path):
         plt.close(fig)
 
 
-def write_report(out: Path):
-    fm, th, meta = load(out)
-    T = write_tables(fm, th, meta, out)
-    write_figures(fm, th, meta, out)
+def write_report(out: Path, max_rep=20, designs=None, tag=""):
+    """Tables and figures for replications rep < max_rep (main study: R = 20 for every
+    design; tag "_r100" with designs D2, D2H for the extended run)."""
+    fm, th, meta = load(out, max_rep, designs)
+    T = write_tables(fm, th, meta, out, tag)
+    write_figures(fm, th, meta, out, tag)
     return T
