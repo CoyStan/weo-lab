@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { getPreset } from "../model/presets";
 import { SHOCKS } from "../model/shocks";
 import { selectCurrent, useLab } from "../store";
+import Ambient from "./Ambient";
 import Districts, { DISTRICT_POS } from "./Districts";
 import Island from "./Island";
 import Traffic from "./Traffic";
@@ -139,6 +140,7 @@ function WeatherBridge({ reducedMotion }: { reducedMotion: boolean }) {
     <>
       <Weather storm={storm} reducedMotion={reducedMotion} />
       <Water reducedMotion={reducedMotion} choppy={storm} />
+      <Ambient reducedMotion={reducedMotion} storm={storm} />
     </>
   );
 }

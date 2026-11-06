@@ -1,20 +1,26 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { selectCurrent, useLab } from "../store";
 import { TOP } from "./hexmap";
 import { P } from "./palette";
-import { clamp } from "./useSmooth";
+import { commitInstances, placeInstance, primeInstances } from "./shapes";
+import { clamp, useSmooth } from "./useSmooth";
 import { WORLD } from "./world";
 
 const MAX_CARTS = 14;
 
-/** Trade carts shuttling between the city centre and the districts: busier and faster when the economy runs hot. */
+/**
+ * Trade carts shuttling between the city centre and the districts: busier and
+ * faster when the economy runs hot. Two instanced meshes (chassis and load),
+ * so the whole fleet costs two draw calls.
+ */
 export default function Traffic({ reducedMotion }: { reducedMotion: boolean }) {
   const current = useLab(selectCurrent);
-  const carts = useRef<(THREE.Group | null)[]>([]);
+  const chassis = useRef<THREE.InstancedMesh>(null);
+  const loads = useRef<THREE.InstancedMesh>(null);
   // Each road as a polyline with cumulative lengths, so carts move at an even speed.
   const routes = useMemo(
     () =>
@@ -26,19 +32,31 @@ export default function Traffic({ reducedMotion }: { reducedMotion: boolean }) {
       }),
     [],
   );
-  const progress = useMemo(() => Array.from({ length: MAX_CARTS }, (_, i) => (i * 0.61) % 2), []);
-  const count = Math.round(clamp(6 + current.growth * 1.2 + current.gap * 0.8, 2, MAX_CARTS));
+  const progress = useMemo(() => Float32Array.from({ length: MAX_CARTS }, (_, i) => (i * 0.61) % 2), []);
+  const count = clamp(6 + current.growth * 1.2 + current.gap * 0.8, 2, MAX_CARTS);
   const speed = clamp(0.1 + 0.02 * (current.gap + 2), 0.04, 0.2);
+  // Carts join or leave the roads one by one rather than all at once.
+  const sm = useSmooth({ count, speed }, 1.5, reducedMotion);
   const tmp = useMemo(() => new THREE.Vector3(), []);
+  const colors = useMemo(() => Array.from({ length: MAX_CARTS }, (_, i) => new THREE.Color(P.cars[i % P.cars.length])), []);
+
+  useLayoutEffect(() => {
+    primeInstances(chassis.current, P.trunk);
+    const l = loads.current;
+    primeInstances(l, P.cars[0]);
+    if (l) for (let i = 0; i < MAX_CARTS; i++) l.setColorAt(i, colors[i]);
+    commitInstances(l);
+  }, [colors]);
 
   useFrame((_, dt) => {
+    const c = chassis.current;
+    const l = loads.current;
+    if (!c || !l) return;
+    const n = sm.current.count;
+    const v = sm.current.speed;
     for (let i = 0; i < MAX_CARTS; i++) {
-      const cart = carts.current[i];
-      if (!cart) continue;
-      cart.visible = i < count;
-      if (!cart.visible) continue;
       const route = routes[i % routes.length];
-      if (!reducedMotion) progress[i] = (progress[i] + (dt * speed * 4) / Math.max(1, route.total)) % 2;
+      if (!reducedMotion) progress[i] = (progress[i] + (dt * v * 4) / Math.max(1, route.total)) % 2;
       // Out and back: 0..1 outbound, 1..2 return.
       const p = progress[i];
       const out = p <= 1;
@@ -53,32 +71,29 @@ export default function Traffic({ reducedMotion }: { reducedMotion: boolean }) {
       const dx = (b.x - a.x) * (out ? 1 : -1);
       const dz = (b.z - a.z) * (out ? 1 : -1);
       const len = Math.hypot(dx, dz) || 1;
-      cart.position.set(tmp.x + (-dz / len) * 0.07, tmp.y, tmp.z + (dx / len) * 0.07);
-      cart.rotation.y = Math.atan2(dx, dz);
       const edge = Math.min(dist, route.total - dist);
-      cart.scale.setScalar(clamp(edge * 2, 0.2, 1));
+      // Shrink in at the ends of a road, and out when this cart is not on the roads at all.
+      const s = clamp(edge * 2, 0.2, 1) * clamp(n - i, 0, 1);
+      const x = tmp.x + (-dz / len) * 0.07;
+      const z = tmp.z + (dx / len) * 0.07;
+      const rot = Math.atan2(dx, dz);
+      placeInstance(c, i, x, tmp.y + 0.07 * s, z, s, s, s, rot);
+      placeInstance(l, i, x, tmp.y + 0.15 * s, z, s, s, s, rot);
     }
+    commitInstances(c, false);
+    commitInstances(l, false);
   });
 
   return (
     <group>
-      {Array.from({ length: MAX_CARTS }, (_, i) => (
-        <group
-          key={i}
-          ref={(el) => {
-            carts.current[i] = el;
-          }}
-        >
-          <mesh position-y={0.07} castShadow>
-            <boxGeometry args={[0.15, 0.1, 0.26]} />
-            <meshStandardMaterial color={P.trunk} roughness={0.9} flatShading={P.flat} />
-          </mesh>
-          <mesh position-y={0.15} castShadow>
-            <boxGeometry args={[0.13, 0.08, 0.2]} />
-            <meshStandardMaterial color={P.cars[i % P.cars.length]} roughness={0.7} flatShading={P.flat} />
-          </mesh>
-        </group>
-      ))}
+      <instancedMesh ref={chassis} args={[undefined, undefined, MAX_CARTS]} castShadow frustumCulled={false}>
+        <boxGeometry args={[0.15, 0.1, 0.26]} />
+        <meshStandardMaterial roughness={0.9} flatShading={P.flat} />
+      </instancedMesh>
+      <instancedMesh ref={loads} args={[undefined, undefined, MAX_CARTS]} castShadow frustumCulled={false}>
+        <boxGeometry args={[0.13, 0.08, 0.2]} />
+        <meshStandardMaterial roughness={0.7} flatShading={P.flat} />
+      </instancedMesh>
     </group>
   );
 }
