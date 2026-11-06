@@ -2044,16 +2044,17 @@
   font-size: var(--t-xs);
 }
 
-/* Big shared screens: scale the whole interface up so it reads from the sofa. */
-@media (min-width: 1680px) {
+/* Laptops (up to 2000px wide) keep the normal 16px base. Only really large screens
+   (TVs, 4K monitors) scale the whole interface up. */
+@media (min-width: 2000px) {
   html {
-    font-size: 17px;
+    font-size: 18px;
   }
 }
 
-@media (min-width: 1920px) {
+@media (min-width: 2600px) {
   html {
-    font-size: 18.5px;
+    font-size: 21px;
   }
 }
 

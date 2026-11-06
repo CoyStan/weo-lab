@@ -17,7 +17,7 @@ import toybox from "./toybox.ts";
 import type { LabTheme } from "./types.ts";
 
 /** The default design (the Ledger) first, then the original Palari design and the other candidates. */
-export const THEMES: LabTheme[] = [ledger, palari, institutional, nordic, broadsheet, atlas, sunset, glass, toybox, brutalist, mission, terminal, swiss, consoleTheme, tabletop, dossier];
+export const THEMES: LabTheme[] = [palari, ledger, institutional, nordic, broadsheet, atlas, sunset, glass, toybox, brutalist, mission, terminal, swiss, consoleTheme, tabletop, dossier];
 
 export function getTheme(id: string | null | undefined): LabTheme {
   return THEMES.find((t) => t.id === id) ?? THEMES[0];
