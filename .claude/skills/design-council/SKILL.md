@@ -51,7 +51,7 @@ ten fixes.
 
 ## History
 
-First run (November 2026), reviewers opus, sonnet and fable, target 8.5:
+Run 1 (November 2026), reviewers opus, sonnet and fable, target 8.5:
 
 | Round | opus | sonnet | fable |
 |---|---|---|---|
@@ -59,8 +59,23 @@ First run (November 2026), reviewers opus, sonnet and fable, target 8.5:
 | 2 | 6.5 | 7.0 | 6.0 |
 | 3 | 7.0 | 7.5 | 6.5 |
 
-Stopped after three rounds; the round-3 findings were then fixed but not
-re-scored. Open items the reviewers keep raising: the island callouts should
-dock to the edges with leader lines and react when a lever moves (game feel),
-the mission list uses only the top of the screen, the recap repeats the
-advisors' text, and phone map chips can still touch.
+Run 2, same reviewers continuing, target 8.5, max 8 rounds:
+
+| Round | opus | sonnet | fable |
+|---|---|---|---|
+| 4 | 7.5 | 8.0 | 7.5 |
+| 5 | 8.0 | 8.3 | 8.0 |
+| 6 | 8.0 | 8.5 | 8.4 |
+| 7 | 8.3 | 8.5 | 8.5 |
+| 8 | 8.5 | 8.5 | 8.6 |
+
+Target met at round 8. Calibration: a fresh opus reviewer with no memory of
+earlier rounds scored round 8 at 7.2-7.8 (two passes), so reviewers who
+watch the work improve do grade more generously. Next time, bring in fresh
+reviewers for the final round and treat their score as the honest one.
+
+Open items every fresh pass raises: the island should carry persistent state
+that builds up from policy (smoke, cranes, empty lots), the recap numbers
+should animate in, goal charts need to be larger for a shared screen, phones
+should show a compact goal strip while deciding, and the decomposition legend
+should show "now" and "by the end" side by side.
