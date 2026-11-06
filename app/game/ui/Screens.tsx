@@ -10,7 +10,7 @@ import { ADVISORS } from "../advisors";
 import { GAME_METRICS } from "../metrics";
 import { getMission, MISSIONS, type LeverId } from "../missions";
 import { INSTITUTIONS } from "../politics";
-import { CostChips, TrustIcon, VotesIcon } from "./Capital";
+import { CostChips } from "./Capital";
 import { missionUnlocked, useGame } from "../store";
 import SoundToggle from "./SoundToggle";
 import Glyph from "./Glyph";
@@ -31,6 +31,22 @@ const LEVER_NAMES: Record<LeverId, string> = {
   imf: "IMF programme",
   devalue: "Devaluation",
   restructure: "Debt restructuring",
+};
+
+/** One line per lever for the briefing's tools table. */
+const LEVER_DOES: Record<LeverId, string> = {
+  rate: "Set the interest rate: higher cools demand and, later, inflation.",
+  rule: "Let a rule set the rate from inflation and the output gap.",
+  fiscal: "Tighten or loosen the budget each year, in % of GDP.",
+  mix: "Choose whether the budget moves through spending or taxes.",
+  investment: "Spend on roads and ports: demand now, capacity later.",
+  fxRegime: "Float, manage or peg the currency.",
+  intervention: "Sell reserves to steady the currency.",
+  controls: "Slow money leaving the country, at a price in spreads.",
+  reforms: "Adopt reforms with votes and trust.",
+  imf: "Borrow from the IMF while you tighten.",
+  devalue: "Reset the peg weaker in one go.",
+  restructure: "Cut the debt stock, at a cost in trust and spreads.",
 };
 
 export function TitleScreen() {
@@ -79,6 +95,8 @@ export function MissionSelect() {
   const startToday = useGame((s) => s.startToday);
   const setScreen = useGame((s) => s.setScreen);
   const [tab, setTab] = useState<Tab>("campaign");
+  // The next mission to play leads the page as a double-width card.
+  const nextUp = MISSIONS.find((m) => missionUnlocked(m, progress) && !(progress.stars[m.id] > 0));
   return (
     <div className="game-overlay is-scroll">
       <div className="game-missions">
@@ -108,9 +126,10 @@ export function MissionSelect() {
             {MISSIONS.map((m) => {
               const open = missionUnlocked(m, progress);
               const preset = getPreset(m.presetId);
+              const lead = m.id === nextUp?.id;
               return (
-                <li key={m.id}>
-                  <button type="button" className={`game-mission ${open ? "" : "is-locked"}`} disabled={!open} onClick={() => startMission(m.id)}>
+                <li key={m.id} className={lead ? "game-mission-lead" : undefined}>
+                  <button type="button" className={`game-mission ${open ? "" : "is-locked"} ${lead ? "is-lead" : ""}`} disabled={!open} onClick={() => startMission(m.id)}>
                     <span className="flex items-center justify-between gap-2">
                       <span className="game-mission-number">Mission {m.number}</span>
                       {open ? <Stars n={progress.stars[m.id] ?? 0} /> : <LockIcon />}
@@ -118,7 +137,8 @@ export function MissionSelect() {
                     <span className="game-mission-title">{m.title}</span>
                     <span className="game-mission-meta">{preset.name} · {preset.archetype} · {m.quarters} quarters</span>
                     <span className="game-mission-kicker">{m.kicker}</span>
-                    {open ? null : <span className="game-mission-unlock">Win mission {m.number - 1} to unlock</span>}
+                    {open ? null : <span className="game-mission-unlock">Locked: win mission {m.number - 1} to open it</span>}
+                    {lead ? <span className="game-mission-play">Play mission {m.number}</span> : null}
                   </button>
                 </li>
               );
@@ -238,9 +258,15 @@ export function Briefing() {
         <p className="game-eyebrow">{mission.number ? `Mission ${mission.number} of ${MISSIONS.length} · ${preset.name}, ${preset.archetype.toLowerCase()}` : mission.comparison?.story ? `History · ${mission.kicker}` : `World today · ${preset.name}`}</p>
         <h1 id="briefing-title" className="game-title is-small">{mission.title}</h1>
         <div className="mt-2 flex flex-col gap-2 text-(length:--t-sm) leading-relaxed">
-          {mission.briefing.map((p) => (
-            <p key={p}>{p}</p>
-          ))}
+          <p>{mission.briefing[0]}</p>
+          {mission.briefing.length > 1 ? (
+            <details className="game-brief-more">
+              <summary>More</summary>
+              {mission.briefing.slice(1).map((p) => (
+                <p key={p} className="mt-2">{p}</p>
+              ))}
+            </details>
+          ) : null}
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -254,7 +280,7 @@ export function Briefing() {
             <h2 className="game-section mt-2">For extra stars</h2>
             <ul className="flex flex-col gap-1 text-(length:--t-sm)">
               {bonus.map((o) => (
-                <li key={o.id} className="game-bullet is-star">{o.label}</li>
+                <li key={o.id} className="game-bullet is-star"><Glyph name="star" label="Extra star" /> {o.label}</li>
               ))}
             </ul>
             <h2 className="game-section mt-3">Your advisors</h2>
@@ -275,28 +301,37 @@ export function Briefing() {
           </div>
           <div>
             <h2 className="game-section">Your tools</h2>
-            <div className="flex flex-wrap gap-1">
-              {mission.unlocks.map((l) => (
-                <span key={l} className="lab-chip lab-chip-info">{LEVER_NAMES[l]}</span>
-              ))}
-            </div>
-            <h2 className="game-section mt-2">Political capital</h2>
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-(length:--t-xs)">
-              <span className="game-counter is-votes"><VotesIcon /> {mission.politics.start.votes}</span>
-              <span className="game-counter is-trust"><TrustIcon /> {mission.politics.start.trust}</span>
-              <span className="text-[var(--lab-ink-2)]">
-                {mission.politics.elections.length ? `Elections end ${mission.politics.elections.map((q) => quarterLabel(q)).join(" and ")}; you need ${mission.politics.threshold} votes.` : "No elections in this mission."}
-              </span>
+            <table className="game-tools">
+              <thead>
+                <tr>
+                  <th scope="col">Tool</th>
+                  <th scope="col">What it does</th>
+                  <th scope="col">Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mission.unlocks.filter((l) => l !== "reforms").map((l) => (
+                  <tr key={l}>
+                    <th scope="row">{LEVER_NAMES[l]}</th>
+                    <td>{LEVER_DOES[l]}</td>
+                    <td>free</td>
+                  </tr>
+                ))}
+                {mission.politics.institutions.slice(0, 3).map((id) => (
+                  <tr key={id}>
+                    <th scope="row">{INSTITUTIONS[id].name}</th>
+                    <td>{INSTITUTIONS[id].effect}</td>
+                    <td><CostChips cost={INSTITUTIONS[id].cost} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {mission.politics.institutions.length > 3 ? <p className="game-tools-more">and {mission.politics.institutions.length - 3} more reforms under Reforms</p> : null}
+            <h2 className="game-section mt-3">Votes and trust</h2>
+            <p className="game-capital-note">
+              You start with <strong>Votes {mission.politics.start.votes} · Trust {mission.politics.start.trust}</strong>. Higher is better: votes come from growth and jobs, trust from hitting targets; reforms spend them.{" "}
+              {mission.politics.elections.length ? `Elections end ${mission.politics.elections.map((q) => quarterLabel(q)).join(" and ")}; you need ${mission.politics.threshold} votes.` : "No elections in this mission."}
             </p>
-            <ul className="mt-1 flex flex-col gap-0.5 text-(length:--t-xs)">
-              {mission.politics.institutions.slice(0, 4).map((id) => (
-                <li key={id} className="flex items-center justify-between gap-2">
-                  <span>{INSTITUTIONS[id].name}</span>
-                  <CostChips cost={INSTITUTIONS[id].cost} />
-                </li>
-              ))}
-              {mission.politics.institutions.length > 4 ? <li className="text-[var(--lab-ink-2)]">and {mission.politics.institutions.length - 4} more reforms</li> : null}
-            </ul>
             <p className="mt-2 text-(length:--t-xs) text-[var(--lab-ink-2)]">
               {mission.number === 0 ? `Data: IMF, ${WEO.vintage}. Policy rates, reserves and spreads are model estimates. ` : ""}
               {mission.quarters} quarters, {quarterLabel(1)} to {quarterLabel(mission.quarters)}. Watched: {Array.from(new Set(mission.objectives.map((o) => GAME_METRICS[o.metric].label.toLowerCase()))).join(", ")}.

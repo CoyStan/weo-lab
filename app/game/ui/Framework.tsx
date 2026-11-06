@@ -7,8 +7,10 @@ import { explain } from "../explain";
 import { channels, deltaTail, diagnose, policyTouched, SECTORS, unitTail, untouchedConfig, type Channel, type ChannelStatus, type FrameworkInput, type RowMeta, type Sector } from "../framework";
 import { forecastFor, useGame, type FrameworkTab } from "../store";
 import { useTurn } from "../useTurn";
+import { splitLead } from "./Advisors";
 import Decomp from "./Decomp";
 import Glyph from "./Glyph";
+import { Valence, type Tone } from "./Valence";
 import { useReducedMotion } from "./useTween";
 
 const TABS: { id: FrameworkTab; label: string; sub: string }[] = [
@@ -27,6 +29,9 @@ const OVERVIEW: { sector: Sector["id"]; key: RowMeta["key"] }[] = [
 ];
 
 const STATUS_WORD: Record<ChannelStatus, string> = { active: "Working", weak: "Muted", blocked: "Blocked", idle: "Idle" };
+
+/** Whether a change in an indicator helps or hurts (row.good: +1 higher is better, -1 lower is). */
+const rowTone = (row: RowMeta, effect: number): Tone => (!row.good || effect === 0 ? "neutral" : Math.sign(effect) === row.good ? "good" : "bad");
 
 const fmt = (v: number, d: number) => (Math.abs(v) < 0.5 * Math.pow(10, -d) ? (0).toFixed(d) : v.toFixed(d));
 const signed = (v: number, d: number) => {
@@ -98,9 +103,8 @@ function FrameworkPanel() {
         <nav className="game-fw-tabs" role="tablist" aria-label="Macro framework views">
           {TABS.map((t, i) => (
             <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? "is-on" : ""} onClick={() => setTab(t.id)}>
-              <span className="game-fw-tab-n" aria-hidden="true">{i + 1}</span>
               <span>
-                <strong>{t.label}</strong>
+                <strong><span className="game-fw-tab-n" aria-hidden="true">{i + 1}</span>{t.label}</strong>
                 <small>{t.sub}</small>
               </span>
             </button>
@@ -125,7 +129,7 @@ function FrameworkPanel() {
                   <button key={key} type="button" className="game-fw-tile" onClick={() => { setTab("accounts"); window.setTimeout(() => document.getElementById(`fw-sector-${sector}`)?.scrollIntoView({ block: "start" }), 50); }} title="Open this sector's accounts">
                     <span className="game-fw-tile-sector">
                       {SECTORS.find((x) => x.id === sector)!.title}
-                      <span aria-hidden="true" className="game-fw-tile-go">→</span>
+                      <Glyph name="arrow" className="game-fw-tile-go" />
                     </span>
                     <span className="game-fw-tile-label">{row.label}</span>
                     <span className="game-fw-tile-value">
@@ -134,12 +138,11 @@ function FrameworkPanel() {
                     </span>
                     <Spark rowKey={key} actual={actual} forecast={forecast} untouched={touched ? untouched : null} clock={clock} end={end} />
                     <span className="game-fw-tile-ends">
-                      <span>{actual[0].label} {actual[0][key].toFixed(row.digits)}</span>
-                      <span>{forecast[end].label} <b>{forecast[end][key].toFixed(row.digits)}</b></span>
+                      <span>{actual[0].label} {actual[0][key].toFixed(row.digits)}</span> <Glyph name="arrow" /> <span>{forecast[end].label} <b>{forecast[end][key].toFixed(row.digits)}</b></span>
                     </span>
                     {touched && Math.abs(effect) >= 0.05 ? (
                       <span className="game-fw-tile-foot">
-                        <b className={row.good ? (Math.sign(effect) === row.good ? "is-good" : "is-bad") : ""}>Your policies {effect > 0 ? "+" : ""}{effect.toFixed(row.digits)}</b>
+                        <b>Your policies <Glyph name={effect > 0 ? "up" : "down"} /> {effect > 0 ? "+" : ""}{effect.toFixed(row.digits)}</b> <Valence tone={rowTone(row, effect)} />
                       </span>
                     ) : null}
                   </button>
@@ -174,7 +177,7 @@ function FrameworkPanel() {
           <section className="game-fw-section" aria-label="How policy and shocks reach each sector">
             <PaletteKey />
             <p className="game-fw-sub">Each channel is a chain from a lever or a shock to the economy. Bars show what flowed through it in {shown.label}: demand in pp of the output gap, inflation in pp, debt in pp of GDP.</p>
-            <div className="game-fw-channels">
+            <div className="game-fw-channels" style={{ ["--tick" as string]: chanMax >= 1 ? `${50 / chanMax}%` : "200%" }}>
               <div className="game-fw-channel-scale">
                 <span>Channel</span>
                 <span>How it travels</span>
@@ -194,7 +197,12 @@ function FrameworkPanel() {
               <span><i className="is-forecast" /> Forecast with your policies</span>
               {touched ? <span><i className="is-untouched" /> Had you changed nothing</span> : null}
               <span className="ml-auto">“Your policies” = forecast minus the no-change path, at {forecast[end].label}</span>
-              <span className="game-fw-valence"><b className="game-fw-effect is-good">▲▼ helps a goal</b><b className="game-fw-effect is-bad">▲▼ hurts a goal</b><b className="game-fw-effect is-neutral">▲▼ neither</b></span>
+              <span className="game-fw-valence">
+                <span className="game-direction"><Glyph name="up" /><Glyph name="down" /> direction</span>
+                <Valence tone="good" label="helps a goal" />
+                <Valence tone="bad" label="hurts a goal" />
+                <span>no square: neither</span>
+              </span>
             </div>
             <nav className="game-fw-jump" aria-label="Jump to a sector">
               {SECTORS.map((sec) => (
@@ -224,15 +232,18 @@ function FrameworkPanel() {
   );
 }
 
-/** A Why note: the first sentence large, the rest clamped to two lines behind "More". */
+/** A Why note: its first full sentence, the rest behind "More"; never cut mid-word. */
 function WhyNote({ tone, title, text }: { tone: string; title: string; text: string }) {
   const [open, setOpen] = useState(false);
-  const long = text.length > 140;
+  const { lead, rest } = splitLead(text);
   return (
     <li className={`game-fw-note is-${tone}`}>
       <strong>{title}</strong>
-      <span className={long && !open ? "game-fw-note-text is-clamped" : "game-fw-note-text"}>{text}</span>
-      {long ? (
+      <span className="game-fw-note-text">
+        {lead}
+        {rest && open ? <> {rest}</> : null}
+      </span>
+      {rest ? (
         <button type="button" className="game-why" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
           {open ? "Less" : "More"}
         </button>
@@ -285,6 +296,7 @@ function ChannelCard({ channel: c, max }: { channel: Channel; max: number }) {
         ) : (
           <p className="game-fw-channel-none">Nothing flowed this quarter.</p>
         )}
+        <ChannelAxis max={max} row />
       </div>
     </article>
   );
@@ -292,11 +304,12 @@ function ChannelCard({ channel: c, max }: { channel: Channel; max: number }) {
 
 /** A bar on the channels' shared axis: zero in the middle, the value printed at the bar's end. */
 function AxisBar({ value, max }: { value: number; max: number }) {
-  const w = Math.min(50, (Math.abs(value) / max) * 50);
+  // Non-zero bars are at least 3px wide, so a small push is a bar, not a sliver.
+  const w = `max(3px, ${Math.min(50, (Math.abs(value) / max) * 50).toFixed(2)}%)`;
   return (
     <span className="game-fw-axisbar">
-      <span className={`game-fw-axisbar-fill ${value > 0 ? "is-pos" : "is-neg"}`} style={{ width: `${w}%`, [value > 0 ? "left" : "right"]: "50%" }} aria-hidden="true" />
-      <span className={`game-fw-axisbar-val ${value > 0 ? "is-pos" : "is-neg"}`} style={value > 0 ? { left: `calc(50% + ${w}% + 4px)` } : { right: `calc(50% + ${w}% + 4px)` }}>
+      <span className={`game-fw-axisbar-fill ${value > 0 ? "is-pos" : "is-neg"}`} style={{ width: w, [value > 0 ? "left" : "right"]: "50%" }} aria-hidden="true" />
+      <span className={`game-fw-axisbar-val ${value > 0 ? "is-pos" : "is-neg"}`} style={value > 0 ? { left: `calc(50% + ${w} + 4px)` } : { right: `calc(50% + ${w} + 4px)` }}>
         {signed(value, 2)}
       </span>
     </span>
@@ -304,9 +317,9 @@ function AxisBar({ value, max }: { value: number; max: number }) {
 }
 
 /** The shared scale under every channel's bars. */
-function ChannelAxis({ max }: { max: number }) {
+function ChannelAxis({ max, row = false }: { max: number; row?: boolean }) {
   return (
-    <div className="game-fw-axis" aria-hidden="true">
+    <div className={`game-fw-axis ${row ? "is-row" : ""}`} aria-hidden="true">
       <span>−{max.toFixed(1)}</span>
       <span>0</span>
       <span>+{max.toFixed(1)}</span>
@@ -385,12 +398,13 @@ function Row({ row, actual, forecast, untouched, clock, end, touched, shown, pre
         {signed(dq, row.digits)}
       </td>
       <td className="tabular-nums">{fmt(endV, row.digits)}</td>
-      <td className={`tabular-nums game-fw-effect ${!touched || Math.abs(effect) < 0.5 * Math.pow(10, -row.digits) ? "is-flat" : `${effect > 0 ? "is-up" : "is-down"} ${row.good ? (Math.sign(effect) === row.good ? "is-good" : "is-bad") : ""}`}`} title={row.good ? (row.good > 0 ? "Higher is better" : "Lower is better") : "Neither direction is good in itself"}>
+      <td className={`tabular-nums game-fw-effect ${!touched || Math.abs(effect) < 0.5 * Math.pow(10, -row.digits) ? "is-flat" : effect > 0 ? "is-up" : "is-down"}`} title={row.good ? (row.good > 0 ? "Higher is better" : "Lower is better") : "Neither direction is good in itself"}>
         {touched ? (
           <>
-            {Math.abs(effect) >= 0.5 * Math.pow(10, -row.digits) ? (effect > 0 ? "▲ " : "▼ ") : ""}
+            {Math.abs(effect) >= 0.5 * Math.pow(10, -row.digits) ? <><Glyph name={effect > 0 ? "up" : "down"} />{" "}</> : null}
             {signed(effect, row.digits)}
             {deltaTail(row.unit)}
+            {Math.abs(effect) >= 0.5 * Math.pow(10, -row.digits) ? <Valence tone={rowTone(row, effect)} /> : null}
           </>
         ) : (
           "—"

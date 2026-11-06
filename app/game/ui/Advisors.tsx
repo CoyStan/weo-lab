@@ -38,20 +38,45 @@ export function AdviceList({ advice, compact = false }: { advice: Advice[]; comp
   );
 }
 
-/** One line of advice by default; the full note on "More". */
+/**
+ * The lead, one complete sentence, always shown in full; the rest of the note
+ * appears on "More", and "More" only exists when there is more.
+ */
 function AdviceText({ text, compact }: { text: string; compact: boolean }) {
   const [open, setOpen] = useState(false);
-  const long = !compact && text.length > 64;
+  const { lead, rest } = splitLead(text);
+  const more = !compact && rest.length > 0;
   return (
     <>
-      <p className={`game-advice-text ${long && !open ? "is-clamped" : ""}`}>{emphasise(text)}</p>
-      {long ? (
+      <p className="game-advice-text">
+        {emphasise(lead)}
+        {more && open ? <> {emphasise(rest)}</> : null}
+      </p>
+      {more ? (
         <button type="button" className="game-why" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
           {open ? "Less" : "More"}
         </button>
       ) : null}
     </>
   );
+}
+
+/**
+ * Split a note into a lead (its first complete sentence) and the rest. A first sentence
+ * longer than about 90 characters breaks at its semicolon instead, so the lead stays short
+ * enough to read from across a room and is never cut mid-word.
+ */
+export function splitLead(text: string): { lead: string; rest: string } {
+  const m = text.match(/^(.+?[.!?])(?:\s+)([\s\S]*)$/);
+  let lead = m ? m[1] : text.trim();
+  let rest = m ? m[2].trim() : "";
+  const semi = lead.indexOf("; ");
+  if (lead.length > 90 && semi > 20) {
+    const tail = lead.slice(semi + 2);
+    rest = `${tail.charAt(0).toUpperCase()}${tail.slice(1)} ${rest}`.trim();
+    lead = `${lead.slice(0, semi)}.`;
+  }
+  return { lead, rest };
 }
 
 /** A one-word stance a room can read at a glance. */

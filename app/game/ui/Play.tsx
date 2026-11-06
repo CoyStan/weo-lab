@@ -9,6 +9,7 @@ import { sound } from "../audio";
 import { useSettings } from "../settings";
 import { useGame } from "../store";
 import { MoveStrip } from "./Goals";
+import Glyph from "./Glyph";
 import Capital from "./Capital";
 import Reforms from "./Reforms";
 import { Segmented } from "../../components/ui";
@@ -19,6 +20,7 @@ import Goals from "./Goals";
 import Levers from "./Levers";
 import { attention } from "../pacing";
 import { useLab, type FocusKey } from "../../store";
+import { fmtNum, GAME_METRICS, unitShort } from "../metrics";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -61,6 +63,23 @@ export default function Play({ scene }: { scene: ReactNode }) {
   const preset = getPreset(mission.presetId);
   const done = clock >= mission.quarters;
   const news = useMemo(() => events.filter((e) => e.quarter === clock && e.kind !== "decision"), [events, clock]);
+  // Phones: the End bar is fixed to the bottom; its height becomes --game-footer-h, so the
+  // scroll area can end clear of it (see game.css).
+  const footRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = footRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement;
+    const ro = new ResizeObserver(() => {
+      const fixed = getComputedStyle(el).position === "fixed";
+      root.style.setProperty("--game-footer-h", fixed ? `${Math.ceil(el.getBoundingClientRect().height)}px` : "0px");
+    });
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty("--game-footer-h");
+    };
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -100,6 +119,10 @@ export default function Play({ scene }: { scene: ReactNode }) {
       <header className="game-hud">
         <button type="button" className="game-logo" onClick={() => setScreen("title")} aria-label="Back to the title screen">
           <img src={`${base}/brand/palari-logo.svg`} alt="" width={68} height={28} />
+          <span className="game-wordmark" aria-hidden="true">
+            <span className="is-long">WEO Scenario Lab</span>
+            <span className="is-short">WEO Lab</span>
+          </span>
         </button>
         <div className="min-w-0">
           <p className="game-eyebrow !mb-0">{mission.number ? `Mission ${mission.number} of ${MISSIONS.length} · ${preset.name}` : mission.kicker.length < 40 ? mission.kicker : preset.name}</p>
@@ -170,6 +193,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
         <section className="game-stage" aria-label="Island">
           <div className="game-scene">
             {scene}
+            <SceneStrip />
             {run ? <RunTicker /> : null}
             <div className="game-scene-news">
               {news.map((e, i) => (
@@ -182,18 +206,20 @@ export default function Play({ scene }: { scene: ReactNode }) {
           </div>
           <div className="game-stage-foot">
             <Advisors />
-            <div className="game-end">
+            <div className="game-end" ref={footRef}>
               <div className="game-agenda-bar">
                 <Agenda />
               </div>
               <MoveStrip />
-              {changed ? <span className="game-end-note">You changed policy this quarter.</span> : <span className="game-end-note">No changes: policy carries on as it is.</span>}
+              <span className={`game-end-note ${modal || run ? "is-waiting" : ""}`}>
+                {modal ? `Waiting: close the ${modal.kind === "recap" ? "recap" : modal.kind === "shock" ? "news card" : "debrief"} first.` : run ? "Waiting: quarters are playing." : changed ? "You changed policy this quarter." : "No changes: policy carries on as it is."}
+              </span>
               <button type="button" className="game-end-btn" onClick={endQuarter} disabled={Boolean(modal) || done || Boolean(run)}>
                 End {quarterLabel(clock + 1)}
                 <kbd>Enter</kbd>
               </button>
               <button type="button" className="game-skip-btn" onClick={skipAhead} disabled={Boolean(modal) || done || Boolean(run)} title="Play quarter after quarter until something needs a decision (F)">
-                Skip quiet quarters <FastForwardIcon />
+                Skip quiet quarters <Glyph name="skip" />
                 <kbd>F</kbd>
               </button>
             </div>
@@ -207,6 +233,37 @@ export default function Play({ scene }: { scene: ReactNode }) {
         </aside>
       </main>
     </div>
+  );
+}
+
+/**
+ * The goals' figures in one ruled strip along the island's top edge, so the island itself
+ * keeps only the tag where something is happening (a pending decision or a district in
+ * trouble) and the districts' animations carry the rest. Hidden when the player asks for
+ * every tag on the island, or none.
+ */
+function SceneStrip() {
+  const { actual, clock, policy } = useTurn();
+  const spotlight = useLab((s) => s.spotlight);
+  const labels = useLab((s) => s.labels);
+  const troubled = useLab((s) => s.districtStatus);
+  if (labels !== "focus") return null;
+  const now = actual[clock];
+  const pending = policy.rateMode === "manual" && now.regime !== "peg" && Math.abs(policy.manualRate - now.rate) > 0.01;
+  const keys = spotlight.filter((k) => k in GAME_METRICS && !troubled[k] && !(k === "rate" && pending)) as (keyof typeof GAME_METRICS)[];
+  if (!keys.length) return null;
+  return (
+    <p className="game-scene-strip" aria-label="On the island now">
+      {keys.map((k) => {
+        const meta = GAME_METRICS[k];
+        const unit = unitShort(meta.unit);
+        return (
+          <span key={k}>
+            {meta.label} <b className="tabular-nums">{fmtNum(now[k], k === "rate" ? 2 : meta.digits)}{unit === "%" ? "%" : unit}</b>
+          </span>
+        );
+      })}
+    </p>
   );
 }
 
@@ -240,8 +297,8 @@ function DecisionLog() {
   const inheritedText = start.decisions.filter((d) => d.quarter === 0).map((d) => describeChanges(d.changes)).join(" · ");
   const mine = config.decisions.filter((d) => d.quarter >= 1 && d.quarter <= clock && !inherited.has(JSON.stringify(d))).sort((a, b) => b.quarter - a.quarter);
   return (
-    <section className="game-log" aria-label="Your decisions so far">
-      <h3>Your decisions so far</h3>
+    <details className="game-log">
+      <summary>Your decisions so far{mine.length ? ` · ${mine.length}` : ""}</summary>
       <table className="game-log-table">
         <thead>
           <tr>
@@ -262,7 +319,7 @@ function DecisionLog() {
           </tr>
         </tbody>
       </table>
-    </section>
+    </details>
   );
 }
 
@@ -306,14 +363,6 @@ function HudMenu({ clock }: { clock: number }) {
   );
 }
 
-function FastForwardIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
-      <path d="M1.5 3.2v9.6a.5.5 0 0 0 .8.4L8 8.4V12.8a.5.5 0 0 0 .8.4l6.4-4.8a.5.5 0 0 0 0-.8L8.8 2.8a.5.5 0 0 0-.8.4v4.4L2.3 2.8a.5.5 0 0 0-.8.4Z" />
-    </svg>
-  );
-}
-
 function ChartIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
@@ -324,7 +373,7 @@ function ChartIcon() {
 
 /** What needs a decision this quarter, or a note that it is quiet. */
 function Agenda() {
-  const { mission, config, clock, statuses, forecast, actual, policy, books } = useTurn();
+  const { mission, config, clock, statuses, forecast, actual, policy, books, deciding } = useTurn();
   if (clock >= mission.quarters) return null;
   const items = attention({ mission, config, clock, statuses, forecast, actual, policy, votes: books?.votes ?? 0 });
   if (!items.length) {
@@ -337,7 +386,8 @@ function Agenda() {
   }
   return (
     <div className="game-agenda" role="status">
-      <strong>Decide now{items.length > 1 ? ` · ${items.length} things` : ""}</strong>
+      <strong>Decide now for {deciding}{items.length > 1 ? ` · ${items.length} things` : ""}</strong>
+      {clock === 0 ? <span className="game-agenda-note">What you set stays in force until you change it.</span> : null}
       <ul>
         {items.slice(0, 3).map((a) => (
           <li key={a.key} className={`is-${a.tone}`}>{a.text}</li>

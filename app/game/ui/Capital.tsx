@@ -23,19 +23,13 @@ export function TrustIcon({ size = 14 }: { size?: number }) {
 
 export const CURRENCY_NAME: Record<Currency, string> = { votes: "Votes", trust: "Trust" };
 
+/** What a reform costs, in words: "costs 2 votes · 1 trust". */
 export function CostChips({ cost }: { cost: Cost }) {
+  const parts = [cost.votes ? `${cost.votes} vote${cost.votes === 1 ? "" : "s"}` : "", cost.trust ? `${cost.trust} trust` : ""].filter(Boolean);
+  if (!parts.length) return null;
   return (
-    <span className="inline-flex gap-1">
-      {cost.votes ? (
-        <span className="game-cost is-votes" title={`${cost.votes} votes`}>
-          <VotesIcon size={12} /> {cost.votes}
-        </span>
-      ) : null}
-      {cost.trust ? (
-        <span className="game-cost is-trust" title={`${cost.trust} trust`}>
-          <TrustIcon size={12} /> {cost.trust}
-        </span>
-      ) : null}
+    <span className="game-cost" title="Political capital this costs">
+      costs {parts.join(" · ")}
     </span>
   );
 }
@@ -68,8 +62,10 @@ function Counter({ currency, value, hint }: { currency: Currency; value: number;
   }, [value]);
   return (
     <span className={`game-counter is-${currency} ${value < 0 ? "is-negative" : ""}`} title={hint} aria-label={`${CURRENCY_NAME[currency]} ${value}`}>
-      {currency === "votes" ? <VotesIcon /> : <TrustIcon />}
-      <span className="max-sm:hidden">{CURRENCY_NAME[currency]}</span>
+      <span className="game-counter-name">
+        <span className="is-long">{CURRENCY_NAME[currency]}</span>
+        <span className="is-short" aria-hidden="true">{CURRENCY_NAME[currency].charAt(0)}</span>
+      </span>
       <strong className="tabular-nums">{value}</strong>
       {delta ? (
         <span key={delta.key} className={`game-counter-float ${delta.v > 0 ? "is-up" : "is-down"}`} aria-hidden="true">

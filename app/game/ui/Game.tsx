@@ -37,6 +37,8 @@ export default function Game() {
   const setTheme = useLab((s) => s.setTheme);
   const theme = getTheme(themeId);
   const reducedMotion = useSettings((s) => s.reducedMotion);
+  // Any card or the framework open: the island's tags and news step back (see game.css).
+  const hasModal = useGame((s) => Boolean(s.modal) || s.framework);
   const loadSettings = useSettings((s) => s.load);
 
   useEffect(() => loadSettings(), [loadSettings]);
@@ -106,7 +108,7 @@ export default function Game() {
   if (screen === "sandbox") return <WeoLab key="sandbox" restoreSaved={!sandboxKeep} />;
 
   return (
-    <div className={`lab game ${reducedMotion ? "is-reduced" : ""} min-h-dvh bg-[var(--lab-bg)] text-[var(--lab-ink)]`} data-theme={theme.id} style={{ ...(theme.vars as React.CSSProperties), colorScheme: theme.scheme }}>
+    <div className={`lab game ${reducedMotion ? "is-reduced" : ""} ${hasModal ? "has-modal" : ""} min-h-dvh bg-[var(--lab-bg)] text-[var(--lab-ink)]`} data-theme={theme.id} style={{ ...(theme.vars as React.CSSProperties), colorScheme: theme.scheme }}>
       {theme.css ? <style>{theme.css}</style> : null}
       {screen === "play" ? (
         <Play scene={<IslandScene />} />

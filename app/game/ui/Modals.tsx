@@ -12,6 +12,7 @@ import { forecastFor, useGame, type Recap } from "../store";
 import { withDecision } from "../useTurn";
 import { AdviceList } from "./Advisors";
 import Glyph from "./Glyph";
+import { Valence, type Tone } from "./Valence";
 import { annual } from "../calibrate";
 import { getStartYear, simulate } from "../../model/economy";
 import type { Mission } from "../missions";
@@ -52,7 +53,7 @@ export default function Modals() {
   // The framework opened from a recap replaces it on screen; closing the framework brings the recap back.
   if (!modal || framework) return null;
   return (
-    <div className="game-modal-backdrop" role="presentation">
+    <div className={`game-modal-backdrop is-${modal.kind}`} role="presentation">
       {modal.kind === "recap" ? <RecapCard recap={modal.recap} /> : modal.kind === "shock" ? <ShockCard ids={modal.shocks.map((s) => s.id)} /> : <DebriefCard />}
     </div>
   );
@@ -82,8 +83,8 @@ function RecapCard({ recap }: { recap: Recap }) {
         {lead !== recap.headline.text ? <p className="game-dek">{recap.headline.text}</p> : null}
       </div>
       <div className="game-stamp-row">
-        <StarNote mission={mission} recap={recap} />
         <Stamp mission={mission} recap={recap} />
+        <StarNote mission={mission} recap={recap} />
       </div>
 
       {recap.stopReasons ? (
@@ -122,13 +123,13 @@ function RecapCard({ recap }: { recap: Recap }) {
                 <CountUp from={recap.prev[m]} to={recap.now[m]} digits={meta.digits} />
                 <span className="game-recap-unit">{unitShort(meta.unit)}</span>
               </span>
-              <span className={`game-recap-change whitespace-nowrap font-semibold tabular-nums ${verdict(mission, m, d)}`}>
+              <span className={`game-recap-change whitespace-nowrap font-semibold tabular-nums ${outcomeTone(mission, m, d)}`}>
                 {Math.abs(d) < 0.05 ? (
                   "unchanged"
                 ) : (
                   <>
                     <Glyph name={d > 0 ? "up" : "down"} /> {fmtNum(Math.abs(d), meta.digits)}
-                    {deltaUnit(meta.unit)}
+                    {deltaUnit(meta.unit)} <Valence tone={toneFor(mission, m, d)} />
                   </>
                 )}
                 <span className="block text-(length:--t-xs) font-normal text-[var(--lab-ink-2)]">{recap.from !== undefined && recap.quarter - recap.from > 1 ? "over the stretch" : "this quarter"}</span>
@@ -283,7 +284,7 @@ function DebriefCard() {
         <div className="game-stars" aria-label={`${outcome.stars} of 3 stars`}>
           {[1, 2, 3].map((n) => (
             <span key={n} className={n <= outcome.stars ? "is-on" : ""} style={{ animationDelay: `${n * STAR_STAGGER}ms` }}>
-              ★
+              <Glyph name={n <= outcome.stars ? "star" : "star-outline"} />
             </span>
           ))}
         </div>
@@ -426,27 +427,22 @@ function OutcomeChips({ mission, config, clock, changes }: { mission: Mission; c
     <span className="game-outcomes" title={`Effect by ${quarterLabel(end)}, against holding policy`}>
       {parts.map((p) => (
         <span key={p.m} className={`game-outcome ${outcomeTone(mission, p.m, p.d)}`}>
-          <Glyph name={p.d > 0 ? "up" : "down"} /> {GAME_METRICS[p.m].label} {fmtNum(Math.abs(p.d), GAME_METRICS[p.m].digits)}
-          {deltaUnit(GAME_METRICS[p.m].unit)}
+          {GAME_METRICS[p.m].label} <Glyph name={p.d > 0 ? "up" : "down"} /> {fmtNum(Math.abs(p.d), GAME_METRICS[p.m].digits)}
+          {deltaUnit(GAME_METRICS[p.m].unit)} <Valence tone={toneFor(mission, p.m, p.d)} />
         </span>
       ))}
     </span>
   );
 }
 
-/** Colour a change by whether it moves toward the mission's goal for that metric. */
-function verdict(mission: Mission, metric: string, d: number): string {
+/** Whether a change moves toward the mission's goal for that metric. */
+function toneFor(mission: Mission, metric: string, d: number): Tone {
   const o = mission.objectives.find((x) => x.metric === metric && !x.bonus) ?? mission.objectives.find((x) => x.metric === metric);
-  if (!o || Math.abs(d) < 0.05) return "text-[var(--lab-ink-2)]";
-  const good = o.op === "<=" ? d < 0 : d > 0;
-  return good ? "text-[var(--lab-good)]" : "text-[var(--lab-bad)]";
+  if (!o || Math.abs(d) < 0.05) return "neutral";
+  return (o.op === "<=" ? d < 0 : d > 0) ? "good" : "bad";
 }
 
-function outcomeTone(mission: Mission, metric: string, d: number): string {
-  const o = mission.objectives.find((x) => x.metric === metric && !x.bonus) ?? mission.objectives.find((x) => x.metric === metric);
-  if (!o) return "";
-  return (o.op === "<=" ? d < 0 : d > 0) ? "is-good" : "is-bad";
-}
+const outcomeTone = (mission: Mission, metric: string, d: number) => `is-${toneFor(mission, metric, d)}`;
 
 const trimNum = (v: number, d: number) => v.toFixed(d).replace(/\.?0+$/, "");
 
@@ -507,7 +503,7 @@ function GoalLine({ mission, metric }: { mission: Mission; metric: keyof typeof 
   );
 }
 
-/** The quarter's verdict, stamped on the paper: every goal on track, or not. */
+/** The quarter's verdict, leading under the headline: every goal on track, or not. */
 function Stamp({ mission, recap }: { mission: Mission; recap: Recap }) {
   const main = recap.statuses.filter((st) => !mission.objectives.find((o) => o.id === st.id)?.bonus);
   if (!main.length) return null;
@@ -525,7 +521,7 @@ function StarNote({ mission, recap }: { mission: Mission; recap: Recap }) {
     const st = recap.statuses.find((x) => x.id === o.id)?.after;
     return st === "at-risk" || st === "failed";
   });
-  if (!bonus.length) return <span />;
+  if (!bonus.length) return null;
   return (
     <p className="game-stamp-note">
       <Glyph name="star" />{" "}

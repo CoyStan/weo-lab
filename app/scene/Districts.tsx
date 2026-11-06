@@ -115,7 +115,7 @@ function HexBadge({ color, active, breached, reducedMotion, scale }: { color: st
 const NARROW_CANVAS = 560;
 const useNarrowCanvas = () => useThree((s) => s.size.width < NARROW_CANVAS);
 
-function District({ focusKey, position, labelY, labelX = 0, pendingLabel, dockPending = false, dockValue, title, value, next, bad, tilt, children, reducedMotion }: {
+function District({ focusKey, position, labelY, labelX = 0, pendingLabel, dockPending = false, dockValue, title, value, next, delta, bad, tilt, children, reducedMotion }: {
   focusKey: FocusKey;
   position: [number, number, number];
   labelY: number;
@@ -129,6 +129,8 @@ function District({ focusKey, position, labelY, labelX = 0, pendingLabel, dockPe
   title: string;
   value: string;
   next?: string;
+  /** The lever's move, "+2.00", flashed on the tag for a moment when it changes. */
+  delta?: string;
   bad?: boolean;
   tilt?: number;
   children: ReactNode;
@@ -148,7 +150,11 @@ function District({ focusKey, position, labelY, labelX = 0, pendingLabel, dockPe
   const group = useRef<THREE.Group>(null);
   const focused = focus === focusKey;
   const active = hover || focused;
-  const showLabel = labels === "all" || active || breached || spotlit || Boolean(goalStatus);
+  // In the game, the goals' figures sit in a ruled strip on the scene's top edge (see Play),
+  // so a tag stays on the island only where something is happening: a pending decision, a
+  // district in trouble, or the one under the pointer. Free play keeps its spotlight tags.
+  const inGame = labels === "focus";
+  const showLabel = labels === "all" || active || breached || (spotlit && !inGame) || Boolean(goalStatus);
   const narrow = useNarrowCanvas();
   const dock = next && dockPending && narrow ? "top-right" : undefined;
   // A pending banner can ride somewhere else so it clears its neighbours; once the camera
@@ -233,7 +239,7 @@ function District({ focusKey, position, labelY, labelX = 0, pendingLabel, dockPe
         <ringGeometry args={[2.1, 2.45, 48]} />
         <meshBasicMaterial color={color} transparent opacity={0} depthWrite={false} />
       </mesh>
-      <Label position={labelPos} title={breached ? `${title} · constraint breached` : title} value={dock && dockValue ? dockValue : value} next={next} bad={bad || breached} focus={active || Boolean(next)} tilt={tilt} hidden={!showLabel && !next} accent={color} icon={style.icon} dock={dock} status={goalStatus} />
+      <Label position={labelPos} title={breached ? `${title} · constraint breached` : title} value={dock && dockValue ? dockValue : value} next={next} delta={delta} bad={bad || breached} focus={active || Boolean(next)} tilt={tilt} hidden={!showLabel && !next} accent={color} icon={style.icon} dock={dock} status={goalStatus} />
     </group>
   );
 }
@@ -394,7 +400,7 @@ function CentralBank({ reducedMotion }: { reducedMotion: boolean }) {
   // A pending decision rides high and to the right of the dome so it never covers the
   // top of the debt tower next door; on a phone it pins to the canvas corner instead.
   return (
-    <District focusKey="rate" pad={2.35} position={DISTRICT_POS.rate!} labelY={6.1} labelX={-1.5} pendingLabel={[9.6, 3.0]} dockPending dockValue={`${fmt(current.rate, 2)}%`} title="Policy rate" value={`${fmt(current.rate, 2)}% · ${stanceWord}`} next={next} tilt={0.8} reducedMotion={reducedMotion}>
+    <District focusKey="rate" pad={2.35} position={DISTRICT_POS.rate!} labelY={6.1} labelX={-1.5} pendingLabel={[9.6, 3.0]} dockPending dockValue={`${fmt(current.rate, 2)}%`} title="Policy rate" value={next ? `${fmt(current.rate, 2)}%` : `${fmt(current.rate, 2)}% · ${stanceWord}`} next={next} delta={next ? fmt(policy.manualRate - current.rate, 2, true) : undefined} tilt={0.8} reducedMotion={reducedMotion}>
       <mesh position-y={0.15} receiveShadow castShadow>
         <cylinderGeometry args={[2.0, 2.1, 0.3, 8]} />
         <meshStandardMaterial color={P.stone} roughness={1} flatShading={P.flat} />
@@ -1212,7 +1218,10 @@ function CityBanner() {
   const presetId = useLab((s) => s.config.presetId);
   const gdp = useLab((s) => Math.round(s.result.path[Math.min(s.clock, s.result.path.length - 1)].gdpLevel));
   const narrow = useNarrowCanvas();
+  const inGame = useLab((s) => s.labels === "focus");
   const { x, z } = WORLD.sites.center;
+  // In the game the GDP index is chrome over the town: the goal cards carry the figures.
+  if (inGame) return null;
   return <Label position={[x - 0.8, TOP + 1.5, z]} title={getPreset(presetId).name} value={`GDP index ${gdp}`} accent={P.border} icon="crown" capital dock={narrow ? "bottom-left" : undefined} />;
 }
 

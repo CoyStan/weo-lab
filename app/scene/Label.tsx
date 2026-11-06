@@ -1,6 +1,7 @@
 "use client";
 
 import { Html } from "@react-three/drei";
+import Glyph from "../game/ui/Glyph";
 import { labelLayer } from "./labelLayer";
 
 export type IconName = "crown" | "scroll" | "bank" | "gauge" | "factory" | "anchor" | "coins" | "house" | "beacon" | "drop";
@@ -46,6 +47,7 @@ export default function Label({
   icon,
   capital = false,
   next,
+  delta,
   dock,
   status,
 }: {
@@ -60,8 +62,10 @@ export default function Label({
   icon?: IconName;
   /** The capital's banner: larger, ink-filled. */
   capital?: boolean;
-  /** A decision taken this quarter that hasn't played out yet, shown as "→ next". */
+  /** A decision taken this quarter that hasn't played out yet: "now 8.50% · next 10.50%". */
   next?: string;
+  /** The size of the move, "+2.00": flashed beside the tag for about two seconds when it changes. */
+  delta?: string;
   /** Pin the banner to a corner of the canvas instead of the building (phones). */
   dock?: LabelDock;
   /** The district's goal is in trouble: shown as the goal cards show it, a square and a word. */
@@ -83,11 +87,26 @@ export default function Label({
         ) : null}
         <span className="lab-banner-text">
           <span className="lab-banner-title">{title}</span>{" "}
+          {next ? (
+            <>
+              <span className="lab-banner-word">now</span>{" "}
+            </>
+          ) : null}
           <strong key={value} className="lab-banner-value">
             {value}
-            {next ? <em className="lab-banner-next"> → {next}</em> : null}
           </strong>
+          {next ? (
+            <span className="lab-banner-next">
+              {" "}
+              <Glyph name="arrow" /> <span className="lab-banner-word">next</span> <strong>{next}</strong>
+            </span>
+          ) : null}
         </span>
+        {next && delta ? (
+          <span key={`${delta}:${next}`} className="lab-banner-delta">
+            {delta}
+          </span>
+        ) : null}
         {status ? <span className={`lab-banner-status is-${status}`}>{status === "failed" ? "off track" : "at risk"}</span> : null}
       </div>
     </Html>

@@ -4098,3 +4098,337 @@ html:not(.is-kbd) .game button:focus-visible {
     color: var(--lab-ink-2);
   }
 }
+
+/* ---- Design council, Ledger round 2 ---------------------------------------- */
+
+/* Helps or hurts a goal: a square and a word, never colour alone (Valence.tsx). Filled
+   square = helps, hollow = hurts. The triangle beside a figure is direction only, in ink. */
+.game-valence {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  margin-left: 0.4em;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+.game-valence-mark {
+  display: inline-block;
+  flex: none;
+  width: 0.7em;
+  height: 0.7em;
+  box-sizing: border-box;
+}
+.game-valence.is-good {
+  color: var(--lab-good);
+}
+.game-valence.is-good .game-valence-mark {
+  background: var(--lab-good-mark);
+}
+.game-valence.is-bad {
+  color: var(--lab-bad);
+}
+.game-valence.is-bad .game-valence-mark {
+  border: 1.5px solid var(--lab-alert);
+  background: transparent;
+}
+.game-direction {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.1em;
+  color: var(--lab-ink);
+}
+:is(.game-move-chip, .game-probe-chip, .game-outcome, .game-move-strip-d, .game-recap-change, .game-fw-effect):is(.is-good, .is-bad, .is-neutral, .is-up, .is-down),
+.game-move-chip,
+.game-probe-chip,
+.game-fw-tile-foot b {
+  color: var(--lab-ink);
+}
+.game-move-strip .game-move-strip-d.is-good,
+.game-move-strip .game-move-strip-d.is-bad {
+  color: var(--lab-ink);
+}
+.game-fw-valence {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1rem;
+}
+.game-fw-valence .game-valence {
+  margin-left: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+/* Channel bars: a label knocks the zero line out behind it, like type over a chart rule. */
+.game-fw-channel .game-fw-link > span:first-child {
+  position: relative;
+  z-index: 1;
+  justify-self: start;
+  max-width: 100%;
+  background: var(--lab-paper);
+  padding-right: 0.35rem;
+}
+
+/* Island: the goals' figures sit in one ruled strip along the scene's top edge; tags stay
+   on the island only where something is happening. */
+.game-scene-strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: 0.1rem;
+  margin: 0;
+  border-bottom: 1px solid var(--lab-ink);
+  background: color-mix(in srgb, var(--lab-paper) 94%, transparent);
+  padding: 0.35rem 0.85rem;
+  font-size: var(--t-sm);
+  line-height: 1.3;
+  color: var(--lab-ink);
+  pointer-events: none;
+}
+.game-scene-strip > span + span {
+  margin-left: 0.85rem;
+  border-left: 1px solid var(--lab-line-strong);
+  padding-left: 0.85rem;
+}
+.game-scene-strip b {
+  font-weight: 700;
+}
+.game-scene:has(.game-scene-strip) .game-scene-news {
+  top: 3rem;
+}
+@media (max-width: 640px) {
+  .game-scene-strip {
+    display: none;
+  }
+}
+.lab-banner-word {
+  font-weight: 400;
+  color: var(--lab-ink-2);
+}
+.lab-banner-next .game-glyph {
+  vertical-align: -0.05em;
+}
+/* The size of a lever's move, flashed above the tag for two seconds, then gone. */
+.lab-banner-delta {
+  position: absolute;
+  right: -1px;
+  bottom: calc(100% + 3px);
+  background: var(--lab-ink);
+  padding: 0.05rem 0.4rem;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  color: var(--lab-paper);
+  animation: lab-delta-fade 2.2s var(--ease) both;
+}
+@keyframes lab-delta-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  10%,
+  75% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+.is-reduced .lab-banner-delta {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lab-banner-delta {
+    display: none;
+  }
+}
+
+/* While any card or the framework is open, the island's tags, news and strip step back. */
+.lab.has-modal .lab-scene-label,
+.lab.has-modal .game-scene-news,
+.lab.has-modal .game-scene-strip {
+  visibility: hidden;
+}
+
+/* Channels: one palette token for "expectations, markets, the currency", one zero line
+   through every row at the same x with hairline ticks at +/-1, a wider track. */
+.game,
+.lab {
+  --dc-mixed: color-mix(in srgb, var(--lab-ink) 45%, var(--lab-paper));
+}
+.game-fw-palette .is-mixed,
+.game-why-bar.is-kind-mixed,
+.game-fw-channel.is-mixed .game-why-bar,
+.game-fw-channel.is-mixed .game-fw-axisbar-fill {
+  background: var(--dc-mixed);
+}
+@media (min-width: 761px) {
+  .game-fw-channel-scale,
+  .game-fw-channel {
+    grid-template-columns: minmax(9rem, 13rem) minmax(0, 1fr) minmax(19rem, 23rem);
+  }
+}
+.game-fw-channel-bars {
+  align-self: stretch;
+}
+.game-fw-channel-bars,
+.game-fw-channel-scale .game-fw-axis {
+  background-image: linear-gradient(var(--lab-ink), var(--lab-ink)), linear-gradient(var(--lab-line), var(--lab-line)), linear-gradient(var(--lab-line), var(--lab-line));
+  background-size: 1px 100%;
+  background-repeat: no-repeat;
+  background-origin: content-box;
+  background-clip: content-box;
+  background-position: 50% 0, calc(50% - var(--tick, 200%)) 0, calc(50% + var(--tick, 200%)) 0;
+}
+.game-fw-channel-scale .game-fw-axis {
+  background-size: 1px 5px;
+  background-position: 50% 100%, calc(50% - var(--tick, 200%)) 100%, calc(50% + var(--tick, 200%)) 100%;
+  padding-bottom: 6px;
+}
+.game-fw-axisbar {
+  background: none;
+}
+.game-fw-axis.is-row {
+  display: none;
+}
+@media (max-width: 760px) {
+  .game-fw-axis.is-row {
+    display: flex;
+    margin-top: 0.25rem;
+    background: none;
+    font-size: var(--t-xs);
+    color: var(--lab-ink-2);
+  }
+}
+
+/* Recap: the verdict leads under the headline; the bonus-star line follows. */
+.game-stamp-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+}
+
+/* Missions: the next playable mission leads as a double-width card. */
+@media (min-width: 640px) {
+  .game-mission-lead {
+    grid-column: span 2;
+  }
+}
+.game-mission-play {
+  align-self: flex-start;
+  margin-top: 0.6rem;
+  background: var(--lab-ink);
+  padding: 0.45rem 0.9rem;
+  font-weight: 700;
+  color: var(--lab-paper);
+}
+
+/* Briefing: tools as a ruled table. */
+.game-tools {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-xs);
+  line-height: 1.35;
+}
+.game-tools th,
+.game-tools td {
+  border-bottom: 1px solid var(--lab-line);
+  padding: 0.3rem 0.6rem 0.3rem 0;
+  text-align: left;
+  vertical-align: top;
+}
+.game-tools thead th {
+  border-bottom: 1px solid var(--lab-ink);
+  font-weight: 600;
+  color: var(--lab-ink-2);
+}
+.game-tools tbody th {
+  font-weight: 700;
+}
+.game-tools td:last-child,
+.game-tools th:last-child {
+  padding-right: 0;
+  white-space: nowrap;
+}
+.game-tools-more,
+.game-capital-note {
+  margin-top: 0.3rem;
+  font-size: var(--t-xs);
+  line-height: 1.4;
+  color: var(--lab-ink-2);
+}
+.game-capital-note strong {
+  color: var(--lab-ink);
+}
+.game-brief-more > summary {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.game-bullet.is-star {
+  padding-left: 0;
+}
+.game-bullet.is-star::before {
+  display: none;
+}
+
+/* The HUD wordmark: off by default; designs that want the product name in type show it. */
+.game-wordmark {
+  display: none;
+}
+.game-counter-name .is-short {
+  display: none;
+}
+
+/* Decisions so far: behind a disclosure. */
+.game-log > summary {
+  cursor: pointer;
+}
+.game-agenda-note {
+  display: block;
+}
+
+/* Decomposition key: groups on the left, how it is measured on the right. */
+@media (min-width: 1024px) {
+  .game-dc-key {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0 2rem;
+    align-items: start;
+  }
+  .game-dc-key > .game-dc-table {
+    max-width: none;
+  }
+  .game-dc-key > .game-dc-note {
+    margin-top: 0.5rem;
+    border-left: 1px solid var(--lab-line-strong);
+    padding-left: 2rem;
+  }
+}
+/* Drawn glyphs inside the Why tiles keep their type size (the tile's sparkline rule
+   would otherwise stretch them). */
+.game-fw-tile svg.game-glyph {
+  width: 0.8em;
+  height: 0.8em;
+}
+.game-fw-tile-sector {
+  align-items: baseline;
+  gap: 0.4rem;
+}
+.game-fw-tile-go {
+  color: var(--lab-ink);
+}
+.game-fw-tile-foot b {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25em;
+}

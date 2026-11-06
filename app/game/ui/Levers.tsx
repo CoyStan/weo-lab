@@ -40,11 +40,6 @@ export default function Levers() {
 
   return (
     <div className="flex flex-col gap-1">
-      {clock === 0 ? (
-        <p className="game-turn-note">
-          Decisions for <strong>{deciding}</strong>. They stay in force until you change them.
-        </p>
-      ) : null}
 
       {unlocked.has("rate") || unlocked.has("rule") ? (
         <LeverGroup title="Interest rate">
@@ -146,7 +141,7 @@ export default function Levers() {
               />
               {!startedControls ? (
                 <span className="game-hint inline-flex items-center gap-1">
-                  Imposing them costs <CostChips cost={MOVE_COSTS.controls.cost} /> {balance.trust < (MOVE_COSTS.controls.cost.trust ?? 0) ? "(you'll go into the red)" : ""}
+                  Imposing them <CostChips cost={MOVE_COSTS.controls.cost} /> {balance.trust < (MOVE_COSTS.controls.cost.trust ?? 0) ? "(you'll go into the red)" : ""}
                 </span>
               ) : null}
             </Lever>
@@ -202,7 +197,7 @@ export default function Levers() {
               />
               {!startedImf ? (
                 <span className="game-hint inline-flex items-center gap-1">
-                  Starting a programme costs <CostChips cost={MOVE_COSTS.imf.cost} /> {balance.votes < (MOVE_COSTS.imf.cost.votes ?? 0) ? "(you'll go into the red)" : ""}
+                  Starting a programme <CostChips cost={MOVE_COSTS.imf.cost} /> {balance.votes < (MOVE_COSTS.imf.cost.votes ?? 0) ? "(you'll go into the red)" : ""}
                 </span>
               ) : null}
               {policy.imfProgram > 0 && policy.fiscalAdjustment < 0.5 ? <span className="game-warn">Paused: the programme needs at least +0.5 pp of tightening.</span> : null}

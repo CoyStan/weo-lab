@@ -12,6 +12,7 @@ import { useGame } from "../store";
 import { DECOMP_METRICS, type DecompMetric } from "../decompose";
 import { DUR, useTween } from "./useTween";
 import Glyph from "./Glyph";
+import { Valence, type Tone } from "./Valence";
 
 const DECOMPOSABLE = new Set<string>(DECOMP_METRICS.map((m) => m.key));
 
@@ -96,6 +97,7 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
               <small>Try it</small>
               <Glyph name={probeDelta > 0 ? "up" : "down"} /> {fmtNum(Math.abs(probeDelta), meta.digits)}
               {deltaUnit(meta.unit)}
+              <Valence tone={toneOf(objectives, probeDelta)} />
             </span>
           ) : (
             <span className="game-probe-chip is-neutral"><small>Try it</small> no change</span>
@@ -107,9 +109,9 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
 
       <ul className="game-goal-lines">
         {judged.map((o) => (
-          <li key={o.id}>
+          <li key={o.id} title={o.label}>
             <span className={`game-status is-${statuses[o.id]}`}>{STATUS_TEXT[statuses[o.id]]}</span>
-            <span className="game-goal-label">{o.label}</span>
+            <span className={judged.length > 1 ? "game-goal-label" : "sr-only"}>{o.label}</span>
           </li>
         ))}
       </ul>
@@ -118,8 +120,8 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
           {stars.map((o) => (
             <li key={o.id} className={`is-${statuses[o.id]}`}>
               <Glyph name="star" label="Extra star" />
+              <span className="game-goal-star-state">{STATUS_TEXT[statuses[o.id]].toLowerCase()}</span>
               <span>{o.label}</span>
-              <span className="game-goal-star-state">· {STATUS_TEXT[statuses[o.id]].toLowerCase()}</span>
             </li>
           ))}
         </ul>
@@ -203,8 +205,8 @@ function TweenNum({ value, digits }: { value: number; digits: number }) {
 /**
  * "Your move": what this quarter's changes do by the end. The number counts in
  * from 0 when the chip appears and eases as a lever moves, in step with the
- * goal figures. The triangle gives the direction; the colour says whether that
- * helps or hurts the goal.
+ * goal figures. The ink triangle gives the direction; the square and word after it
+ * say whether that helps or hurts the goal.
  */
 function MoveChip({ metric, objectives, delta, end }: { metric: MetricKey; objectives: Objective[]; delta: number; end: number }) {
   const meta = GAME_METRICS[metric];
@@ -216,15 +218,18 @@ function MoveChip({ metric, objectives, delta, end }: { metric: MetricKey; objec
       <small>Your move</small>
       <Glyph name={delta > 0 ? "up" : "down"} /> {fmtNum(Math.abs(shown), meta.digits)}
       {deltaUnit(meta.unit)}
+      <Valence tone={toneOf(objectives, delta)} />
     </span>
   );
 }
 
-function moveTone(objectives: Objective[], d: number): string {
+function toneOf(objectives: Objective[], d: number): Tone {
   const o = mainObjective(objectives);
-  if (!o || Math.abs(d) < 0.05) return "is-neutral";
-  return (o.op === "<=" ? d < 0 : d > 0) ? "is-good" : "is-bad";
+  if (!o || Math.abs(d) < 0.05) return "neutral";
+  return (o.op === "<=" ? d < 0 : d > 0) ? "good" : "bad";
 }
+
+const moveTone = (objectives: Objective[], d: number) => `is-${toneOf(objectives, d)}`;
 
 function WhyBars({ metric, state, prev }: { metric: MetricKey; state: QuarterState; prev: QuarterState }) {
   const meta = GAME_METRICS[metric];
@@ -254,7 +259,7 @@ function WhyBars({ metric, state, prev }: { metric: MetricKey; state: QuarterSta
 }
 
 const W = 300;
-const H = 132;
+const H = 108;
 const PAD = { l: 30, r: 44, t: 10, b: 22 };
 const FONT = 15;
 
