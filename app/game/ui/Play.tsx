@@ -22,6 +22,7 @@ import Levers from "./Levers";
 import { attention } from "../pacing";
 import { useLab, type FocusKey, type SceneCue } from "../../store";
 import { nameDistricts } from "../../scene/labelLayer";
+import { PLACE } from "../../scene/places";
 import { deltaUnit, fmtNum, GAME_METRICS, unitShort } from "../metrics";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -69,6 +70,20 @@ export default function Play({ scene }: { scene: ReactNode }) {
   // Phones: the End bar is a fixed dock; its height becomes --sticky-h on the page, so the
   // scroll area ends clear of it and focused levers are never hidden under it (game.css).
   const footRef = useRef<HTMLDivElement>(null);
+  // The HUD's height, published as --hud-h on the page: the news card hangs just under it,
+  // so its top edge never cuts through the turn track.
+  const hudRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = hudRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement;
+    const ro = new ResizeObserver(() => root.style.setProperty("--hud-h", `${Math.ceil(el.getBoundingClientRect().height)}px`));
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty("--hud-h");
+    };
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -129,7 +144,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
 
   return (
     <div className="game-play">
-      <header className="game-hud">
+      <header ref={hudRef} className="game-hud">
         <button type="button" className="game-logo" onClick={() => setScreen("title")} aria-label="Back to the title screen">
           <img src={`${base}/brand/palari-logo.svg`} alt="" width={68} height={28} />
           <span className="game-wordmark" aria-hidden="true">
@@ -148,6 +163,10 @@ export default function Play({ scene }: { scene: ReactNode }) {
           </div>
           <div className="game-progress-track">
             {Array.from({ length: mission.quarters }, (_, i) => {
+              // A known shock is named under its square ("shock") only where no other label
+              // sits within three squares; it is always in the square's tooltip.
+              const labelled = (j: number) => j === clock || (j % 4 === 0 && j !== clock - 1);
+              const flagClear = (k: number) => ![-3, -2, -1, 1, 2, 3].some((o) => k + o >= 0 && k + o < mission.quarters && labelled(k + o));
               const q = i + 1;
               const shock = config.shocks.some((s) => !s.id.startsWith("surprise") && s.quarter === q);
               const election = mission.politics.elections.includes(q);
@@ -157,7 +176,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
                   className={`${i < clock ? "is-done" : i === clock ? "is-now" : ""} ${shock ? "has-shock" : ""} ${election ? "has-election" : ""}`}
                   style={i >= sweep.from && i < clock && sweepStep ? ({ "--sweep-delay": `${Math.round((i - sweep.from) * sweepStep)}ms` } as CSSProperties) : undefined}
                   title={`${quarterLabel(q)}${shock ? " · known shock" : ""}${election ? " · election" : ""}`}>
-                  {(q - 1) % 4 === 0 && i !== clock && i !== clock - 1 ? <em>{quarterLabel(q).slice(0, 4)}</em> : null}
+                  {(q - 1) % 4 === 0 && i !== clock && i !== clock - 1 ? <em>{quarterLabel(q).slice(0, 4)}{shock && i > clock ? " · shock" : ""}</em> : shock && i > clock && flagClear(i) ? <em className="is-flag">shock</em> : null}
                   {i === clock ? <em className="is-code">{(q - 1) % 4 === 0 ? quarterLabel(q).replace("Q", " Q") : quarterLabel(q).slice(4)}</em> : null}
                 </span>
               );
@@ -202,6 +221,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
           <div className="game-scene">
             {scene}
             <SceneStrip />
+            <RecapIslandLine />
             {run ? <RunTicker /> : null}
             <div className="game-scene-news">
               {news.map((e, i) => (
@@ -297,30 +317,42 @@ function useSceneCues() {
   useEffect(() => () => useLab.setState({ sceneCalm: false }), []);
 }
 
+/** What each district shows, for the island's key: the thing to watch, and what it tracks. */
+const DISTRICT_KEY: { key: "infl" | "growth" | "ca" | "reserves" | "unemp" | "debt"; what: string; tracks: string }[] = [
+  { key: "infl", what: "Campus flags", tracks: "inflation" },
+  { key: "growth", what: "Smoke", tracks: "output" },
+  { key: "ca", what: "Ships", tracks: "exports" },
+  { key: "reserves", what: "Vault", tracks: "reserves" },
+  { key: "unemp", what: "House lights", tracks: "jobs" },
+  { key: "debt", what: "Tower", tracks: "debt" },
+];
+
 /**
- * The goals' figures in one ruled strip along the island's top edge, so the island itself
- * keeps only the tag where something is happening (a pending decision or a district in
- * trouble) and the districts' animations carry the rest. Hidden when the player asks for
- * every tag on the island, or none.
+ * The island's key, in one ruled strip along its top edge: what each district's motion
+ * means (campus flags = inflation, smoke = output, ships = exports, the vault = reserves),
+ * each with the way it is heading now. The mission's own goals come first. The figures
+ * themselves live on the goal cards; this strip only teaches the map. Hidden when the
+ * player asks for every tag on the island, or none.
  */
 function SceneStrip() {
-  const { actual, clock, policy } = useTurn();
-  const spotlight = useLab((s) => s.spotlight);
+  const { actual, forecast, clock, mission } = useTurn();
   const labels = useLab((s) => s.labels);
-  const troubled = useLab((s) => s.districtStatus);
   if (labels !== "focus") return null;
   const now = actual[clock];
-  const pending = policy.rateMode === "manual" && now.regime !== "peg" && Math.abs(policy.manualRate - now.rate) > 0.01;
-  const keys = spotlight.filter((k) => k in GAME_METRICS && !troubled[k] && !(k === "rate" && pending)) as (keyof typeof GAME_METRICS)[];
-  if (!keys.length) return null;
+  const before = clock > 0 ? actual[clock - 1] : null;
+  const next = forecast[clock + 1];
+  const goals = new Set<string>(mission.objectives.map((o) => o.metric));
+  const items = [...DISTRICT_KEY.filter((d) => goals.has(d.key)), ...DISTRICT_KEY.filter((d) => !goals.has(d.key))].slice(0, 4);
   return (
-    <p className="game-scene-strip" aria-label="On the island now">
-      {keys.map((k) => {
-        const meta = GAME_METRICS[k];
-        const unit = unitShort(meta.unit);
+    <p className="game-scene-strip is-key" aria-label="Island key">
+      {items.map((d) => {
+        // Last quarter's move, or (before any quarter is played) where the forecast heads.
+        const delta = before ? now[d.key] - before[d.key] : next ? next[d.key] - now[d.key] : 0;
+        const dir = Math.abs(delta) < 0.05 ? null : delta > 0 ? "up" : "down";
         return (
-          <span key={k}>
-            {meta.label} <b className="tabular-nums">{k === "rate" ? String(+now[k].toFixed(2)) : fmtNum(now[k], meta.digits)}{unit === "%" ? "%" : unit}</b>
+          <span key={d.key}>
+            {d.what}: <b>{d.tracks}</b>
+            {dir ? <> <Glyph name={dir} label={dir === "up" ? "rising" : "falling"} /></> : <span className="game-scene-strip-flat"> steady</span>}
           </span>
         );
       })}
@@ -453,6 +485,7 @@ function ChartIcon() {
 /** What needs a decision this quarter, or a note that it is quiet. */
 function Agenda() {
   const { mission, config, clock, statuses, forecast, actual, policy, books, deciding } = useTurn();
+  const modal = useGame((s) => s.modal);
   if (clock >= mission.quarters) return null;
   const items = attention({ mission, config, clock, statuses, forecast, actual, policy, votes: books?.votes ?? 0 });
   if (!items.length) {
@@ -463,15 +496,31 @@ function Agenda() {
       </div>
     );
   }
+  // One line leads; once the news card has been answered, its shock (already read in full on
+  // the card) waits behind "More" so the lever sits right under the heading.
+  const answered = !modal && items.every((a) => a.key.startsWith("shock:"));
+  const list = (
+    <ul>
+      {items.slice(0, 3).map((a) => (
+        <li key={a.key} className={`is-${a.tone}`}>{a.text}</li>
+      ))}
+    </ul>
+  );
   return (
     <div className="game-agenda" role="status">
-      <strong>Decide now for {deciding}{items.length > 1 ? ` · ${items.length} things` : ""}</strong>
-      {clock === 0 ? <span className="game-agenda-note">What you set stays in force until you change it.</span> : null}
-      <ul>
-        {items.slice(0, 3).map((a) => (
-          <li key={a.key} className={`is-${a.tone}`}>{a.text}</li>
-        ))}
-      </ul>
+      <strong>
+        Decide now for {deciding}
+        {items.length > 1 ? ` · ${items.length} things` : ""}
+        {clock === 0 ? <span className="game-agenda-note">: it stays in force until you change it.</span> : null}
+      </strong>
+      {answered ? (
+        <details className="game-agenda-more">
+          <summary>More</summary>
+          {list}
+        </details>
+      ) : (
+        list
+      )}
     </div>
   );
 }
@@ -531,5 +580,29 @@ function MenuHint({ close }: { close: () => void }) {
         </p>
       ) : null}
     </>
+  );
+}
+
+/**
+ * Phones, while the recap is open: the island strip stays unlabelled and the districts that
+ * moved are named in one ruled line under it ("On the island: Campus · inflation up 1.4 pp"),
+ * so the payoff's one full-colour picture is not a backdrop for tags. CSS shows it only there.
+ */
+function RecapIslandLine() {
+  const cue = useLab((s) => s.sceneCue);
+  const modal = useGame((s) => s.modal);
+  if (modal?.kind !== "recap") return null;
+  const items = (Object.entries(cue) as [FocusKey, SceneCue | undefined][]).filter((e): e is [FocusKey, SceneCue] => Boolean(e[1]));
+  if (!items.length) return null;
+  return (
+    <p className="game-scene-recapline">
+      <strong>On the island:</strong>{" "}
+      {items.map(([k, c], i) => (
+        <span key={k}>
+          {i ? " · " : ""}
+          {PLACE[k] ?? k} {c.label} <Glyph name={c.up ? "up" : "down"} label={c.up ? "up" : "down"} /> <b>{c.size}</b>
+        </span>
+      ))}
+    </p>
   );
 }

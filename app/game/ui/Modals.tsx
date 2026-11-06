@@ -11,7 +11,7 @@ import { getMission, MISSIONS, policyForTurn, type ObjectiveStatus } from "../mi
 import { responsesFor } from "../responses";
 import { forecastFor, useGame, type Recap } from "../store";
 import { withDecision } from "../useTurn";
-import { AdviceList } from "./Advisors";
+import { Reactions } from "./Advisors";
 import { GoalChart } from "./Goals";
 import Glyph from "./Glyph";
 import { Valence, type Tone } from "./Valence";
@@ -19,6 +19,7 @@ import { annual } from "../calibrate";
 import { getStartYear, simulate } from "../../model/economy";
 import type { Mission } from "../missions";
 import { DUR_SLOW, useTween } from "./useTween";
+import { useScrollMore } from "../../components/strip";
 
 /** Gap between the debrief stars, shared by their animation delay and their sound pings. */
 const STAR_STAGGER = 120;
@@ -80,11 +81,13 @@ function RecapCard({ recap }: { recap: Recap }) {
   const changes = recap.statuses.filter((s) => s.before !== s.after);
   const lead = outcomeHeadline(mission, recap);
   const roomy = useMedia("(min-width: 1100px) and (min-height: 1040px)");
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useScrollMore(bodyRef, recap.quarter);
 
   return (
     <div className="game-card game-recap" role="dialog" aria-modal="true" aria-labelledby="recap-title">
       {/* The sheet scrolls in its own body, so the actions bar below never sits over its text. */}
-      <div className="game-recap-body">
+      <div ref={bodyRef} className="game-recap-body">
       <div className="game-paper">
         <div className="game-masthead-row">
           <p className="game-masthead">{recap.headline.paper}</p>
@@ -97,10 +100,17 @@ function RecapCard({ recap }: { recap: Recap }) {
         <h2 id="recap-title" className="game-headline">{lead}</h2>
         {lead !== recap.headline.text ? <p className="game-dek">{recap.headline.text}</p> : null}
       </div>
-      <div className="game-stamp-row">
-        <Stamp mission={mission} recap={recap} />
-        <StarNote mission={mission} recap={recap} />
+      <Reactions advice={recap.advice} />
+      {/* The verdict on the left; the score (Votes, Trust) boxed on the right, above the fold. */}
+      <div className="game-stamp-row has-score">
+        <div className="game-stamp-lead">
+          <Stamp mission={mission} recap={recap} />
+          <StarNote mission={mission} recap={recap} />
+        </div>
+        <CapitalStrip recap={recap} />
       </div>
+      {/* The link from the payoff to the island, right under the verdict: always above the fold. */}
+      <WatchLine mission={mission} recap={recap} />
 
       {recap.stopReasons ? (
         <div className="game-run-recap">
@@ -146,17 +156,17 @@ function RecapCard({ recap }: { recap: Recap }) {
                   </>
                 )}{" "}
                 <span className="game-recap-when">{recap.from !== undefined && recap.quarter - recap.from > 1 ? "over the stretch" : "this quarter"}</span>
+                {/* The move's verdict: toward the goal helps, away from it hurts. */}
+                {Math.abs(d) >= 0.05 ? <> <Valence tone={toneFor(mission, m, d)} /></> : null}
               </span>
               <span className="game-recap-chart">
-                <GoalChart metric={m} />
+                <GoalChart metric={m} height={128} />
               </span>
               <GoalLine mission={mission} metric={m} status={worstStatus(mission, recap, m)} />
             </div>
           );
         })}
       </div>
-      <CapitalStrip recap={recap} />
-      <WatchLine mission={mission} recap={recap} />
 
       {changes.length ? (
         <ul className="mt-2 flex flex-col gap-1">
@@ -179,7 +189,7 @@ function RecapCard({ recap }: { recap: Recap }) {
       {recap.crisis ? <p className="game-banner is-bad">Trust has collapsed. Markets will test you next quarter.</p> : null}
 
       <details className="game-recap-more" open={roomy || undefined}>
-      <summary>Why votes and trust moved, and your advisors</summary>
+      <summary>Why votes and trust moved</summary>
       <h3 className="mt-2 mb-1 text-(length:--t-xs) font-semibold text-[var(--lab-ink-2)]">Political capital</h3>
       <div className="flex flex-wrap items-start gap-x-5 gap-y-1">
         {(["votes", "trust"] as const).map((c) => {
@@ -199,8 +209,6 @@ function RecapCard({ recap }: { recap: Recap }) {
         })}
       </div>
 
-      <h3 className="mt-3 mb-1 text-(length:--t-xs) font-semibold text-[var(--lab-ink-2)]">Your advisors on the quarter ahead</h3>
-      <AdviceList advice={recap.advice.map((a) => ({ ...a, text: firstSentence(a.text) }))} compact />
       </details>
       </div>
 
@@ -286,9 +294,13 @@ function ShockCard({ ids }: { ids: string[] }) {
 
   return (
     <div ref={dialog} tabIndex={-1} className="game-card game-shock" role="dialog" aria-modal="true" aria-labelledby="shock-title">
-      <span className="game-shock-kicker">{now && main.quarter > 1 ? "Breaking news" : "On your desk"}</span>
+      {/* The news leads as an event: a kicker naming the district it hits, then the headline. */}
+      <p className="game-shock-kicker">
+        {now && main.quarter > 1 ? "Breaking news" : "On your desk"}
+        {where ? <span className="game-shock-kicker-where"> · hits the {where.place.toLowerCase()}</span> : null}
+      </p>
       <h2 id="shock-title" className="game-shock-title">{spec.name}</h2>
-      <p className="text-(length:--t-sm) leading-relaxed">{spec.description}</p>
+      <p className="game-shock-dek">{spec.description}</p>
       <p className="mt-1 text-(length:--t-xs) text-[var(--lab-ink-2)]">
         It hits in {quarterLabel(main.quarter)}. {options.length ? `How do you respond? Each option shows what it does to your goals by ${quarterLabel(mission.quarters)}, against holding policy.` : "Your tools are on the left."}
       </p>
@@ -297,23 +309,19 @@ function ShockCard({ ids }: { ids: string[] }) {
           <strong>On the island:</strong> the {where.place.toLowerCase()} is pulsing ({where.what}).
         </p>
       ) : null}
+      {/* Each option is one button: its number key is the affordance, no per-row "Choose". */}
       <ol className="game-choices" aria-label="Your response">
         {options.map((o, i) => (
           <li key={o.id}>
-            <button
-              type="button"
-              className="game-choice"
-              onClick={() => pick(o.changes)}
-            >
+            <button type="button" className="game-choice" onClick={() => pick(o.changes)}>
               <kbd className="game-choice-key" aria-hidden="true">{i + 1}</kbd>
               <span className="game-choice-body">
                 <span className="game-choice-head">
                   <strong>{o.label}</strong>
-                  <OutcomeChips mission={mission} config={config} clock={clock} changes={o.changes} />
                 </span>
-                <span>{o.detail}</span>
+                <OutcomeChips mission={mission} config={config} clock={clock} changes={o.changes} />
+                <span className="game-choice-detail">{o.detail}</span>
               </span>
-              <span className="game-choice-go" aria-hidden="true">Choose</span>
             </button>
           </li>
         ))}
@@ -321,10 +329,11 @@ function ShockCard({ ids }: { ids: string[] }) {
           <button type="button" className="game-choice is-plain" onClick={close}>
             <kbd className="game-choice-key" aria-hidden="true">{options.length + 1}</kbd>
             <span className="game-choice-body">
-              <strong>I&rsquo;ll decide myself</strong>
-              <span>Close this and use the levers. You can see each one&rsquo;s effect before you commit.</span>
+              <span className="game-choice-head">
+                <strong>I&rsquo;ll decide myself</strong>
+              </span>
+              <span className="game-choice-detail">Close this and use the levers. You can see each one&rsquo;s effect before you commit.</span>
             </span>
-            <span className="game-choice-go" aria-hidden="true">Choose</span>
           </button>
         </li>
       </ol>
@@ -508,8 +517,12 @@ function OutcomeChips({ mission, config, clock, changes }: { mission: Mission; c
     <span className="game-outcomes" title={`Effect by ${quarterLabel(end)}, against holding policy`}>
       {parts.map((p) => (
         <span key={p.m} className={`game-outcome ${outcomeTone(mission, p.m, p.d)}`}>
-          {GAME_METRICS[p.m].label} <Glyph name={p.d > 0 ? "up" : "down"} /> {fmtNum(Math.abs(p.d), GAME_METRICS[p.m].digits)}
-          {deltaUnit(GAME_METRICS[p.m].unit)} <Valence tone={toneFor(mission, p.m, p.d)} />
+          <span className="game-outcome-name">{GAME_METRICS[p.m].label}</span>{" "}
+          <b className="game-outcome-d">
+            <Glyph name={p.d > 0 ? "up" : "down"} /> {fmtNum(Math.abs(p.d), GAME_METRICS[p.m].digits)}
+            {deltaUnit(GAME_METRICS[p.m].unit)}
+          </b>{" "}
+          <Valence tone={toneFor(mission, p.m, p.d)} />
         </span>
       ))}
     </span>
@@ -535,7 +548,7 @@ const trimNum = (v: number, d: number) => v.toFixed(d).replace(/\.?0+$/, "");
 function outcomeHeadline(mission: Mission, recap: Recap): string {
   const { prev, now } = recap;
   const dRate = now.rate - prev.rate;
-  const rate = Math.abs(dRate) >= 0.1 ? `Central bank ${dRate > 0 ? "lifts" : "cuts"} rates to ${trimNum(now.rate, 2)}%` : null;
+  const rate = Math.abs(dRate) >= 0.1 ? `Central bank ${dRate > 0 ? "lifts" : "cuts"} rates to\u00a0${trimNum(now.rate, 2)}%` : null;
   const judged = Array.from(new Set(mission.objectives.filter((o) => !o.bonus).map((o) => o.metric)));
   const moves = judged.map((m) => ({ m, d: now[m] - prev[m] })).sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
   const top = moves[0];
@@ -545,15 +558,10 @@ function outcomeHeadline(mission: Mission, recap: Recap): string {
   const name = meta.label.toLowerCase();
   const value = `${fmtNum(now[top.m], meta.digits)}${unitShort(meta.unit) === "%" ? "%" : unitShort(meta.unit)}`;
   const clause = shock
-    ? `${shock.title.toLowerCase()} ${top.d > 0 ? "pushes" : "drags"} ${name} to ${value}`
-    : `${name} ${top.d > 0 ? "rises" : "falls"} to ${value}`;
+    ? `${shock.title.toLowerCase()} ${top.d > 0 ? "pushes" : "drags"} ${name} to\u00a0${value}`
+    : `${name} ${top.d > 0 ? "rises" : "falls"} to\u00a0${value}`;
   if (rate) return `${rate} as ${clause}`;
   return clause.charAt(0).toUpperCase() + clause.slice(1);
-}
-
-function firstSentence(text: string): string {
-  const m = text.match(/^.*?[.!?](\s|$)/);
-  return m ? m[0].trim() : text;
 }
 
 function worstStatus(mission: Mission, recap: Recap, metric: string): ObjectiveStatus | null {
@@ -625,8 +633,9 @@ function Stamp({ mission, recap }: { mission: Mission; recap: Recap }) {
 }
 
 /**
- * The edition mark beside the masthead: a ruled "ON TRACK" box when every goal holds, a
- * hollow-square "AT RISK" (or "MISSED") one when a goal slips. Newsprint, not confetti.
+ * The edition mark beside the masthead: a flat, double-ruled "ear" box, as a newspaper's
+ * index box, with the verdict in sentence case and its square marker ("On track", "At
+ * risk", "Missed"). Newsprint, not a rubber stamp.
  */
 function EditionMark({ mission, recap }: { mission: Mission; recap: Recap }) {
   const main = recap.statuses.filter((st) => !mission.objectives.find((o) => o.id === st.id)?.bonus);
@@ -636,12 +645,12 @@ function EditionMark({ mission, recap }: { mission: Mission; recap: Recap }) {
   return (
     <span className={`game-edition-mark ${risky ? (failed ? "is-bad" : "is-warn") : "is-good"}`} aria-hidden="true">
       <i />
-      {failed ? "MISSED" : risky ? "AT RISK" : "ON TRACK"}
+      {failed ? "Missed" : risky ? "At risk" : "On track"}
     </span>
   );
 }
 
-/** Votes and trust, which the quarter just moved, as two ruled figures beside the goals. */
+/** Votes and trust, the score: a two-cell box, each new figure at display size with its change beside it. */
 function CapitalStrip({ recap }: { recap: Recap }) {
   const stretch = recap.from !== undefined && recap.quarter - recap.from > 1;
   return (
@@ -653,9 +662,9 @@ function CapitalStrip({ recap }: { recap: Recap }) {
           <div key={c}>
             <dt>{c === "votes" ? "Votes" : "Trust"}</dt>
             <dd className="tabular-nums">
-              {d ? <><span className="game-recap-capital-was">{now - d}</span> <Glyph name="arrow" /> </> : null}
-              <b>{now}</b>
-              {d ? <span className={`game-recap-capital-d ${d > 0 ? "is-up" : "is-down"}`}><Glyph name={d > 0 ? "up" : "down"} /> {Math.abs(d)}</span> : <span className="game-recap-capital-d">unchanged</span>}
+              {/* The new figure at display size, counting up with the goals' figures. */}
+              <b><CountUp from={now - d} to={now} digits={0} /></b>
+              {d ? <span className={`game-recap-capital-d ${d > 0 ? "is-up" : "is-down"}`}><Glyph name={d > 0 ? "up" : "down"} /> {Math.abs(d)} <span className="game-recap-capital-was">from {now - d}</span></span> : <span className="game-recap-capital-d">unchanged</span>}
             </dd>
           </div>
         );

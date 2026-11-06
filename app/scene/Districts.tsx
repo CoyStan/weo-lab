@@ -84,15 +84,19 @@ function useBreachedNow(): Set<ConstraintVar> {
   }, [breaches, constraints, clock]);
 }
 
-/** District hex: paved floor tinted with the district colour, and a border that pulses on a breach. */
-function HexBadge({ color, active, breached, reducedMotion, scale }: { color: string; active: boolean; breached: boolean; reducedMotion: boolean; scale: number }) {
+/**
+ * District hex: paved floor tinted with the district colour, and a border that pulses on a
+ * breach, and pulses wide and full (so it reads from across a room) while a decision waits.
+ */
+function HexBadge({ color, active, breached, pending, reducedMotion, scale }: { color: string; active: boolean; breached: boolean; pending: boolean; reducedMotion: boolean; scale: number }) {
   const ring = useRef<THREE.MeshBasicMaterial>(null);
   const floor = useMemo(() => "#" + new THREE.Color(P.plaza).lerp(new THREE.Color(color), 0.18).getHexString(), [color]);
   useFrame((state) => {
     const m = ring.current;
     if (!m) return;
-    const pulse = breached && !reducedMotion ? 0.6 + 0.4 * Math.sin(state.clock.elapsedTime * 4) : 1;
-    m.opacity = breached ? pulse : active ? 1 : 0.85;
+    const swing = pending ? 0.75 : 0.4;
+    const pulse = (breached || pending) && !reducedMotion ? 1 - swing / 2 + (swing / 2) * Math.sin(state.clock.elapsedTime * 4) : 1;
+    m.opacity = breached || pending ? pulse : active ? 1 : 0.85;
   });
   // The badge lives inside the district's scaled group; undo the scale so it matches the tile.
   const k = 1 / scale;
@@ -103,7 +107,7 @@ function HexBadge({ color, active, breached, reducedMotion, scale }: { color: st
         <meshStandardMaterial color={floor} roughness={1} />
       </mesh>
       <mesh rotation-x={-Math.PI / 2} position-y={0.02}>
-        <ringGeometry args={[HEX * (breached || active ? 0.8 : 0.84), HEX * 0.93, 6, 1, Math.PI / 2]} />
+        <ringGeometry args={[HEX * (pending ? 0.7 : breached || active ? 0.8 : 0.84), HEX * 0.95, 6, 1, Math.PI / 2]} />
         <meshBasicMaterial ref={ring} color={breached ? P.bad : color} transparent opacity={0.85} depthWrite={false} />
       </mesh>
     </group>
@@ -207,7 +211,7 @@ function District({ focusKey, position, labelY, labelX = 0, pendingLabel, dockPe
     if (!g) return;
     // A decision waiting to play out makes its building breathe and send out a ring; the
     // district a news card points at breathes harder.
-    const amp = shocked ? 0.1 : next ? 0.035 : 0;
+    const amp = shocked ? 0.12 : next ? 0.06 : 0;
     const pulse = amp && !reducedMotion ? amp * (0.5 + 0.5 * Math.sin(clock.elapsedTime * (shocked ? 3 : 4))) : 0;
     const target = (active ? 1.06 : 1) + pulse;
     const k = reducedMotion ? 1 : Math.min(1, dt * 8);
@@ -217,13 +221,13 @@ function District({ focusKey, position, labelY, labelX = 0, pendingLabel, dockPe
     if (r) {
       const phase = reducedMotion ? 0.5 : (clock.elapsedTime * 0.7) % 1;
       r.scale.setScalar(1 + phase * 1.4);
-      (r.material as THREE.MeshBasicMaterial).opacity = next || shocked ? (shocked ? 0.85 : 0.55) * (1 - phase) : 0;
+      (r.material as THREE.MeshBasicMaterial).opacity = next || shocked ? (shocked ? 0.95 : 0.8) * (1 - phase) : 0;
     }
   });
 
   return (
     <group position={position} scale={style.scale}>
-      {focusKey !== "oil" ? <HexBadge color={color} active={active} breached={breached} reducedMotion={reducedMotion} scale={style.scale} /> : null}
+      {focusKey !== "oil" ? <HexBadge color={color} active={active} breached={breached} pending={Boolean(next) || shocked} reducedMotion={reducedMotion} scale={style.scale} /> : null}
       <group
         ref={group}
         onClick={(e) => {
@@ -243,7 +247,7 @@ function District({ focusKey, position, labelY, labelX = 0, pendingLabel, dockPe
         <meshBasicMaterial color={bad || breached ? "#d9534f" : "#3f9a5f"} transparent opacity={0} depthWrite={false} />
       </mesh>
       <mesh ref={ring} rotation-x={-Math.PI / 2} position-y={0.35} visible={Boolean(next) || shocked}>
-        <ringGeometry args={[2.1, 2.45, 48]} />
+        <ringGeometry args={[2.0, 2.6, 48]} />
         <meshBasicMaterial color={color} transparent opacity={0} depthWrite={false} />
       </mesh>
       <Label position={labelPos} title={breached ? `${title} · constraint breached` : title} value={dock && dockValue ? dockValue : value} next={next} delta={delta} bad={bad || breached} focus={active || Boolean(next)} tilt={tilt} hidden={!showLabel && !next} accent={color} icon={style.icon} dock={dock} status={goalStatus} place={PLACE[focusKey]} cue={inGame ? cue : undefined} shocked={shocked} />

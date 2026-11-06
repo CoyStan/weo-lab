@@ -106,7 +106,11 @@ export default function Label({
               <span className="lab-banner-sep" aria-hidden="true"> · </span>
             </>
           ) : null}
-          {cue && plain ? (
+          {shocked && !next ? (
+            <span className="lab-banner-cue">
+              <strong>decide now</strong>
+            </span>
+          ) : cue && plain ? (
             <span className="lab-banner-cue">
               {cue.label} <Glyph name={cue.up ? "up" : "down"} /> <strong>{cue.size}</strong>
             </span>

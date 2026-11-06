@@ -29,8 +29,12 @@ const fmt = (v: number, d: number) => {
 const W_MAX = 1400;
 /** Chart text, never under the type scale's smallest step. */
 const FS = 15;
-const H = 228;
-const PAD = { l: 40, r: 44, t: 26, b: 36 };
+const H_TALL = 228;
+/** Shorter screens: a lower chart, so the first row of the table shows under it. */
+const H_SHORT = 176;
+const PAD_BASE = { l: 40, r: 44, t: 26, b: 36 };
+/** Bars under this many pixels are drawn at it, so a small contribution never vanishes. */
+const MIN_SEG = 3;
 
 /** Stacked contributions to the change in one variable, quarter by quarter. */
 export default function Decomp() {
@@ -51,6 +55,13 @@ export default function Decomp() {
     const ro = new ResizeObserver(([e]) => setW(Math.max(320, Math.min(W_MAX, Math.round(e.contentRect.width)))));
     ro.observe(el);
     return () => ro.disconnect();
+  }, []);
+  const [H, setH] = useState(H_TALL);
+  useEffect(() => {
+    const on = () => setH(window.innerHeight < 950 ? H_SHORT : H_TALL);
+    on();
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
   }, []);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const metricsRef = useRef<HTMLDivElement>(null);
@@ -80,24 +91,33 @@ export default function Decomp() {
     hi += 0.1;
     lo -= 0.1;
   }
-  const span = hi - lo;
-  hi += span * 0.06;
-  lo -= span * 0.06;
-  // The instruments' share at the last quarter is labelled on the bar ("Your rates −2.4"):
-  // leave a line of room beyond the stack for it.
+  // No extra padding: the scale is rounded out to whole ticks below, which leaves room.
+  // The instruments' share at the last quarter is labelled in the right-hand column.
   const polEnd = shownPolicy(shown, metric, end);
-  if (Math.abs(polEnd) >= 0.05) {
-    if (polEnd < 0) lo -= span * 0.16;
-    else hi += span * 0.16;
-  }
+  // Pad the scale out to whole ticks, so a chart whose bars run below zero always shows a
+  // negative tick and gridline (-5, 0, +5), never only "0" and "+5".
+  // A right-hand column holds the series' end labels (total, your instruments).
+  // On a narrow chart the unit note and "Forecast" would share a line: give each its own.
+  const narrow = W < 640;
+  const PAD = { ...PAD_BASE, r: narrow ? 92 : 150, t: narrow && clock < end ? PAD_BASE.t + 18 : PAD_BASE.t };
+  const step = tickStep(lo, hi);
+  lo = Math.min(0, Math.floor(lo / step - 1e-9) * step);
+  hi = Math.max(0, Math.ceil(hi / step - 1e-9) * step);
+  if (lo < 0 && lo > -step) lo = -step;
   const band = (W - PAD.l - PAD.r) / end;
   const x = (t: number) => PAD.l + (t - 1) * band;
   const y = (v: number) => PAD.t + (1 - (v - lo) / (hi - lo)) * (H - PAD.t - PAD.b);
   const barW = Math.max(4, band * 0.62);
-  const ticks = niceTicks(lo, hi);
+  const ticks = niceTicks(lo, hi, step);
   const years = Array.from({ length: end }, (_, i) => i + 1).filter((t) => (t - 1) % 4 === 0);
 
   const at = hover ?? Math.max(1, clock);
+  // End labels: the total at its line's level; the instruments at their segment's middle,
+  // pushed a line clear of the total.
+  const yTot = Math.min(H - PAD.b - 4, Math.max(PAD.t + 4, y(total(end))));
+  const polMid = polEnd < 0 ? stackBottom(end) - polEnd / 2 : stackTop(end) - polEnd / 2;
+  let yPol = Math.min(H - PAD.b - 4, Math.max(PAD.t + 4, y(polMid)));
+  if (Math.abs(yPol - yTot) < FS * 1.3) yPol = yTot + (yPol >= yTot ? 1 : -1) * FS * 1.3;
   const env = comps.filter((c) => c.kind === "environment");
   const pol = comps.filter((c) => c.kind === "policy");
   const momentum = comps.find((c) => c.kind === "momentum")!;
@@ -127,11 +147,20 @@ export default function Decomp() {
       </p>
 
       <div className="game-dc-chart" ref={boxRef} onPointerLeave={() => setHover(null)}>
+        {/* The key sits on the chart, and doubles as its show/hide control. */}
+        <div className="game-dc-legend" role="group" aria-label="Show or hide a cause on the chart">
+          {comps.map((c) => (
+            <button key={c.id} type="button" aria-pressed={!hidden.has(c.id)} className={hidden.has(c.id) ? "is-off" : ""} onClick={() => toggle(c.id)} title={hidden.has(c.id) ? "Show in the chart" : "Hide from the chart"}>
+              <i className={c.kind === "momentum" ? "is-hatch" : ""} style={c.kind === "momentum" ? undefined : { background: SLOT[c.slot] }} aria-hidden="true" />
+              {c.kind === "momentum" ? "Momentum" : c.kind === "policy" && /rate/i.test(c.label) ? "Your rates" : shortLabel(c.label)}
+            </button>
+          ))}
+        </div>
         <svg viewBox={`0 0 ${W} ${H}`} className="block w-full" role="img" aria-label={`${meta.label}: contributions to the change since the start, by quarter`}>
           <defs>
-            <pattern id="dc-hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-              <rect width="7" height="7" fill="color-mix(in srgb, var(--dc-momentum) 22%, var(--lab-paper))" />
-              <line x1="0" y1="0" x2="0" y2="7" stroke="var(--dc-momentum)" strokeWidth="1.5" />
+            <pattern id="dc-hatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <rect width="9" height="9" fill="color-mix(in srgb, var(--dc-momentum) 14%, var(--lab-paper))" />
+              <line x1="0" y1="0" x2="0" y2="9" stroke="var(--dc-momentum)" strokeOpacity="0.55" strokeWidth="1.25" />
             </pattern>
           </defs>
           {clock < end ? <line x1={x(clock + 1)} x2={x(clock + 1)} y1={PAD.t - 2} y2={H - PAD.b} stroke="var(--lab-ink)" strokeDasharray="4 3" /> : null}
@@ -142,8 +171,8 @@ export default function Decomp() {
                 {fmt(v, tickDigits(ticks))}
               </text>
               {i === ticks.length - 1 ? (
-                <text x={4} y={PAD.t - 12} fontSize={FS} fill="var(--lab-ink-2)">
-                  {meta.unit} vs start
+                <text x={4} y={narrow && clock < end ? PAD.t - 28 : PAD.t - 12} fontSize={FS} fill="var(--lab-ink-2)">
+                  {meta.unit} vs {d.path[0].label}
                 </text>
               ) : null}
             </g>
@@ -169,21 +198,26 @@ export default function Decomp() {
             </text>
           ) : null}
           {Array.from({ length: end }, (_, i) => i + 1).map((t) => {
-            let pos = 0;
-            let neg = 0;
+            // Stacked in pixels from the zero line, each segment at least MIN_SEG tall.
+            const zero = y(0);
+            let posPx = zero;
+            let negPx = zero;
             const cx = x(t) + (band - barW) / 2;
             return (
               <g key={t}>
                 {shown.map((c) => {
                   const v = c.values[metric][t];
-                  if (Math.abs(v) < 1e-4) return null;
-                  const from = v > 0 ? pos : neg;
-                  const to = from + v;
-                  if (v > 0) pos = to;
-                  else neg = to;
-                  const top = y(Math.max(from, to));
-                  const h = Math.max(0.5, Math.abs(y(from) - y(to)) - 1);
-                  return <rect key={c.id} x={cx} y={top + (v > 0 ? 0 : 1)} width={barW} height={h} rx={1.5} fill={c.kind === "momentum" ? "url(#dc-hatch)" : SLOT[c.slot]} stroke={t === at ? "var(--lab-ink)" : "none"} strokeWidth={t === at ? 0.8 : 0} />;
+                  if (Math.abs(v) < 0.005) return null;
+                  const h = Math.max(MIN_SEG, Math.abs(y(0) - y(Math.abs(v)) ) - 1);
+                  let top: number;
+                  if (v > 0) {
+                    top = posPx - h;
+                    posPx = top - 1;
+                  } else {
+                    top = negPx + 1;
+                    negPx = top + h;
+                  }
+                  return <rect key={c.id} x={cx} y={top} width={barW} height={h} fill={c.kind === "momentum" ? "url(#dc-hatch)" : SLOT[c.slot]} stroke={t === at ? "var(--lab-ink)" : "none"} strokeWidth={t === at ? 0.8 : 0} />;
                 })}
               </g>
             );
@@ -197,22 +231,15 @@ export default function Decomp() {
               {fmt(total(at), meta.digits)}
             </text>
           ) : null}
-          <text x={x(end) + band / 2 + 8} y={y(total(end)) + 4} fontSize={FS} fontWeight={700} textAnchor="start" fill="var(--lab-ink)" paintOrder="stroke" stroke="var(--lab-paper)" strokeWidth={4}>
-            {fmt(total(end), meta.digits)}
+          {/* The right-hand label column: the total's end value on its line's level, and
+              your instruments' share kept at least a line clear of it. */}
+          <line x1={x(end) + band / 2} x2={W - PAD.r + 4} y1={y(total(end))} y2={y(total(end))} stroke="var(--lab-ink)" strokeOpacity={0.35} strokeDasharray="2 2" />
+          <text x={W - PAD.r + 8} y={yTot + 5} fontSize={FS} fontWeight={700} textAnchor="start" fill="var(--lab-ink)">
+            Total {fmt(total(end), meta.digits)}
           </text>
           {Math.abs(polEnd) >= 0.05 ? (
-            <text
-              x={x(end) + band / 2}
-              y={polEnd < 0 ? y(stackBottom(end)) + FS + 4 : y(stackTop(end)) - 8}
-              fontSize={FS}
-              fontWeight={700}
-              textAnchor="middle"
-              fill="var(--lab-ink)"
-              paintOrder="stroke"
-              stroke="var(--lab-paper)"
-              strokeWidth={4}
-            >
-              {pol.length === 1 && /rate/i.test(pol[0].label) ? "Your rates" : "Your instruments"} {fmt(polEnd, meta.digits)}
+            <text x={W - PAD.r + 8} y={yPol + 5} fontSize={FS} fontWeight={700} textAnchor="start" fill="var(--lab-ink)">
+              {pol.length === 1 && /rate/i.test(pol[0].label) ? (narrow ? "Rates" : "Your rates") : narrow ? "Policy" : "Your instruments"} {fmt(polEnd, meta.digits)}
             </text>
           ) : null}
           {Array.from({ length: end }, (_, i) => i + 1).map((t) => (
@@ -266,7 +293,10 @@ function LegendRows({ title, items, metric, at, end, digits, hidden, toggle, emp
               <th scope="row">
                 <button type="button" onClick={() => toggle(c.id)} aria-pressed={!hidden.has(c.id)} title={hidden.has(c.id) ? "Show in the chart" : "Hide from the chart"}>
                   <i className={c.kind === "momentum" ? "is-hatch" : ""} style={c.kind === "momentum" ? undefined : { background: SLOT[c.slot] }} aria-hidden="true" />
-                  <span className="game-dc-label">{c.label}</span>
+                  <span className="game-dc-label">
+                    {shortLabel(c.label)}
+                    {c.label !== shortLabel(c.label) ? <span className="game-dc-when"> {c.label.slice(shortLabel(c.label).length).trim()}</span> : null}
+                  </span>
                 </button>
               </th>
               <td className="tabular-nums">{fmt(v, digits)}</td>
@@ -285,6 +315,9 @@ function LegendRows({ title, items, metric, at, end, digits, hidden, toggle, emp
 
 const fmt0 = (v: number, d: number) => v.toFixed(d);
 
+/** A cause's name without its date: "Food price surge (2026Q1)" → "Food price surge". */
+const shortLabel = (label: string) => label.replace(/\s*\([^)]*\)\s*$/, "");
+
 /** The instruments' summed contribution at quarter t, over the components on the chart. */
 function shownPolicy(shown: Component[], metric: DecompMetric, t: number) {
   return shown.filter((c) => c.kind === "policy").reduce((a, c) => a + c.values[metric][t], 0);
@@ -295,11 +328,13 @@ function tickDigits(ticks: number[]): number {
   return step >= 1 && Number.isInteger(step) ? 0 : step >= 0.1 ? 1 : 2;
 }
 
-function niceTicks(lo: number, hi: number): number[] {
-  const span = hi - lo;
-  const raw = span / 4;
+function tickStep(lo: number, hi: number): number {
+  const raw = (hi - lo) / 4;
   const mag = Math.pow(10, Math.floor(Math.log10(raw)));
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw) ?? raw;
+  return [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw) ?? raw;
+}
+
+function niceTicks(lo: number, hi: number, step = tickStep(lo, hi)): number[] {
   const out: number[] = [];
   for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(Math.round(v / step) * step);
   if (!out.some((v) => Math.abs(v) < 1e-9)) out.push(0);

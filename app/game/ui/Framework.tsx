@@ -13,7 +13,7 @@ import { Sparkline } from "./Goals";
 import Glyph from "./Glyph";
 import { Valence, type Tone } from "./Valence";
 import { useReducedMotion } from "./useTween";
-import { useStripOverflow } from "../../components/strip";
+import { useScrollMore, useStripOverflow } from "../../components/strip";
 
 const TABS: { id: FrameworkTab; label: string; short: string; sub: string }[] = [
   { id: "why", label: "Why", short: "Why", sub: "Is it moving, or not?" },
@@ -58,8 +58,13 @@ function FrameworkPanel() {
   const untouched = useMemo(() => (touched ? forecastFor(untouchedConfig(config, start), clock) : forecast), [touched, config, start, clock, forecast]);
   const input: FrameworkInput = { config, actual, forecast, untouched, clock, end, policy, policyStart, changedSinceStart: touched };
   const chans = channels(input);
-  // One scale for every channel's bars, rounded up to a readable end value.
-  const chanMax = Math.max(0.5, Math.ceil(Math.max(...chans.flatMap((c) => c.links.map((l) => Math.abs(l.value)))) * 2) / 2);
+  // One scale for every channel's bars, set by the policy channels that draw bars (the world's
+  // shocks are often far larger: their bars are cut at the scale's end, their value printed in
+  // full), rounded up to a readable end value: 0.5, 1, 2, then whole points.
+  const scaled = chans.filter((c) => c.id !== "world").flatMap((c) => c.links.filter((l) => Math.abs(l.value) >= 0.005).map((l) => Math.abs(l.value)));
+  const rawMax = scaled.length ? Math.max(...scaled) : 0;
+  const chanMax = rawMax <= 0.5 ? 0.5 : rawMax <= 1 ? 1 : rawMax <= 2 ? 2 : Math.ceil(rawMax);
+  const tileH = useTileHeight();
   const notes = diagnose(input);
   const preset = getPreset(config.presetId);
   const shown = clock > 0 ? actual[clock] : forecast[1];
@@ -69,6 +74,8 @@ function FrameworkPanel() {
   const reduced = useReducedMotion();
   const tabsRef = useRef<HTMLElement>(null);
   useStripOverflow(tabsRef, tab);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useScrollMore(bodyRef, tab);
 
   useEffect(() => {
     closeRef.current?.focus({ preventScroll: true });
@@ -121,11 +128,11 @@ function FrameworkPanel() {
           </nav>
         </div>
 
-        <div className="game-fw-body">
+        <div ref={bodyRef} className="game-fw-body">
         {/* Keyed by tab, so each switch remounts the pane and it fades in. */}
         <div key={tab} className="game-fw-pane">
         {tab === "why" ? (
-          <section className="game-fw-section" aria-label="Why is it moving, or not?">
+          <section className="game-fw-section is-why" aria-label="Why is it moving, or not?">
             <div className="game-fw-legend mt-3" aria-hidden="true">
               <span><i className="is-actual" /> Outturn</span>
               <span><i className="is-forecast" /> Forecast with your policies</span>
@@ -154,7 +161,7 @@ function FrameworkPanel() {
                       goals={mission.objectives.filter((o) => o.metric === key)}
                       clock={clock}
                       end={end}
-                      height={104}
+                      height={tileH}
                     />
                     <span className="game-fw-tile-ends">
                       {actual[0][key].toFixed(row.digits)} in {actual[0].label}, <b>{forecast[end][key].toFixed(row.digits)}</b> by {forecast[end].label}
@@ -200,7 +207,7 @@ function FrameworkPanel() {
               <div className="game-fw-channel-scale">
                 <span>Channel</span>
                 <span>How it travels</span>
-                <span>What flowed (one scale for every channel)</span>
+                <span>What flowed (one scale: ±{String(+chanMax.toFixed(1))} pp)</span>
               </div>
               {chans.map((c) => (
                 <ChannelCard key={c.id} channel={c} max={chanMax} />
@@ -224,7 +231,6 @@ function FrameworkPanel() {
               </span>
             </div>
             <JumpStrip reduced={reduced} />
-            <p className="game-fw-narrow-note">Rotate or widen the screen to see each indicator&rsquo;s trend and its change on the quarter.</p>
             <div className="game-fw-sectors">
               {SECTORS.map((s) => (
                 <SectorCard key={s.id} sector={s} actual={actual} forecast={forecast} untouched={untouched} clock={clock} end={end} touched={touched} shown={shown} />
@@ -319,11 +325,13 @@ function ChannelCard({ channel: c, max }: { channel: Channel; max: number }) {
 
 /** A bar on the channels' shared axis: zero in the middle, the value printed at the bar's end. */
 function AxisBar({ value, max }: { value: number; max: number }) {
-  // Non-zero bars are at least 2px wide, a tick beside their value, never a sliver.
-  const w = `max(2px, ${Math.min(50, (Math.abs(value) / max) * 50).toFixed(2)}%)`;
+  // Non-zero bars are at least 3px wide, beside their value, never a sliver; a value past the
+  // scale's end is cut there (a broken end) and printed in full.
+  const over = Math.abs(value) > max * 1.001;
+  const w = `max(3px, ${Math.min(50, (Math.abs(value) / max) * 50).toFixed(2)}%)`;
   return (
     <span className="game-fw-axisbar">
-      <span className={`game-fw-axisbar-fill ${value > 0 ? "is-pos" : "is-neg"}`} style={{ width: w, [value > 0 ? "left" : "right"]: "50%" }} aria-hidden="true" />
+      <span className={`game-fw-axisbar-fill ${value > 0 ? "is-pos" : "is-neg"} ${over ? "is-over" : ""}`} style={{ width: w, [value > 0 ? "left" : "right"]: "50%" }} aria-hidden="true" />
       <span className={`game-fw-axisbar-val ${value > 0 ? "is-pos" : "is-neg"}`} style={value > 0 ? { left: `calc(50% + ${w} + 4px)` } : { right: `calc(50% + ${w} + 4px)` }}>
         {signed(value, 2)}
       </span>
@@ -408,6 +416,8 @@ function Row({ row, actual, forecast, untouched, clock, end, touched, shown, pre
       <td className="tabular-nums">
         {fmt(v, row.digits)}
         <span className="game-fw-unit">{unitTail(row.unit)}</span>
+        {/* Phones: the quarter's change folds under the level, as a second line. */}
+        <span className="game-fw-dq-inline" title="Change on the previous quarter">Δ {signed(dq, row.digits)}</span>
       </td>
       <td className={`tabular-nums game-fw-dq ${Math.abs(dq) < 0.5 * Math.pow(10, -row.digits) ? "is-flat" : ""}`}>
         {signed(dq, row.digits)}
@@ -521,19 +531,64 @@ function SectorDrivers({ id, shown, prev }: { id: Sector["id"]; shown: QuarterSt
   );
 }
 
-/** The sector tabs: they jump down the accounts and stay in view while they scroll. */
+/**
+ * The sector tabs: they jump down the accounts and stay in view while they scroll; the
+ * sector in view is underlined, as the active tab is on every other strip.
+ */
 function JumpStrip({ reduced }: { reduced: boolean }) {
   const ref = useRef<HTMLElement>(null);
-  useStripOverflow(ref);
+  const [active, setActive] = useState<string>(SECTORS[0]?.id ?? "");
+  useStripOverflow(ref, active);
+  useEffect(() => {
+    const root = ref.current?.closest(".game-fw-body") ?? null;
+    if (typeof IntersectionObserver === "undefined") return;
+    const seen = new Map<string, number>();
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) seen.set(e.target.id.replace("fw-sector-", ""), e.isIntersecting ? e.boundingClientRect.top : Infinity);
+        // The topmost sector still on screen is the one being read.
+        const first = SECTORS.find((sec) => (seen.get(sec.id) ?? Infinity) !== Infinity);
+        if (first) setActive(first.id);
+      },
+      { root, rootMargin: "-15% 0px -55% 0px" },
+    );
+    for (const sec of SECTORS) {
+      const el = document.getElementById(`fw-sector-${sec.id}`);
+      if (el) io.observe(el);
+    }
+    return () => io.disconnect();
+  }, []);
   return (
     <div className="game-strip game-fw-jump-strip">
       <nav ref={ref} className="game-fw-jump" aria-label="Jump to a sector">
         {SECTORS.map((sec) => (
-          <button key={sec.id} type="button" onClick={() => document.getElementById(`fw-sector-${sec.id}`)?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" })}>
+          <button
+            key={sec.id}
+            type="button"
+            className={active === sec.id ? "is-on" : ""}
+            aria-current={active === sec.id ? "true" : undefined}
+            onClick={() => {
+              setActive(sec.id);
+              document.getElementById(`fw-sector-${sec.id}`)?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+            }}
+          >
             {sec.title}
           </button>
         ))}
       </nav>
     </div>
   );
+}
+
+/** The Why tiles' chart height: about a fifth of the screen, 120 to 200px, so the four
+    multiples fill the framework's fixed frame instead of leaving paper under them. */
+function useTileHeight() {
+  const [h, setH] = useState(150);
+  useEffect(() => {
+    const on = () => setH(Math.round(Math.min(200, Math.max(120, window.innerHeight * 0.17))));
+    on();
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, []);
+  return h;
 }

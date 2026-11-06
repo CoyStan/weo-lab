@@ -86,3 +86,36 @@ const STANCE: Record<string, string> = { worried: "Worried", calm: "Steady", ple
 function emphasise(text: string) {
   return text.split(/(−?-?\d+(?:\.\d+)?%?(?:\s?pp)?(?: by \d{4}Q\d)?)/).map((part, i) => (i % 2 ? <strong key={i}>{part}</strong> : part));
 }
+
+/**
+ * The recap's "Reaction" line, under the headline: one short quote from each advisor, with
+ * portrait and mood (a square marker and a word), as a paper quotes its sources.
+ */
+export function Reactions({ advice }: { advice: Advice[] }) {
+  if (!advice.length) return null;
+  return (
+    <section className="game-reactions" aria-label="Reaction">
+      <h3 className="game-reactions-title">Reaction</h3>
+      <ul>
+        {advice.slice(0, 2).map((a) => {
+          const who = ADVISORS[a.advisor];
+          return (
+            <li key={a.advisor} className={`game-reaction is-${a.tone}`}>
+              <img src={`${base}${who.portrait}`} alt="" width={40} height={40} className="game-portrait" />
+              <div className="min-w-0">
+                <p className="game-reaction-who">
+                  <strong>{who.name}</strong>{" "}
+                  <span className={`game-reaction-mood is-${a.tone}`}>
+                    <i aria-hidden="true" />
+                    {STANCE[a.tone]}
+                  </span>
+                </p>
+                <p className="game-reaction-quote">&ldquo;{splitLead(a.text).lead}&rdquo;</p>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}

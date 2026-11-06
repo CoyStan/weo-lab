@@ -75,3 +75,28 @@ export function useStickyH(ref: RefObject<HTMLElement | null>, key?: unknown) {
     };
   }, [ref, key]);
 }
+
+/**
+ * A scroll pane that sits above a footer: `data-more="true"` while there is more to scroll
+ * below its fold, so the theme fades its bottom edge into paper only then. At the end of
+ * the pane the last line sits clear of the fade, never sliced by it.
+ */
+export function useScrollMore(ref: RefObject<HTMLElement | null>, key?: unknown) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const more = el.scrollHeight - el.scrollTop - el.clientHeight > 4;
+      if ((el.dataset.more === "true") !== more) el.dataset.more = more ? "true" : "false";
+    };
+    measure();
+    el.addEventListener("scroll", measure, { passive: true });
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    for (const c of Array.from(el.children)) ro.observe(c);
+    return () => {
+      el.removeEventListener("scroll", measure);
+      ro.disconnect();
+    };
+  }, [ref, key]);
+}
