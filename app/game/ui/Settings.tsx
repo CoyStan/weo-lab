@@ -182,7 +182,7 @@ function GameSettings() {
         <div className="mt-2">
           {confirm ? (
             <span className="inline-flex flex-wrap items-center gap-2">
-              <span className="text-[0.74rem]">Erase all stars?</span>
+              <span className="text-[0.75rem]">Erase all stars?</span>
               <button
                 type="button"
                 className="lab-btn lab-btn-danger lab-btn-xs"

@@ -98,28 +98,41 @@ export default function Decomp() {
 
       <p className="game-dc-lede">
         {meta.label} has moved <strong>{fmt(total(at), meta.digits)} {meta.unit}</strong> from {fmt0(d.start[metric], meta.digits)} at the start to {fmt0(d.path[at][metric], meta.digits)} in {d.path[at].label}
-        {at > clock ? " (forecast)" : ""}. The bars split that change: <span className="game-dc-key is-env">warm colours</span> are what hit the economy,{" "}
-        <span className="game-dc-key is-pol">cool colours</span> are your instruments, grey is where the economy was heading anyway.
+        {at > clock ? " (forecast)" : ""}. Here is what caused it:
       </p>
 
       <div className="game-dc-chart" onPointerLeave={() => setHover(null)}>
         <svg viewBox={`0 0 ${W} ${H}`} className="block w-full" role="img" aria-label={`${meta.label}: contributions to the change since the start, by quarter`}>
+          <defs>
+            <pattern id="dc-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <rect width="6" height="6" fill="color-mix(in srgb, var(--lab-ink) 10%, var(--lab-paper))" />
+              <line x1="0" y1="0" x2="0" y2="6" stroke="var(--dc-momentum)" strokeWidth="3" />
+            </pattern>
+          </defs>
           {clock < end ? <rect x={x(clock + 1) - band * 0.2} y={PAD.t} width={x(end) + band - x(clock + 1) + band * 0.2} height={H - PAD.t - PAD.b} fill="color-mix(in srgb, var(--lab-ink) 4%, transparent)" /> : null}
-          {ticks.map((v) => (
+          {ticks.map((v, i) => (
             <g key={v}>
-              <line x1={PAD.l} x2={W - PAD.r} y1={y(v)} y2={y(v)} stroke={v === 0 ? "var(--lab-ink)" : "var(--lab-line)"} strokeOpacity={v === 0 ? 0.45 : 1} />
-              <text x={PAD.l - 6} y={y(v) + 3} fontSize={10} textAnchor="end" fill="var(--lab-ink-2)">
-                {fmt(v, Math.abs(ticks[1] - ticks[0]) < 1 ? 1 : 0)}
+              <line x1={PAD.l} x2={W - PAD.r} y1={y(v)} y2={y(v)} stroke={v === 0 ? "var(--lab-ink)" : "var(--lab-line)"} strokeOpacity={v === 0 ? 0.55 : 1} />
+              <text x={PAD.l - 6} y={y(v) + 4} fontSize={12} textAnchor="end" fill="var(--lab-ink-2)">
+                {fmt(v, tickDigits(ticks))}
               </text>
+              {i === ticks.length - 1 ? (
+                <text x={PAD.l + 4} y={y(v) - 4} fontSize={11} fill="var(--lab-ink-2)">
+                  {meta.unit} vs start
+                </text>
+              ) : null}
             </g>
           ))}
+          {Array.from({ length: end }, (_, i) => i + 1).map((t) => (
+            <line key={`q-${t}`} x1={x(t) + band / 2} x2={x(t) + band / 2} y1={H - PAD.b} y2={H - PAD.b + ((t - 1) % 4 === 0 ? 6 : 3)} stroke="var(--lab-ink-2)" strokeOpacity={0.5} />
+          ))}
           {years.map((t) => (
-            <text key={t} x={x(t) + 2} y={H - 8} fontSize={10} fill="var(--lab-ink-2)">
+            <text key={t} x={x(t) + band / 2} y={H - 6} fontSize={12} fill="var(--lab-ink-2)">
               {d.path[t].label.slice(0, 4)}
             </text>
           ))}
           {clock < end ? (
-            <text x={x(clock + 1) + 4} y={PAD.t + 10} fontSize={10} fill="var(--lab-ink-2)">
+            <text x={x(clock + 1) + 4} y={PAD.t + 12} fontSize={12} fontWeight={600} fill="var(--lab-ink-2)">
               Forecast →
             </text>
           ) : null}
@@ -128,7 +141,7 @@ export default function Decomp() {
             let neg = 0;
             const cx = x(t) + (band - barW) / 2;
             return (
-              <g key={t} opacity={hover === null || hover === t ? 1 : 0.45}>
+              <g key={t}>
                 {shown.map((c) => {
                   const v = c.values[metric][t];
                   if (Math.abs(v) < 1e-4) return null;
@@ -138,7 +151,7 @@ export default function Decomp() {
                   else neg = to;
                   const top = y(Math.max(from, to));
                   const h = Math.max(0.5, Math.abs(y(from) - y(to)) - 1);
-                  return <rect key={c.id} x={cx} y={top + (v > 0 ? 0 : 1)} width={barW} height={h} rx={1.5} fill={SLOT[c.slot]} />;
+                  return <rect key={c.id} x={cx} y={top + (v > 0 ? 0 : 1)} width={barW} height={h} rx={1.5} fill={c.kind === "momentum" ? "url(#dc-hatch)" : SLOT[c.slot]} stroke={t === at ? "var(--lab-ink)" : "none"} strokeWidth={t === at ? 0.8 : 0} />;
                 })}
               </g>
             );
@@ -151,7 +164,7 @@ export default function Decomp() {
             <rect key={`hit-${t}`} x={x(t)} y={PAD.t} width={band} height={H - PAD.t - PAD.b} fill="transparent" onPointerEnter={() => setHover(t)} onClick={() => setHover(t)} />
           ))}
         </svg>
-        <p className="game-dc-axis">Change since the start, {meta.unit}. Line = total change; bars = what caused it. Hover a quarter for the numbers.</p>
+        <p className="game-dc-axis">Change since the start, {meta.unit}. Line = total change; bars = what caused it. Point at (or tap) a quarter for its numbers.</p>
       </div>
 
       <div className="game-dc-legend">
@@ -184,8 +197,8 @@ function LegendGroup({ title, items, metric, at, digits, hidden, toggle, empty }
             return (
               <li key={c.id}>
                 <button type="button" className={hidden.has(c.id) ? "is-off" : ""} onClick={() => toggle(c.id)} aria-pressed={!hidden.has(c.id)} title={hidden.has(c.id) ? "Show in the chart" : "Hide from the chart"}>
-                  <i style={{ background: SLOT[c.slot] }} aria-hidden="true" />
-                  <span className="truncate">{c.label}</span>
+                  <i className={c.kind === "momentum" ? "is-hatch" : ""} style={c.kind === "momentum" ? undefined : { background: SLOT[c.slot] }} aria-hidden="true" />
+                  <span className="game-dc-label">{c.label}</span>
                   <span className="game-dc-mini" aria-hidden="true">
                     <span style={{ width: `${(Math.abs(v) / max) * 100}%`, background: SLOT[c.slot], marginLeft: v < 0 ? "auto" : undefined }} />
                   </span>
@@ -203,6 +216,11 @@ function LegendGroup({ title, items, metric, at, digits, hidden, toggle, empty }
 }
 
 const fmt0 = (v: number, d: number) => v.toFixed(d);
+
+function tickDigits(ticks: number[]): number {
+  const step = ticks.length > 1 ? Math.abs(ticks[1] - ticks[0]) : 1;
+  return step >= 1 && Number.isInteger(step) ? 0 : step >= 0.1 ? 1 : 2;
+}
 
 function niceTicks(lo: number, hi: number): number[] {
   const span = hi - lo;

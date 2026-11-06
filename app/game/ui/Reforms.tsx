@@ -52,15 +52,15 @@ export default function Reforms() {
                       {since !== undefined ? (
                         thisTurn ? (
                           <>
-                            <span className="text-[0.68rem] font-semibold text-[var(--lab-good)]">Adopting from {quarterLabel(since)}</span>
+                            <span className="text-[0.75rem] font-semibold text-[var(--lab-good)]">Adopting from {quarterLabel(since)}</span>
                             <button type="button" className="lab-btn lab-btn-ghost lab-btn-xs" onClick={() => unadopt(inst.id)}>Undo</button>
                           </>
                         ) : (
-                          <span className="text-[0.68rem] font-semibold text-[var(--lab-good)]">In force since {quarterLabel(since)}</span>
+                          <span className="text-[0.75rem] font-semibold text-[var(--lab-good)]">In force since {quarterLabel(since)}</span>
                         )
                       ) : (
                         <>
-                          <span className="text-[0.66rem] text-[var(--lab-ink-2)]">{check.ok ? "" : check.reason}</span>
+                          <span className="text-[0.75rem] text-[var(--lab-ink-2)]">{check.ok ? "" : check.reason}</span>
                           <button type="button" className="lab-btn lab-btn-soft lab-btn-xs" disabled={!check.ok} onClick={() => adopt(inst.id)}>
                             Adopt
                           </button>

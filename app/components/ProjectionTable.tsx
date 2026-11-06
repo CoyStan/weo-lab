@@ -84,7 +84,7 @@ export default function ProjectionTable() {
             {years.map((y) => (
               <th key={y} scope="col" className={y === nowYear ? "text-[var(--lab-ink)]" : ""}>
                 {y}
-                {y === getStartYear() - 1 ? <span className="block text-[0.58rem] font-normal">start</span> : y === nowYear ? <span className="block text-[0.58rem] font-normal">now</span> : <span className="block text-[0.58rem] font-normal">proj.</span>}
+                {y === getStartYear() - 1 ? <span className="block text-[0.75rem] font-normal">start</span> : y === nowYear ? <span className="block text-[0.75rem] font-normal">now</span> : <span className="block text-[0.75rem] font-normal">proj.</span>}
               </th>
             ))}
           </tr>
@@ -102,7 +102,7 @@ export default function ProjectionTable() {
           })}
         </tbody>
       </table>
-      <p className="px-3 py-2 text-[0.64rem] text-[var(--lab-ink-2)]">Annual figures are averages of quarterly values for flows and end-year values for stocks. The model and its calibration are illustrative, not official IMF projections.</p>
+      <p className="px-3 py-2 text-[0.75rem] text-[var(--lab-ink-2)]">Annual figures are averages of quarterly values for flows and end-year values for stocks. The model and its calibration are illustrative, not official IMF projections.</p>
     </div>
   );
 }
@@ -113,15 +113,15 @@ function FragmentRows({ label, unit, scenario, reference, digits, refLabel, nowY
       <tr>
         <th scope="row" rowSpan={2}>
           {label}
-          <span className="block text-[0.6rem] font-normal text-[var(--lab-ink-2)]">{unit}</span>
+          <span className="block text-[0.75rem] font-normal text-[var(--lab-ink-2)]">{unit}</span>
         </th>
-        <td className="!text-left text-[0.66rem] font-semibold text-[var(--lab-scenario)]">Scenario</td>
+        <td className="!text-left text-[0.75rem] font-semibold text-[var(--lab-scenario)]">Scenario</td>
         {scenario.map((x) => (
           <td key={x.year} className={`${x.year === nowYear ? "is-now" : ""} ${breached.has(x.year) ? "is-breach" : ""}`}>{fmt(x.value, digits)}</td>
         ))}
       </tr>
       <tr className="is-reference">
-        <td className="!text-left text-[0.62rem]">{refLabel}</td>
+        <td className="!text-left text-[0.75rem]">{refLabel}</td>
         {reference.map((x) => (
           <td key={x.year} className={x.year === nowYear ? "is-now" : ""}>{fmt(x.value, digits)}</td>
         ))}

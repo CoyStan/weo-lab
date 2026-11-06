@@ -22,9 +22,9 @@ export function AdviceList({ advice, compact = false }: { advice: Advice[]; comp
           <li key={a.advisor} className={`game-advice is-${a.tone}`} style={{ ["--advisor" as string]: who.accent }}>
             <img src={`${base}${who.portrait}`} alt="" width={44} height={44} className="game-portrait" />
             <div className="min-w-0">
-              <div className="flex items-baseline gap-1.5">
-                <strong className="text-[0.74rem]">{who.name}</strong>
-                <span className="truncate text-[0.62rem] text-[var(--lab-ink-2)]">{who.role}</span>
+              <div className="flex flex-col leading-tight">
+                <strong className="text-[0.8rem]">{who.name}</strong>
+                <span className="text-[0.75rem] text-[var(--lab-ink-2)]">{who.role}</span>
               </div>
               <p className="game-advice-text">{a.text}</p>
             </div>

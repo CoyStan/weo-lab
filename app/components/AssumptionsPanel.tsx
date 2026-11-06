@@ -15,7 +15,7 @@ export default function AssumptionsPanel() {
 
   return (
     <div>
-      <p className="mb-2 rounded-lg bg-[color-mix(in_srgb,var(--lab-ink)_6%,transparent)] px-3 py-2 text-[0.72rem] leading-snug text-[var(--lab-ink-2)]">
+      <p className="mb-2 rounded-lg bg-[color-mix(in_srgb,var(--lab-ink)_6%,transparent)] px-3 py-2 text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">
         The reference path keeps the WEO assumptions below (orange ticks). Move one here to test how much the projection depends on it. {changed.length ? <strong className="text-[var(--lab-ink)]">{changed.length} changed.</strong> : null}
       </p>
       <div className="mb-2 flex items-center justify-between">
@@ -48,7 +48,7 @@ export default function AssumptionsPanel() {
           value={a.rerConvention}
           onChange={(v) => setAssumption("rerConvention", v)}
         />
-        <span className="mt-1 block text-[0.68rem] leading-snug text-[var(--lab-ink-2)]">
+        <span className="mt-1 block text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">
           WEO projections hold the real exchange rate constant for floaters. Switching it on lets interest differentials, the current account and capital flows move it, which changes competitiveness, pass-through and FX debt.
         </span>
       </div>

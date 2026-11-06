@@ -87,7 +87,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
           <h1 className="truncate font-display text-[1.15rem] font-semibold leading-tight">{mission.title}</h1>
         </div>
         <div className="game-progress" aria-label={`Quarter ${Math.min(clock + 1, mission.quarters)} of ${mission.quarters}`}>
-          <div className="flex items-baseline justify-between gap-2 text-[0.68rem]">
+          <div className="flex items-baseline justify-between gap-2 text-[0.75rem]">
             <span className="font-semibold">{done ? "Final quarter played" : `Deciding ${deciding}`}</span>
             <span className="text-[var(--lab-ink-2)] tabular-nums">turn {Math.min(clock + 1, mission.quarters)} of {mission.quarters}</span>
           </div>
@@ -98,12 +98,12 @@ export default function Play({ scene }: { scene: ReactNode }) {
           </div>
         </div>
         <Capital />
-        <div className="ml-auto flex items-center gap-1.5">
-          <button type="button" className="lab-btn lab-btn-soft lab-btn-sm game-fw-open" onClick={() => setFramework(true)} title="Every sector, every channel, and why things are or aren't moving (M)">
-            Macro framework <kbd className="game-fw-kbd">M</kbd>
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+          <button type="button" className="lab-btn lab-btn-sm game-fw-open" onClick={() => setFramework(true)} title="Every sector, every channel, and why things are or aren't moving (M)">
+            <ChartIcon /> Macro framework <kbd className="game-fw-kbd">M</kbd>
           </button>
           <SoundToggle />
-          <button type="button" className="lab-btn lab-btn-ghost lab-btn-sm" onClick={rewind} disabled={clock === 0} title="Go back one quarter and decide again">Rewind</button>
+          {clock > 0 ? <button type="button" className="lab-btn lab-btn-ghost lab-btn-sm" onClick={rewind} title="Go back one quarter and decide again">Rewind</button> : null}
           <button type="button" className="lab-btn lab-btn-ghost lab-btn-sm" onClick={restart}>Restart</button>
           <button type="button" className="lab-btn lab-btn-soft lab-btn-sm" onClick={() => setScreen("missions")}>Missions</button>
         </div>
@@ -128,6 +128,9 @@ export default function Play({ scene }: { scene: ReactNode }) {
               {clock === 0 ? "Try moving the policy rate. The dashed line on each goal card shows where that choice leads; the faint one is where you started." : "Inflation reacts slowly. Judge your rate by the forecast at the end, not by this quarter."}
             </p>
           ) : null}
+          <div className="game-agenda-top">
+            <Agenda />
+          </div>
           {panel === "levers" ? (
             <>
               <Levers />
@@ -154,14 +157,16 @@ export default function Play({ scene }: { scene: ReactNode }) {
           <div className="game-stage-foot">
             <Advisors />
             <div className="game-end">
-              <Agenda />
+              <div className="game-agenda-bar">
+                <Agenda />
+              </div>
               {changed ? <span className="game-end-note">You changed policy this quarter.</span> : <span className="game-end-note">No changes: policy carries on as it is.</span>}
               <button type="button" className="game-end-btn" onClick={endQuarter} disabled={Boolean(modal) || done || Boolean(run)}>
                 End {quarterLabel(clock + 1)}
                 <kbd>Enter</kbd>
               </button>
               <button type="button" className="game-skip-btn" onClick={skipAhead} disabled={Boolean(modal) || done || Boolean(run)} title="Play quarter after quarter until something needs a decision (F)">
-                Skip quiet quarters <span aria-hidden="true">⏩</span>
+                Skip quiet quarters <FastForwardIcon />
                 <kbd>F</kbd>
               </button>
             </div>
@@ -175,6 +180,22 @@ export default function Play({ scene }: { scene: ReactNode }) {
         </aside>
       </main>
     </div>
+  );
+}
+
+function FastForwardIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
+      <path d="M1.5 3.2v9.6a.5.5 0 0 0 .8.4L8 8.4V12.8a.5.5 0 0 0 .8.4l6.4-4.8a.5.5 0 0 0 0-.8L8.8 2.8a.5.5 0 0 0-.8.4v4.4L2.3 2.8a.5.5 0 0 0-.8.4Z" />
+    </svg>
+  );
+}
+
+function ChartIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+      <path d="M2 14h12M4 11V7M8 11V3M12 11V8" />
+    </svg>
   );
 }
 

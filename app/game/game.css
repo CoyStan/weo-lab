@@ -67,7 +67,7 @@
 
 .game-eyebrow {
   margin-bottom: 0.5rem;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--lab-info);
 }
@@ -153,7 +153,7 @@
 }
 
 .game-mission-number {
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--lab-info);
 }
@@ -166,7 +166,7 @@
 }
 
 .game-mission-meta {
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   color: var(--lab-ink-2);
 }
 
@@ -209,7 +209,7 @@
 
 .game-section {
   margin-bottom: 0.35rem;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--lab-ink-2);
 }
@@ -306,7 +306,7 @@
   border-radius: 999px;
   background: var(--lab-bad-bg);
   padding: 0.15rem 0.6rem;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--lab-bad);
 }
@@ -339,7 +339,7 @@
 }
 
 .game-choice span {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   line-height: 1.4;
   color: var(--lab-ink-2);
 }
@@ -493,14 +493,14 @@
   border-radius: 0.7rem;
   background: var(--lab-info-bg);
   padding: 0.55rem 0.7rem;
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   line-height: 1.45;
   animation: game-rise 0.5s var(--game-ease) both;
 }
 
 .game-turn-note {
   margin-bottom: 0.25rem;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: var(--lab-ink-2);
 }
 
@@ -519,7 +519,7 @@
 
 .game-lever-group h3 {
   margin-bottom: 0.15rem;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--lab-ink-2);
 }
@@ -554,7 +554,7 @@
 .game-hint {
   display: block;
   margin-top: 0.15rem;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   line-height: 1.4;
   color: var(--lab-ink-2);
 }
@@ -562,7 +562,7 @@
 .game-warn {
   display: block;
   margin-top: 0.2rem;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--lab-bad);
 }
@@ -580,7 +580,7 @@
   border: 1px solid color-mix(in srgb, var(--lab-scenario) 30%, transparent);
   box-shadow: 0 8px 22px color-mix(in srgb, var(--lab-ink) 16%, transparent);
   padding: 0.35rem 0.5rem;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   line-height: 1.45;
   pointer-events: none;
   animation: game-fade 0.2s ease both;
@@ -589,7 +589,7 @@
 .game-reset {
   margin-top: 0.6rem;
   align-self: flex-start;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--lab-info);
   text-decoration: underline;
@@ -638,7 +638,7 @@
   background: color-mix(in srgb, var(--lab-paper) 94%, transparent);
   padding: 0.4rem 0.65rem;
   text-align: right;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   line-height: 1.35;
   box-shadow: 0 6px 16px color-mix(in srgb, var(--lab-ink) 12%, transparent);
   backdrop-filter: blur(6px);
@@ -701,7 +701,7 @@
 
 .game-advice-text {
   margin-top: 0.1rem;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   line-height: 1.42;
 }
 
@@ -735,7 +735,7 @@
 }
 
 .game-end-note {
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   color: var(--lab-ink-2);
   text-align: center;
 }
@@ -785,17 +785,45 @@
 /* On phones and tablets the end-turn button stays within reach. */
 @media (max-width: 1179px) {
   .game-play {
-    padding-bottom: 5.5rem;
+    padding-bottom: 9rem;
   }
   .game-end {
     position: fixed;
-    left: 0.75rem;
-    right: 0.75rem;
-    bottom: 0.75rem;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: 0.5rem;
     z-index: 30;
     min-width: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 0.4rem;
+    border: 1px solid var(--lab-line);
+    border-radius: 1.1rem;
+    background: var(--lab-paper);
+    padding: 0.45rem;
+    box-shadow: 0 -6px 24px color-mix(in srgb, var(--lab-ink) 14%, transparent);
   }
   .game-end-note {
+    display: none;
+  }
+  /* The agenda shrinks to one line: the headline and the first item. */
+  .game-end .game-agenda {
+    flex-basis: 100%;
+    max-width: none;
+  }
+  .game-end .game-agenda li:not(:first-child) {
+    display: none;
+  }
+  .game-end .game-end-btn {
+    flex: 1 1 auto;
+    padding: 0.75rem 1rem;
+  }
+  .game-end .game-skip-btn {
+    flex: 0 0 auto;
+  }
+  .game-end .game-skip-btn kbd,
+  .game-end .game-end-btn kbd {
     display: none;
   }
 }
@@ -814,7 +842,7 @@
 
 .game-hint-box p {
   margin-top: 0.35rem;
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   line-height: 1.45;
   animation: game-fade 0.25s ease both;
 }
@@ -839,7 +867,7 @@
 }
 
 .game-goal-title {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--lab-ink-2);
   cursor: help;
@@ -860,7 +888,7 @@
   min-width: 4.4rem;
   border-radius: 999px;
   padding: 0.05rem 0.45rem;
-  font-size: 0.62rem;
+  font-size: 0.75rem;
   font-weight: 700;
   text-align: center;
 }
@@ -889,7 +917,7 @@
   flex: none;
   border-radius: 999px;
   padding: 0.12rem 0.5rem;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   background: color-mix(in srgb, var(--lab-scenario) 12%, transparent);
@@ -898,7 +926,7 @@
 }
 
 .game-why {
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--lab-info);
   text-decoration: underline;
@@ -948,7 +976,7 @@
 
 .game-freeplay {
   margin-top: 0.9rem;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   line-height: 1.4;
   color: var(--lab-ink-2);
   text-align: left;
@@ -1064,7 +1092,7 @@
 .game-track span span,
 .game-track > span:last-child > span {
   display: block;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   color: var(--lab-ink-2);
 }
 
@@ -1104,7 +1132,7 @@
   border-radius: 0.6rem;
   background: var(--lab-surface);
   padding: 0.4rem 0.55rem;
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   text-align: left;
 }
 
@@ -1149,7 +1177,7 @@
   gap: 0.3rem;
   border-radius: 999px;
   padding: 0.22rem 0.6rem;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
@@ -1175,7 +1203,7 @@
   position: absolute;
   right: -0.2rem;
   top: -0.6rem;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 800;
   pointer-events: none;
   animation: game-float 1.6s var(--game-ease) forwards;
@@ -1207,7 +1235,7 @@
   border-radius: 999px;
   border: 1px dashed var(--lab-line-strong);
   padding: 0.2rem 0.55rem;
-  font-size: 0.66rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--lab-ink-2);
   white-space: nowrap;
@@ -1224,7 +1252,7 @@
   gap: 0.15rem;
   border-radius: 999px;
   padding: 0.05rem 0.4rem;
-  font-size: 0.66rem;
+  font-size: 0.75rem;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -1320,14 +1348,14 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem 0.6rem;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
 }
 
 .game-compare {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1402,7 +1430,7 @@
 
 .game-fw-h {
   margin-bottom: 0.35rem;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1411,7 +1439,7 @@
 
 .game-fw-sub {
   margin-bottom: 0.5rem;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   line-height: 1.4;
   color: var(--lab-ink-2);
 }
@@ -1430,7 +1458,7 @@
   border-radius: 0.5rem;
   background: color-mix(in srgb, var(--lab-info-mark) 8%, transparent);
   padding: 0.55rem 0.7rem;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   line-height: 1.45;
 }
 
@@ -1465,33 +1493,46 @@
 }
 
 .game-fw-pill {
+  display: inline-flex;
   flex-shrink: 0;
-  border-radius: 0.35rem;
-  padding: 0.05rem 0.4rem;
-  font-size: 0.62rem;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: var(--game-r-sm);
+  padding: 0.1rem 0.45rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: var(--lab-paper);
-  background: var(--lab-good-mark);
+  color: var(--lab-good);
+  background: color-mix(in srgb, var(--lab-good-mark) 16%, transparent);
+}
+
+.game-fw-pill::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .game-fw-pill.is-weak {
-  background: var(--lab-warn-mark);
+  color: var(--lab-warn);
+  background: color-mix(in srgb, var(--lab-warn-mark) 18%, transparent);
 }
 
 .game-fw-pill.is-blocked {
-  background: var(--lab-alert);
+  color: var(--lab-bad);
+  background: color-mix(in srgb, var(--lab-alert) 14%, transparent);
 }
 
 .game-fw-pill.is-idle {
   color: var(--lab-ink-2);
-  background: color-mix(in srgb, var(--lab-ink) 10%, transparent);
+  background: color-mix(in srgb, var(--lab-ink) 8%, transparent);
 }
 
 .game-fw-chain {
   display: flex;
   flex-wrap: wrap;
   gap: 0.15rem 0.3rem;
-  font-size: 0.66rem;
+  font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.35;
   color: var(--lab-ink);
@@ -1506,7 +1547,7 @@
   grid-template-columns: minmax(0, 1fr) 52px 40px;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.66rem;
+  font-size: 0.75rem;
 }
 
 .game-fw-legend {
@@ -1515,7 +1556,7 @@
   align-items: center;
   gap: 0.35rem 1rem;
   margin-bottom: 0.5rem;
-  font-size: 0.66rem;
+  font-size: 0.75rem;
   color: var(--lab-ink-2);
 }
 
@@ -1552,7 +1593,7 @@
 .game-fw-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
 }
 
 .game-fw-table th,
@@ -1564,7 +1605,7 @@
 
 .game-fw-table thead th {
   border-bottom: 1px solid var(--lab-line);
-  font-size: 0.6rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--lab-ink-2);
 }
@@ -1584,7 +1625,7 @@
 
 .game-fw-unit {
   margin-left: 0.1rem;
-  font-size: 0.6rem;
+  font-size: 0.75rem;
   color: var(--lab-ink-2);
 }
 
@@ -1610,7 +1651,7 @@
 
 .game-fw-drivers > p {
   margin-bottom: 0.35rem;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   line-height: 1.35;
   color: var(--lab-ink-2);
 }
@@ -1625,7 +1666,7 @@
   margin-top: 0.9rem;
   border-top: 1px solid var(--lab-line);
   padding-top: 0.6rem;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   line-height: 1.45;
   color: var(--lab-ink-2);
 }
@@ -1653,7 +1694,7 @@
   border-radius: 0.5rem;
   background: color-mix(in srgb, var(--lab-warn-mark) 10%, transparent);
   padding: 0.4rem 0.6rem;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   line-height: 1.35;
 }
 
@@ -1663,7 +1704,7 @@
 }
 
 .game-agenda strong {
-  font-size: 0.74rem;
+  font-size: 0.75rem;
 }
 
 .game-agenda ul {
@@ -1787,7 +1828,7 @@
 }
 
 .game-run-foot {
-  font-size: 0.66rem !important;
+  font-size: 0.75rem !important;
 }
 
 .game-run-recap {
@@ -1832,7 +1873,7 @@
   border: 1px solid var(--lab-line);
   border-radius: 999px;
   padding: 0.2rem 0.65rem;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--lab-ink-2);
   background: var(--lab-paper);
@@ -1869,7 +1910,7 @@
 
 .game-dc-axis,
 .game-dc-note {
-  font-size: 0.64rem;
+  font-size: 0.75rem;
   line-height: 1.4;
   color: var(--lab-ink-2);
 }
@@ -1887,7 +1928,7 @@
 
 .game-dc-group h5 {
   margin-bottom: 0.25rem;
-  font-size: 0.64rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1895,7 +1936,7 @@
 }
 
 .game-dc-group > p {
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   color: var(--lab-ink-2);
 }
 
@@ -1913,7 +1954,7 @@
   gap: 0.45rem;
   border-radius: 0.35rem;
   padding: 0.15rem 0.25rem;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   text-align: left;
 }
 
@@ -1958,5 +1999,359 @@
   align-self: end;
   border-top: 2px solid var(--lab-ink);
   padding-top: 0.3rem;
-  font-size: 0.74rem;
+  font-size: 0.75rem;
+}
+
+/* Big shared screens: scale the whole interface up so it reads from the sofa. */
+@media (min-width: 1680px) {
+  html {
+    font-size: 17px;
+  }
+}
+
+@media (min-width: 1920px) {
+  html {
+    font-size: 18.5px;
+  }
+}
+
+/* ---- Design council, round 1 --------------------------------------------- */
+
+.game {
+  --game-r-sm: 6px;
+  --game-r-md: 10px;
+  --game-r-lg: 16px;
+}
+
+/* Framework: tabs, one view at a time, readable at a distance. */
+.game-fw-tabs {
+  position: sticky;
+  top: -1.1rem;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 0.8rem -0.25rem 0;
+  background: var(--lab-paper);
+  padding: 0.5rem 0.25rem;
+}
+
+.game-fw-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid var(--lab-line);
+  border-radius: var(--game-r-md);
+  background: var(--lab-paper);
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.game-fw-tabs button:hover {
+  border-color: color-mix(in srgb, var(--lab-ink) 35%, transparent);
+}
+
+.game-fw-tabs button.is-on {
+  border-color: var(--lab-ink);
+  background: var(--lab-ink);
+  color: var(--lab-paper);
+}
+
+.game-fw-tabs strong {
+  display: block;
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+.game-fw-tabs small {
+  display: block;
+  font-size: 0.75rem;
+  line-height: 1.25;
+  opacity: 0.75;
+}
+
+.game-fw-tab-n {
+  display: inline-grid;
+  flex-shrink: 0;
+  width: 1.6rem;
+  height: 1.6rem;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.game-fw-section {
+  margin-top: 0.75rem;
+}
+
+.game-fw-sub,
+.game-fw-note,
+.game-fw-channel p,
+.game-fw-link,
+.game-fw-drivers > p,
+.game-fw-legend {
+  font-size: 0.85rem;
+}
+
+.game-fw-note strong {
+  font-size: 1rem;
+}
+
+.game-fw-note {
+  padding: 0.75rem 0.9rem;
+  line-height: 1.5;
+}
+
+.game-fw-channel h4 {
+  font-size: 1rem;
+}
+
+.game-fw-chain {
+  font-size: 0.8rem;
+}
+
+.game-fw-link {
+  grid-template-columns: minmax(0, 1fr) 56px 44px;
+}
+
+.game-fw-sector h4 {
+  font-size: 1.1rem;
+}
+
+.game-fw-table {
+  font-size: 0.875rem;
+}
+
+.game-fw-table th,
+.game-fw-table td {
+  padding: 0.4rem 0.35rem;
+}
+
+.game-fw-table thead th {
+  font-size: 0.75rem;
+}
+
+.game-fw-table th:last-child,
+.game-fw-table td:last-child {
+  background: color-mix(in srgb, var(--lab-scenario) 7%, transparent);
+}
+
+.game-fw-effect {
+  font-weight: 700;
+}
+
+.game-fw-head h2 {
+  font-size: 1.6rem;
+}
+
+/* Decomposition: legend labels wrap instead of truncating; momentum is hatched. */
+.game-dc-group button {
+  grid-template-columns: 0.85rem minmax(0, 1fr) 3rem 3.2rem;
+  font-size: 0.85rem;
+  align-items: start;
+}
+
+.game-dc-group button i {
+  width: 0.85rem;
+  height: 0.85rem;
+  margin-top: 0.15rem;
+}
+
+.game-dc-group button i.is-hatch {
+  background: repeating-linear-gradient(45deg, var(--dc-momentum) 0 2px, color-mix(in srgb, var(--lab-ink) 10%, var(--lab-paper)) 2px 5px);
+}
+
+.game-dc-mini {
+  margin-top: 0.4rem;
+}
+
+.game-dc-label {
+  line-height: 1.3;
+}
+
+.game-dc-group h5 {
+  font-size: 0.75rem;
+}
+
+.game-dc-lede {
+  font-size: 0.95rem;
+}
+
+.game-dc-total {
+  font-size: 0.9rem;
+}
+
+.game-dc-total strong {
+  font-family: var(--lab-font-display);
+  font-size: 1.3rem;
+}
+
+.game-dc-metrics button {
+  border-radius: var(--game-r-sm);
+  font-size: 0.8rem;
+  padding: 0.3rem 0.7rem;
+}
+
+/* The lever is the decision: big value, chunky track. */
+.game-lever .lab-slider-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.game-lever .lab-slider-value {
+  font-family: var(--lab-font-display);
+  font-size: 1.6rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.game-lever .lab-range {
+  height: 28px;
+}
+
+.game-lever .lab-range::-webkit-slider-runnable-track {
+  height: 8px;
+}
+
+.game-lever .lab-range::-moz-range-track,
+.game-lever .lab-range::-moz-range-progress {
+  height: 8px;
+}
+
+.game-lever .lab-range::-webkit-slider-thumb {
+  width: 24px;
+  height: 24px;
+  margin-top: -8px;
+  border-width: 3px;
+}
+
+.game-lever .lab-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-width: 3px;
+}
+
+/* Agenda reads from across the room. */
+.game-agenda {
+  max-width: 20rem;
+  font-size: 0.85rem;
+  padding: 0.55rem 0.75rem;
+}
+
+.game-agenda strong {
+  font-size: 0.95rem;
+}
+
+/* HUD: the framework button is a feature, not a utility. */
+.game-fw-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1.5px solid var(--lab-scenario);
+  color: var(--lab-scenario);
+  background: color-mix(in srgb, var(--lab-scenario) 6%, var(--lab-paper));
+  font-weight: 600;
+}
+
+.game-fw-open:hover {
+  background: color-mix(in srgb, var(--lab-scenario) 12%, var(--lab-paper));
+}
+
+.game-skip-btn svg {
+  color: var(--lab-scenario);
+}
+
+/* Locked missions: readable roadmap, dim background only. */
+.game-mission.is-locked {
+  opacity: 1;
+  background: color-mix(in srgb, var(--lab-paper) 62%, transparent);
+  color: var(--lab-ink-2);
+}
+
+.game-mission.is-locked * {
+  color: var(--lab-ink-2);
+}
+
+/* Recap numbers. */
+.game-recap-stat {
+  gap: 0.2rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.game-advice-text {
+  font-size: 0.85rem;
+}
+
+@media (max-width: 760px) {
+  .game-fw-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .game-fw-tabs small {
+    display: none;
+  }
+}
+
+/* The agenda sits at the top of the levers on wide screens, in the end bar on narrow ones. */
+.game-agenda-top {
+  margin-bottom: 0.75rem;
+}
+
+.game-agenda-top .game-agenda {
+  max-width: none;
+}
+
+.game-agenda-bar {
+  display: none;
+}
+
+@media (max-width: 1179px) {
+  .game-agenda-top {
+    display: none;
+  }
+  .game-agenda-bar {
+    display: block;
+    flex-basis: 100%;
+  }
+  .game-agenda-bar .game-agenda {
+    max-width: none;
+  }
+  .game-agenda-bar .game-agenda li:not(:first-child) {
+    display: none;
+  }
+}
+
+@media (min-width: 900px) {
+  .game-stage-foot {
+    grid-template-columns: minmax(0, 1fr) 16rem;
+  }
+}
+
+.game-mission.is-locked {
+  border-style: dashed;
+}
+
+/* Phones: the decomposition chart scrolls sideways instead of shrinking to illegibility. */
+@media (max-width: 760px) {
+  .game-dc-chart {
+    overflow-x: auto;
+  }
+  .game-dc-chart svg {
+    min-width: 600px;
+  }
+}
+
+/* Phones: island labels shrink to their value so they don't pile up. */
+@media (max-width: 760px) {
+  .lab-scene-label .lab-banner-text {
+    font-size: 0;
+  }
+  .lab-scene-label .lab-banner-text strong {
+    font-size: 0.75rem;
+  }
+  .lab-scene-label .lab-banner-icon {
+    display: none;
+  }
 }

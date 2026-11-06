@@ -84,7 +84,7 @@ export default function TopBar() {
         </div>
         <div className="flex items-center gap-2 lg:ml-2">
           <Segmented ariaLabel="Economy" size="md" value={config.presetId} onChange={setPreset} options={PRESETS.map((p) => ({ value: p.id, label: p.name, title: p.tagline }))} />
-          <span className="hidden text-[0.7rem] text-[var(--lab-ink-2)] 2xl:inline">{preset.tagline}</span>
+          <span className="hidden text-[0.75rem] text-[var(--lab-ink-2)] 2xl:inline">{preset.tagline}</span>
         </div>
         <details ref={storyMenu} className="lab-menu">
           <summary className={`lab-btn lab-btn-sm ${storyId ? "lab-btn-ghost" : "lab-btn-soft"}`} title="Load a ready-made exercise">
@@ -106,7 +106,7 @@ export default function TopBar() {
                   {story.title}
                   {storyId === story.id ? <span className="lab-chip lab-chip-info">loaded</span> : null}
                 </span>
-                <span className="mt-0.5 block text-[0.7rem] leading-snug text-[var(--lab-ink-2)]">{story.brief}</span>
+                <span className="mt-0.5 block text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">{story.brief}</span>
               </button>
             ))}
           </div>
@@ -155,7 +155,7 @@ export default function TopBar() {
                     {t.name}
                     {t.id === themeId ? <span className="lab-chip lab-chip-info">on</span> : null}
                   </span>
-                  <span className="mt-0.5 block text-[0.68rem] leading-snug text-[var(--lab-ink-2)]">{t.description}</span>
+                  <span className="mt-0.5 block text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">{t.description}</span>
                 </button>
               ))}
             </div>
@@ -173,7 +173,7 @@ export default function TopBar() {
                 }}
               >
                 <span className="block text-[0.78rem] font-semibold">Projection table (CSV)</span>
-                <span className="block text-[0.68rem] text-[var(--lab-ink-2)]">Annual and quarterly paths, scenario and reference</span>
+                <span className="block text-[0.75rem] text-[var(--lab-ink-2)]">Annual and quarterly paths, scenario and reference</span>
               </button>
               <button
                 type="button"
@@ -185,7 +185,7 @@ export default function TopBar() {
                 }}
               >
                 <span className="block text-[0.78rem] font-semibold">Scenario setup (JSON)</span>
-                <span className="block text-[0.68rem] text-[var(--lab-ink-2)]">Assumptions, decisions, shocks and constraints</span>
+                <span className="block text-[0.75rem] text-[var(--lab-ink-2)]">Assumptions, decisions, shocks and constraints</span>
               </button>
             </div>
           </details>
@@ -215,11 +215,11 @@ export default function TopBar() {
         </div>
         <div className="flex items-baseline gap-2">
           <span className="font-display text-[1.5rem] font-semibold leading-none tabular-nums text-[var(--lab-ink)]">{clock === 0 ? "Start" : `${quarterYear(clock)} Q${((clock - 1) % 4) + 1}`}</span>
-          <span className="text-[0.68rem] text-[var(--lab-ink-2)]">{clock === 0 ? "2025 outturn" : `quarter ${clock} of ${HORIZON}`}</span>
+          <span className="text-[0.75rem] text-[var(--lab-ink-2)]">{clock === 0 ? "2025 outturn" : `quarter ${clock} of ${HORIZON}`}</span>
         </div>
         <div className="flex min-w-[220px] flex-1 flex-col gap-0.5">
           <input type="range" className="lab-range" min={0} max={HORIZON} step={1} value={clock} onChange={(e) => setClock(Number(e.target.value))} style={{ ["--pct" as string]: `${(clock / HORIZON) * 100}%` }} aria-label="Clock" aria-valuetext={quarterLabel(clock)} />
-          <div className="flex justify-between px-1 text-[0.6rem] tabular-nums text-[var(--lab-ink-2)]" aria-hidden="true">
+          <div className="flex justify-between px-1 text-[0.75rem] tabular-nums text-[var(--lab-ink-2)]" aria-hidden="true">
             {yearLabels().map((y) => (
               <span key={y}>{y}</span>
             ))}

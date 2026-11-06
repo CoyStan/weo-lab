@@ -90,18 +90,12 @@ for (const [label, viewport] of [
   await page.getByRole("button", { name: "See every sector" }).click();
   await page.waitForTimeout(600);
   await shoot(page, `${label}-7-framework-top`);
-  await page.evaluate(() => {
-    const el = document.querySelector(".game-fw-backdrop");
-    const dc = document.querySelector(".game-dc");
-    if (el && dc) el.scrollTop = dc.getBoundingClientRect().top + el.scrollTop - 20;
-  });
+  await page.getByRole("tab", { name: /Shocks vs policy/ }).click();
   await shoot(page, `${label}-8-decomposition`);
-  await page.evaluate(() => {
-    const el = document.querySelector(".game-fw-backdrop");
-    const s = document.querySelector(".game-fw-sectors");
-    if (el && s) el.scrollTop = s.getBoundingClientRect().top + el.scrollTop - 20;
-  });
-  await shoot(page, `${label}-9-sectors`);
+  await page.getByRole("tab", { name: /Channels/ }).click();
+  await shoot(page, `${label}-9-channels`);
+  await page.getByRole("tab", { name: /Sector accounts/ }).click();
+  await shoot(page, `${label}-10-sectors`);
   await page.close();
 }
 

@@ -27,7 +27,7 @@ export default function PolicyDesk() {
 
   return (
     <div>
-      <p className="mb-2 rounded-lg bg-[color-mix(in_srgb,var(--lab-ink)_6%,transparent)] px-3 py-2 text-[0.72rem] leading-snug text-[var(--lab-ink-2)]">
+      <p className="mb-2 rounded-lg bg-[color-mix(in_srgb,var(--lab-ink)_6%,transparent)] px-3 py-2 text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">
         Levers you move now take effect from <strong className="text-[var(--lab-ink)]">{quarterLabel(quarter)}</strong> and stay until you change them. Scrub the clock to decide at a different date.
       </p>
 
@@ -43,7 +43,7 @@ export default function PolicyDesk() {
           value={policy.rateMode}
           onChange={(v) => decide({ rateMode: v })}
         />
-        {pegged ? <span className="mt-1 block text-[0.68rem] text-[var(--lab-ink-2)]">Under a peg the rate follows the anchor currency plus the spread; this choice applies once the currency floats.</span> : null}
+        {pegged ? <span className="mt-1 block text-[0.75rem] text-[var(--lab-ink-2)]">Under a peg the rate follows the anchor currency plus the spread; this choice applies once the currency floats.</span> : null}
       </div>
       {policy.rateMode === "manual" ? (
         <Slider label="Policy rate" value={policy.manualRate} min={0} max={30} step={0.25} format={pct(2)} onChange={(v) => decide({ manualRate: v })} disabled={pegged} hint="Held at this level until you move it again." />
@@ -65,7 +65,7 @@ export default function PolicyDesk() {
           value={policy.fxRegime}
           onChange={(v) => decide({ fxRegime: v })}
         />
-        <span className="mt-1 block text-[0.68rem] text-[var(--lab-ink-2)]">Now: {regimeName(policy.fxRegime)}. A peg absorbs pressure with reserves and breaks when they run out.</span>
+        <span className="mt-1 block text-[0.75rem] text-[var(--lab-ink-2)]">Now: {regimeName(policy.fxRegime)}. A peg absorbs pressure with reserves and breaks when they run out.</span>
       </div>
       {policy.fxRegime === "managed" ? <Slider label="Intervention" value={policy.fxIntervention} min={0} max={100} step={5} format={(v) => `${v}%`} onChange={(v) => decide({ fxIntervention: v })} hint="Share of FX pressure met from reserves rather than the exchange rate." /> : null}
       <Toggle label="Capital flow measures" checked={policy.capitalControls} onChange={(v) => decide({ capitalControls: v })} hint="Halves the FX impact of outflows; costs 60 bp of spread and a little growth." />
@@ -114,7 +114,7 @@ export default function PolicyDesk() {
 
       <SectionLabel right={config.decisions.length || config.oneOffs.length ? <Btn size="xs" variant="danger" onClick={clearDecisions}>Clear all</Btn> : null}>Decision log</SectionLabel>
       {config.decisions.length === 0 && config.oneOffs.length === 0 ? (
-        <p className="text-[0.72rem] text-[var(--lab-ink-2)]">No decisions yet. The scenario runs on the preset&rsquo;s unchanged policies.</p>
+        <p className="text-[0.75rem] text-[var(--lab-ink-2)]">No decisions yet. The scenario runs on the preset&rsquo;s unchanged policies.</p>
       ) : (
         <ol className="space-y-1.5">
           {[...config.decisions.map((d) => ({ q: d.quarter, text: describeChanges(d.changes), remove: () => removeDecision(d.quarter), kind: "decision" as const })), ...config.oneOffs.map((o) => ({ q: o.quarter, text: `${o.kind === "devalue" ? "Step devaluation" : "Debt restructuring"} ${o.value}%`, remove: () => removeOneOff(o.id), kind: "action" as const }))]
@@ -122,13 +122,13 @@ export default function PolicyDesk() {
             .map((item, i) => (
               <li key={`${item.kind}-${item.q}-${i}`} className="flex items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--lab-ink)_10%,transparent)] bg-white px-2.5 py-1.5">
                 <Chip tone={item.kind === "action" ? "warn" : "info"}>{quarterLabel(item.q)}</Chip>
-                <span className="flex-1 text-[0.72rem] leading-snug text-[var(--lab-ink)]">{item.text}</span>
+                <span className="flex-1 text-[0.75rem] leading-snug text-[var(--lab-ink)]">{item.text}</span>
                 <button type="button" onClick={item.remove} aria-label="Remove decision" className="text-[0.9rem] leading-none text-[var(--lab-ink-2)] hover:text-[var(--lab-bad)]">×</button>
               </li>
             ))}
         </ol>
       )}
-      <p className="mt-2 text-[0.66rem] text-[var(--lab-ink-2)]">Horizon: {quarterLabel(1)} to {quarterLabel(HORIZON)}.</p>
+      <p className="mt-2 text-[0.75rem] text-[var(--lab-ink-2)]">Horizon: {quarterLabel(1)} to {quarterLabel(HORIZON)}.</p>
     </div>
   );
 }
@@ -144,9 +144,9 @@ function OneOffRow({ kind, label, value, setValue, min, max, step, unit, hint, o
       </div>
       <div className="mt-1 flex items-center gap-2">
         <input type="range" className="lab-range" min={min} max={max} step={step} value={value} disabled={disabled} onChange={(e) => setValue(Number(e.target.value))} style={{ ["--pct" as string]: `${((value - min) / (max - min)) * 100}%` }} aria-label={`${label} size`} />
-        <span className="w-16 shrink-0 text-right font-mono text-[0.74rem] tabular-nums">{value}{unit.startsWith("%") ? unit : ` ${unit}`}</span>
+        <span className="w-16 shrink-0 text-right font-mono text-[0.75rem] tabular-nums">{value}{unit.startsWith("%") ? unit : ` ${unit}`}</span>
       </div>
-      <span className="mt-0.5 block text-[0.68rem] leading-snug text-[var(--lab-ink-2)]">{hint}</span>
+      <span className="mt-0.5 block text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">{hint}</span>
     </div>
   );
 }

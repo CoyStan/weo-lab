@@ -56,7 +56,7 @@ export default function ConstraintsPanel() {
         />
       </div>
       {constraints.length === 0 ? (
-        <p className="text-[0.72rem] leading-snug text-[var(--lab-ink-2)]">
+        <p className="text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">
           No constraints yet. Try <button type="button" className="font-semibold text-[var(--lab-ink)] underline decoration-[var(--lab-alert)] underline-offset-2" onClick={() => applyTemplate("program")}>programme-style targets</button> or add a ceiling on any indicator.
         </p>
       ) : (
@@ -81,7 +81,7 @@ export default function ConstraintsPanel() {
                     {c.op === "<=" ? "≤" : "≥"}
                   </Btn>
                   <NumberInput ariaLabel={`${spec.label} threshold`} value={c.threshold} step={spec.step} onChange={(v) => updateConstraint(c.id, { threshold: v })} />
-                  <span className="text-[0.68rem] text-[var(--lab-ink-2)]">{spec.unit}</span>
+                  <span className="text-[0.75rem] text-[var(--lab-ink-2)]">{spec.unit}</span>
                   <Select ariaLabel="Start year" value={c.fromQuarter} onChange={(v) => updateConstraint(c.id, { fromQuarter: Number(v) })} options={yearOptions} className="ml-auto" />
                 </div>
               </li>

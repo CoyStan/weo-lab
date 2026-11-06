@@ -21,11 +21,11 @@ export default function Scorecard() {
         <div className="lab-progress flex-1" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={assessment.score} aria-label="Assessment score">
           <span style={{ width: `${assessment.score}%`, background: color }} />
         </div>
-        <span className="text-[0.72rem] font-semibold tabular-nums text-[var(--lab-ink)]">{assessment.score}/100</span>
+        <span className="text-[0.75rem] font-semibold tabular-nums text-[var(--lab-ink)]">{assessment.score}/100</span>
       </div>
       <ul className="space-y-1">
         {assessment.lines.map((line) => (
-          <li key={line.key} className="flex items-start gap-2 text-[0.72rem] leading-snug" title={line.note}>
+          <li key={line.key} className="flex items-start gap-2 text-[0.75rem] leading-snug" title={line.note}>
             <span className="mt-1"><StatusDot tone={line.status} /></span>
             <span className="flex-1 text-[var(--lab-ink-2)]">{line.label}</span>
             <span className="font-semibold tabular-nums text-[var(--lab-ink)]">{line.value}</span>

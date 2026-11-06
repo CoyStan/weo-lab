@@ -23,7 +23,7 @@ export default function Goals() {
   return (
     <div className="flex flex-col gap-2.5">
       {comparisonLabel ? (
-        <p className="flex items-center gap-2 text-[0.66rem] text-[var(--lab-ink-2)]">
+        <p className="flex items-center gap-2 text-[0.75rem] text-[var(--lab-ink-2)]">
           <span className="inline-block h-0 w-5 border-t-2 border-[color-mix(in_srgb,var(--lab-ink)_35%,transparent)]" /> {comparisonLabel}
           <span className="inline-block h-0 w-5 border-t-2 border-dashed border-[var(--lab-scenario)]" /> Your forecast
         </p>
@@ -66,9 +66,9 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
           <h3 className="game-goal-title" title={meta.plain}>{meta.label}</h3>
           <div className="flex items-baseline gap-1.5">
             <span className="game-goal-value tabular-nums">{fmtNum(now, meta.digits)}</span>
-            <span className="text-[0.7rem] text-[var(--lab-ink-2)]">{meta.unit}</span>
+            <span className="text-[0.75rem] text-[var(--lab-ink-2)]">{meta.unit}</span>
             {clock < end ? (
-              <span className="ml-1 text-[0.68rem] text-[var(--lab-ink-2)]">
+              <span className="ml-1 text-[0.75rem] text-[var(--lab-ink-2)]">
                 forecast {fmtNum(endValue, meta.digits)}
                 {unitShort(meta.unit)} in {quarterLabel(end)}
               </span>
@@ -85,7 +85,7 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
 
       <ul className="mt-1.5 flex flex-col gap-1">
         {objectives.map((o) => (
-          <li key={o.id} className="flex items-start gap-1.5 text-[0.72rem] leading-snug">
+          <li key={o.id} className="flex items-start gap-1.5 text-[0.75rem] leading-snug">
             <span className={`game-status is-${statuses[o.id]}`}>{STATUS_TEXT[statuses[o.id]]}</span>
             <span className="text-[var(--lab-ink)]">
               {o.bonus ? <span className="game-star-inline" aria-label="Bonus">★</span> : null}
@@ -97,7 +97,7 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
 
       <OutlookChart metric={metric} objectives={objectives} actual={actual} forecast={forecast} ghost={ghost} clock={clock} end={end} comparison={comparison} />
       {comparison && comparisonLabel ? (
-        <p className="mt-0.5 text-[0.64rem] text-[var(--lab-ink-2)]">
+        <p className="mt-0.5 text-[0.75rem] text-[var(--lab-ink-2)]">
           {comparisonLabel}, {quarterLabel(Math.min(clock + 1, end))}: {fmtNum(comparison[Math.min(clock + 1, end)][metric], meta.digits)}
           {unitShort(meta.unit)}
         </p>
@@ -138,12 +138,12 @@ function WhyBars({ metric, state, prev }: { metric: MetricKey; state: QuarterSta
   const max = Math.max(0.1, ...parts.map((p) => Math.abs(p.value)));
   return (
     <div className="game-why-panel">
-      <p className="mb-1.5 text-[0.7rem] leading-snug text-[var(--lab-ink-2)]">
+      <p className="mb-1.5 text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">
         {subject} moved {fmtNum(total, 2, true)} {unit} in {state.label}. What pushed it:
       </p>
       <ul className="flex flex-col gap-1">
         {parts.slice(0, 6).map((p) => (
-          <li key={p.key} className="grid grid-cols-[minmax(0,1fr)_88px_44px] items-center gap-2 text-[0.68rem]">
+          <li key={p.key} className="grid grid-cols-[minmax(0,1fr)_88px_44px] items-center gap-2 text-[0.75rem]">
             <span className="truncate" title={p.label}>{p.label}</span>
             <span className="game-why-track" aria-hidden="true">
               <span className={`game-why-bar ${p.value > 0 ? "is-pos" : "is-neg"}`} style={{ width: `${(Math.abs(p.value) / max) * 50}%`, [p.value > 0 ? "left" : "right"]: "50%" }} />
@@ -152,7 +152,7 @@ function WhyBars({ metric, state, prev }: { metric: MetricKey; state: QuarterSta
           </li>
         ))}
       </ul>
-      {metric === "growth" ? <p className="mt-1.5 text-[0.64rem] leading-snug text-[var(--lab-ink-2)]">Growth follows the output gap: when demand pushes output above its potential, growth runs faster than potential.</p> : null}
+      {metric === "growth" ? <p className="mt-1.5 text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">Growth follows the output gap: when demand pushes output above its potential, growth runs faster than potential.</p> : null}
     </div>
   );
 }

@@ -233,7 +233,7 @@ function CentralBank({ reducedMotion }: { reducedMotion: boolean }) {
   });
   const stanceWord = stance > 0.33 ? "tight" : stance < -0.33 ? "loose" : "neutral";
   return (
-    <District focusKey="rate" pad={2.35} position={DISTRICT_POS.rate!} labelY={6.1} title={`Central bank · ${stanceWord}`} value={`${fmt(current.rate, 2)}% · ${regimeName(current.regime)}`} tilt={0.8} reducedMotion={reducedMotion}>
+    <District focusKey="rate" pad={2.35} position={DISTRICT_POS.rate!} labelY={6.1} labelX={-1.5} title={`Central bank · ${stanceWord}`} value={`${fmt(current.rate, 2)}% · ${regimeName(current.regime)}`} tilt={0.8} reducedMotion={reducedMotion}>
       <mesh position-y={0.15} receiveShadow castShadow>
         <cylinderGeometry args={[2.0, 2.1, 0.3, 8]} />
         <meshStandardMaterial color={P.stone} roughness={1} flatShading={P.flat} />
@@ -288,7 +288,7 @@ function Thermometer({ reducedMotion }: { reducedMotion: boolean }) {
   });
   const targetY = 0.55 + tube * clamp(policy.inflationTarget / scaleMax, 0, 1);
   return (
-    <District focusKey="infl" pad={1.0} position={DISTRICT_POS.infl!} labelY={1.9} labelX={1.6} title="Campus · inflation" value={`${fmt(current.infl, 1)}% (target ${fmt(policy.inflationTarget, 1)})`} bad={Math.abs(dev) > 3} tilt={1.5} reducedMotion={reducedMotion}>
+    <District focusKey="infl" pad={1.0} position={DISTRICT_POS.infl!} labelY={1.3} labelX={2.7} title="Campus · inflation" value={`${fmt(current.infl, 1)}% (target ${fmt(policy.inflationTarget, 1)})`} bad={Math.abs(dev) > 3} tilt={1.5} reducedMotion={reducedMotion}>
       <mesh position-y={0.2} receiveShadow>
         <cylinderGeometry args={[0.7, 0.8, 0.4, 8]} />
         <meshStandardMaterial color={P.stone} roughness={1} flatShading={P.flat} />
@@ -353,7 +353,7 @@ function Factories({ reducedMotion }: { reducedMotion: boolean }) {
   });
 
   return (
-    <District focusKey="growth" pad={2.6} position={DISTRICT_POS.growth!} labelY={height + 3.0} title="Industry" value={`Growth ${fmt(current.growth, 1)}%`} bad={current.growth < 0} tilt={-0.6} reducedMotion={reducedMotion}>
+    <District focusKey="growth" pad={2.6} position={DISTRICT_POS.growth!} labelY={height + 3.0} labelX={1.4} title="Industry" value={`Growth ${fmt(current.growth, 1)}%`} bad={current.growth < 0} tilt={-0.6} reducedMotion={reducedMotion}>
       {[0, 1, 2].map((f) => (
         <group key={f} position-x={f * 1.6 - 1.6}>
           <mesh
@@ -714,7 +714,7 @@ function CityBanner() {
   const presetId = useLab((s) => s.config.presetId);
   const gdp = useLab((s) => Math.round(s.result.path[Math.min(s.clock, s.result.path.length - 1)].gdpLevel));
   const { x, z } = WORLD.sites.center;
-  return <Label position={[x, TOP + 2.35, z]} title="Capital · GDP index" value={`${getPreset(presetId).name} · ${gdp}`} accent={P.border} icon="crown" capital />;
+  return <Label position={[x - 0.8, TOP + 1.5, z]} title="Capital · GDP index" value={`${getPreset(presetId).name} · ${gdp}`} accent={P.border} icon="crown" capital />;
 }
 
 export default function Districts({ reducedMotion }: { reducedMotion: boolean }) {

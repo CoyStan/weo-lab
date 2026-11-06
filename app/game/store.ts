@@ -19,6 +19,8 @@ import { getMission, registerMission, isSurprise, knownConfig, missionOutcome, M
 import { ledger, type Entry } from "./politics";
 import type { InstitutionId } from "../model/types";
 
+export type FrameworkTab = "why" | "path" | "channels" | "accounts";
+
 export type Screen = "title" | "missions" | "briefing" | "play" | "sandbox" | "contagion";
 
 export type Recap = {
@@ -80,6 +82,8 @@ type GameState = {
   setFramework: (open: boolean, metric?: DecompMetric) => void;
   frameworkMetric: DecompMetric;
   setFrameworkMetric: (metric: DecompMetric) => void;
+  frameworkTab: FrameworkTab;
+  setFrameworkTab: (tab: FrameworkTab) => void;
   /** A fast-forward in progress. */
   run: Run | null;
   /** Play quarters one after another until something calls for a decision. */
@@ -286,8 +290,10 @@ export const useGame = create<GameState>((set, get) => ({
 
   setFramework: (open, metric) => {
     if (open !== get().framework) sound.play(open ? "open" : "back");
-    set({ framework: open, ...(metric ? { frameworkMetric: metric } : {}) });
+    set({ framework: open, ...(metric ? { frameworkMetric: metric, frameworkTab: "path" as const } : open && !get().framework ? { frameworkTab: "why" as const } : {}) });
   },
+  frameworkTab: "why",
+  setFrameworkTab: (tab) => set({ frameworkTab: tab }),
   frameworkMetric: "infl",
   setFrameworkMetric: (metric) => set({ frameworkMetric: metric }),
 

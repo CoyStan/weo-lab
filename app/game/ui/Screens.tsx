@@ -64,7 +64,7 @@ export function TitleScreen() {
         </ul>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <SoundToggle />
-          <p className="max-w-[24rem] text-[0.66rem] leading-snug text-[var(--lab-ink-2)]">An independent educational game, not affiliated with or endorsed by the IMF. Economies and results are illustrative; details in Settings, About.</p>
+          <p className="max-w-[24rem] text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">An independent educational game, not affiliated with or endorsed by the IMF. Economies and results are illustrative; details in Settings, About.</p>
         </div>
       </div>
     </div>
@@ -173,7 +173,7 @@ export function MissionSelect() {
                 );
               })}
             </ol>
-            <p className="mt-3 text-[0.66rem] text-[var(--lab-ink-2)]">2025 figures. Source: IMF, {WEO.vintage}, retrieved {WEO.fetched}. The game is independent of the IMF.</p>
+            <p className="mt-3 text-[0.75rem] text-[var(--lab-ink-2)]">2025 figures. Source: IMF, {WEO.vintage}, retrieved {WEO.fetched}. The game is independent of the IMF.</p>
           </>
         )}
       </div>
@@ -255,7 +255,7 @@ export function Briefing() {
                 return (
                   <li key={id} className="flex items-center gap-2">
                     <img src={`${base}${a.portrait}`} alt="" width={30} height={30} className="game-portrait is-small" style={{ ["--advisor" as string]: a.accent }} />
-                    <span className="text-[0.74rem] leading-tight">
+                    <span className="text-[0.75rem] leading-tight">
                       <strong>{a.name}</strong>
                       <span className="block text-[var(--lab-ink-2)]">Cares about {a.cares.toLowerCase()}</span>
                     </span>
@@ -272,14 +272,14 @@ export function Briefing() {
               ))}
             </div>
             <h2 className="game-section mt-2">Political capital</h2>
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.74rem]">
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.75rem]">
               <span className="game-counter is-votes"><VotesIcon /> {mission.politics.start.votes}</span>
               <span className="game-counter is-trust"><TrustIcon /> {mission.politics.start.trust}</span>
               <span className="text-[var(--lab-ink-2)]">
                 {mission.politics.elections.length ? `Elections end ${mission.politics.elections.map((q) => quarterLabel(q)).join(" and ")}; you need ${mission.politics.threshold} votes.` : "No elections in this mission."}
               </span>
             </p>
-            <ul className="mt-1 flex flex-col gap-0.5 text-[0.7rem]">
+            <ul className="mt-1 flex flex-col gap-0.5 text-[0.75rem]">
               {mission.politics.institutions.slice(0, 4).map((id) => (
                 <li key={id} className="flex items-center justify-between gap-2">
                   <span>{INSTITUTIONS[id].name}</span>
@@ -288,7 +288,7 @@ export function Briefing() {
               ))}
               {mission.politics.institutions.length > 4 ? <li className="text-[var(--lab-ink-2)]">and {mission.politics.institutions.length - 4} more reforms</li> : null}
             </ul>
-            <p className="mt-2 text-[0.7rem] text-[var(--lab-ink-2)]">
+            <p className="mt-2 text-[0.75rem] text-[var(--lab-ink-2)]">
               {mission.number === 0 ? `Data: IMF, ${WEO.vintage}. Policy rates, reserves and spreads are model estimates. ` : ""}
               {mission.quarters} quarters, {quarterLabel(1)} to {quarterLabel(mission.quarters)}. Watched: {Array.from(new Set(mission.objectives.map((o) => GAME_METRICS[o.metric].label.toLowerCase()))).join(", ")}.
             </p>

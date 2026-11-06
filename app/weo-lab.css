@@ -165,7 +165,7 @@
 .lab-segmented button {
   border-radius: 999px;
   padding: 0.28rem 0.6rem;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--lab-ink-2);
   line-height: 1;
@@ -240,11 +240,11 @@ input:focus-visible + .lab-toggle {
 }
 .lab-btn-xs {
   padding: 0.28rem 0.55rem;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
 }
 .lab-btn-sm {
   padding: 0.42rem 0.8rem;
-  font-size: 0.74rem;
+  font-size: 0.75rem;
 }
 .lab-btn-md {
   padding: 0.55rem 1rem;
@@ -293,7 +293,7 @@ input:focus-visible + .lab-toggle {
   gap: 0.3rem;
   border-radius: 999px;
   padding: 0.18rem 0.5rem;
-  font-size: 0.66rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   line-height: 1.1;
@@ -423,7 +423,7 @@ input:focus-visible + .lab-toggle {
   background: var(--lab-paper);
   box-shadow: 0 8px 20px color-mix(in srgb, var(--lab-ink) 14%, transparent);
   padding: 0.4rem 0.55rem;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   color: var(--lab-ink);
 }
 .lab-tooltip-row {
@@ -450,7 +450,7 @@ input:focus-visible + .lab-toggle {
   border-collapse: separate;
   border-spacing: 0;
   width: 100%;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
 }
 .lab-table th,
 .lab-table td {
@@ -487,7 +487,7 @@ input:focus-visible + .lab-toggle {
 .lab-table tr.is-reference th {
   color: var(--lab-ink-2);
   font-weight: 400;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
 }
 .lab-table td.is-breach {
   color: var(--lab-bad);
@@ -641,7 +641,7 @@ input:focus-visible + .lab-toggle {
   border: 2px solid currentColor;
   border-radius: 0.45rem;
   padding: 0.3rem 0.55rem;
-  font-size: 0.62rem;
+  font-size: 0.75rem;
   font-weight: 900;
   letter-spacing: 0.14em;
   line-height: 1;

@@ -27,17 +27,17 @@ export default function ShocksPanel() {
 
   return (
     <div>
-      <p className="mb-2 rounded-lg bg-[color-mix(in_srgb,var(--lab-ink)_6%,transparent)] px-3 py-2 text-[0.72rem] leading-snug text-[var(--lab-ink-2)]">
+      <p className="mb-2 rounded-lg bg-[color-mix(in_srgb,var(--lab-ink)_6%,transparent)] px-3 py-2 text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">
         Schedule a shock to stress the scenario, or let the lab draw surprises so you have to react as they land.
       </p>
 
       <SectionLabel>Schedule a shock</SectionLabel>
       <div className="space-y-2 rounded-lg border border-[color-mix(in_srgb,var(--lab-ink)_10%,transparent)] bg-white p-2.5">
         <Select ariaLabel="Shock type" className="w-full" value={kind} onChange={(v) => setKind(v as ShockKind)} options={SHOCK_KINDS.map((k) => ({ value: k, label: SHOCKS[k].name }))} />
-        <p className="text-[0.7rem] leading-snug text-[var(--lab-ink-2)]">{spec.description}</p>
+        <p className="text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">{spec.description}</p>
         <div className="flex items-center gap-2">
           <Select ariaLabel="Onset quarter" value={quarter} onChange={(v) => setQuarter(Number(v))} options={quarterOptions} className="flex-1" />
-          <label className="flex items-center gap-1 text-[0.7rem] text-[var(--lab-ink-2)]">
+          <label className="flex items-center gap-1 text-[0.75rem] text-[var(--lab-ink-2)]">
             size
             <NumberInput ariaLabel="Shock size multiplier" value={magnitude} step={0.1} min={0.2} max={3} onChange={setMagnitude} className="w-14" />
           </label>
@@ -47,7 +47,7 @@ export default function ShocksPanel() {
 
       <SectionLabel>Scheduled</SectionLabel>
       {config.shocks.length === 0 ? (
-        <p className="text-[0.72rem] text-[var(--lab-ink-2)]">Nothing scheduled. The reference path has no shocks either.</p>
+        <p className="text-[0.75rem] text-[var(--lab-ink-2)]">Nothing scheduled. The reference path has no shocks either.</p>
       ) : (
         <ul className="space-y-1.5">
           {[...config.shocks]
@@ -60,12 +60,12 @@ export default function ShocksPanel() {
                 </div>
                 <div className="mt-1 flex items-center gap-2">
                   <Select ariaLabel="Onset quarter" value={s.quarter} onChange={(v) => updateShock(s.id, { quarter: Number(v) })} options={quarterOptions} className="flex-1" />
-                  <label className="flex items-center gap-1 text-[0.7rem] text-[var(--lab-ink-2)]">
+                  <label className="flex items-center gap-1 text-[0.75rem] text-[var(--lab-ink-2)]">
                     ×
                     <NumberInput ariaLabel="Size multiplier" value={s.magnitude} step={0.1} min={0.2} max={3} onChange={(v) => updateShock(s.id, { magnitude: Math.max(0.2, Math.min(3, v)) })} className="w-14" />
                   </label>
                 </div>
-                <span className="mt-1 block text-[0.66rem] text-[var(--lab-ink-2)]">{SHOCKS[s.kind].short}</span>
+                <span className="mt-1 block text-[0.75rem] text-[var(--lab-ink-2)]">{SHOCKS[s.kind].short}</span>
               </li>
             ))}
         </ul>
@@ -83,14 +83,14 @@ export default function ShocksPanel() {
           {randomDrawn.length ? (
             <ul className="space-y-1">
               {randomDrawn.map((s) => (
-                <li key={s.id} className="flex items-center gap-2 text-[0.72rem]">
+                <li key={s.id} className="flex items-center gap-2 text-[0.75rem]">
                   <Chip tone={s.quarter <= clock ? "bad" : "neutral"}>{s.quarter <= clock ? quarterLabel(s.quarter) : "hidden until it lands"}</Chip>
                   <span className={s.quarter <= clock ? "" : "blur-[3px] select-none"}>{SHOCKS[s.kind].name} × {s.magnitude.toFixed(1)}</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-[0.72rem] text-[var(--lab-ink-2)]">A quiet draw: no shocks this seed. Reroll for a rougher ride.</p>
+            <p className="text-[0.75rem] text-[var(--lab-ink-2)]">A quiet draw: no shocks this seed. Reroll for a rougher ride.</p>
           )}
         </div>
       ) : null}

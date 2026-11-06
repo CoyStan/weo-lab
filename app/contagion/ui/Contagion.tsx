@@ -596,7 +596,7 @@ function Debrief() {
             Back to Play
           </button>
         </div>
-        <p className="mt-3 text-[0.64rem] text-[var(--lab-ink-2)]">A deliberately simple network model built on IMF WEO figures, for play and learning. Independent of the IMF.</p>
+        <p className="mt-3 text-[0.75rem] text-[var(--lab-ink-2)]">A deliberately simple network model built on IMF WEO figures, for play and learning. Independent of the IMF.</p>
       </div>
     </div>
   );

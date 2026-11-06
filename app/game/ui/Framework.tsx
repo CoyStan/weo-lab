@@ -5,9 +5,16 @@ import { getPreset } from "../../model/presets";
 import type { QuarterState } from "../../model/types";
 import { explain } from "../explain";
 import { channels, deltaTail, diagnose, policyTouched, SECTORS, unitTail, untouchedConfig, type Channel, type ChannelStatus, type FrameworkInput, type RowMeta, type Sector } from "../framework";
-import { forecastFor, useGame } from "../store";
+import { forecastFor, useGame, type FrameworkTab } from "../store";
 import { useTurn } from "../useTurn";
 import Decomp from "./Decomp";
+
+const TABS: { id: FrameworkTab; label: string; sub: string }[] = [
+  { id: "why", label: "Why", sub: "Is it moving, or not?" },
+  { id: "path", label: "Shocks vs policy", sub: "What caused the path" },
+  { id: "channels", label: "Channels", sub: "How levers reach the economy" },
+  { id: "accounts", label: "Sector accounts", sub: "Every indicator, every sector" },
+];
 
 const STATUS_WORD: Record<ChannelStatus, string> = { active: "Working", weak: "Muted", blocked: "Blocked", idle: "Idle" };
 
@@ -38,6 +45,8 @@ function FrameworkPanel() {
   const preset = getPreset(config.presetId);
   const shown = clock > 0 ? actual[clock] : forecast[1];
   const closeRef = useRef<HTMLButtonElement>(null);
+  const tab = useGame((s) => s.frameworkTab);
+  const setTab = useGame((s) => s.setFrameworkTab);
 
   useEffect(() => {
     closeRef.current?.focus({ preventScroll: true });
@@ -46,10 +55,12 @@ function FrameworkPanel() {
         e.preventDefault();
         setFramework(false);
       }
+      const n = Number(e.key);
+      if (n >= 1 && n <= TABS.length && !(e.target as HTMLElement | null)?.closest("input, textarea")) setTab(TABS[n - 1].id);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [setFramework]);
+  }, [setFramework, setTab]);
 
   return (
     <div className="game-modal-backdrop game-fw-backdrop" role="presentation" onClick={(e) => e.target === e.currentTarget && setFramework(false)}>
@@ -58,7 +69,7 @@ function FrameworkPanel() {
           <div className="min-w-0">
             <p className="game-eyebrow !mb-0">Macro framework · {preset.name}</p>
             <h2 id="fw-title" className="font-display text-[1.35rem] font-semibold leading-tight">How the whole economy fits together</h2>
-            <p className="mt-1 text-[0.74rem] leading-snug text-[var(--lab-ink-2)]">
+            <p className="mt-1 text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">
               {clock > 0 ? (
                 <>Mechanics of <strong>{shown.label}</strong>, the quarter just played. Forecasts run to {forecast[end].label}, the end of the mission.</>
               ) : (
@@ -71,49 +82,67 @@ function FrameworkPanel() {
           </button>
         </header>
 
-        {notes.length ? (
-          <section className="game-fw-section" aria-labelledby="fw-why">
-            <h3 id="fw-why" className="game-fw-h">Why is it moving, or not?</h3>
-            <ul className="game-fw-notes">
-              {notes.map((n) => (
-                <li key={n.id} className={`game-fw-note is-${n.tone}`}>
-                  <strong>{n.title}</strong>
-                  <span>{n.text}</span>
-                </li>
-              ))}
-            </ul>
+        <nav className="game-fw-tabs" role="tablist" aria-label="Macro framework views">
+          {TABS.map((t, i) => (
+            <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? "is-on" : ""} onClick={() => setTab(t.id)}>
+              <span className="game-fw-tab-n" aria-hidden="true">{i + 1}</span>
+              <span>
+                <strong>{t.label}</strong>
+                <small>{t.sub}</small>
+              </span>
+            </button>
+          ))}
+        </nav>
+
+        {tab === "why" ? (
+          <section className="game-fw-section" aria-label="Why is it moving, or not?">
+            {notes.length ? (
+              <ul className="game-fw-notes">
+                {notes.map((n) => (
+                  <li key={n.id} className={`game-fw-note is-${n.tone}`}>
+                    <strong>{n.title}</strong>
+                    <span>{n.text}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="game-fw-sub">Nothing unusual: the economy is responding the way the channels below suggest.</p>
+            )}
           </section>
         ) : null}
 
-        <section className="game-fw-section" aria-labelledby="fw-dc">
-          <h3 id="fw-dc" className="game-fw-h">Where the path comes from: shocks against your instruments</h3>
-          <Decomp />
-        </section>
+        {tab === "path" ? (
+          <section className="game-fw-section" aria-label="Shocks against your instruments">
+            <Decomp />
+          </section>
+        ) : null}
 
-        <section className="game-fw-section" aria-labelledby="fw-chan">
-          <h3 id="fw-chan" className="game-fw-h">How policy and shocks reach each sector</h3>
-          <p className="game-fw-sub">Each channel is a chain. Bars show what flowed through it in {shown.label}: demand in pp of the output gap, inflation in pp, debt in pp of GDP.</p>
-          <div className="game-fw-channels">
-            {chans.map((c) => (
-              <ChannelCard key={c.id} channel={c} />
-            ))}
-          </div>
-        </section>
+        {tab === "channels" ? (
+          <section className="game-fw-section" aria-label="How policy and shocks reach each sector">
+            <p className="game-fw-sub">Each channel is a chain from a lever or a shock to the economy. Bars show what flowed through it in {shown.label}: demand in pp of the output gap, inflation in pp, debt in pp of GDP.</p>
+            <div className="game-fw-channels">
+              {chans.map((c) => (
+                <ChannelCard key={c.id} channel={c} />
+              ))}
+            </div>
+          </section>
+        ) : null}
 
-        <section className="game-fw-section" aria-labelledby="fw-sec">
-          <h3 id="fw-sec" className="game-fw-h">The four sector accounts</h3>
-          <div className="game-fw-legend" aria-hidden="true">
-            <span><i className="is-actual" /> Outturn</span>
-            <span><i className="is-forecast" /> Forecast with your policies</span>
-            {touched ? <span><i className="is-untouched" /> Had you changed nothing</span> : null}
-            <span className="ml-auto">“Your policies” = forecast minus the no-change path, at {forecast[end].label}</span>
-          </div>
-          <div className="game-fw-sectors">
-            {SECTORS.map((s) => (
-              <SectorCard key={s.id} sector={s} actual={actual} forecast={forecast} untouched={untouched} clock={clock} end={end} touched={touched} shown={shown} />
-            ))}
-          </div>
-        </section>
+        {tab === "accounts" ? (
+          <section className="game-fw-section" aria-label="The four sector accounts">
+            <div className="game-fw-legend" aria-hidden="true">
+              <span><i className="is-actual" /> Outturn</span>
+              <span><i className="is-forecast" /> Forecast with your policies</span>
+              {touched ? <span><i className="is-untouched" /> Had you changed nothing</span> : null}
+              <span className="ml-auto">“Your policies” = forecast minus the no-change path, at {forecast[end].label}</span>
+            </div>
+            <div className="game-fw-sectors">
+              {SECTORS.map((s) => (
+                <SectorCard key={s.id} sector={s} actual={actual} forecast={forecast} untouched={untouched} clock={clock} end={end} touched={touched} shown={shown} />
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <p className="game-fw-foot">
           The same accounts must add up across sectors: a budget deficit is borrowed (fiscal) at a spread set by markets (external), a weaker currency raises inflation (prices) and foreign-currency debt (fiscal), and every demand push shows up in output and jobs (real). That is why one lever moves everything.
@@ -139,7 +168,7 @@ function ChannelCard({ channel: c }: { channel: Channel }) {
           </li>
         ))}
       </ol>
-      <p className="text-[0.7rem] leading-snug text-[var(--lab-ink-2)]">{c.note}</p>
+      <p className="text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">{c.note}</p>
       <ul className="mt-1.5 flex flex-col gap-1">
         {c.links.map((l) => (
           <li key={l.label} className="game-fw-link">
@@ -166,7 +195,7 @@ function SectorCard({ sector, actual, forecast, untouched, clock, end, touched, 
   return (
     <article className="game-fw-sector">
       <h4 className="text-[0.92rem] font-semibold">{sector.title}</h4>
-      <p className="mb-2 text-[0.68rem] leading-snug text-[var(--lab-ink-2)]">{sector.blurb}</p>
+      <p className="mb-2 text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">{sector.blurb}</p>
       <table className="game-fw-table">
         <thead>
           <tr>

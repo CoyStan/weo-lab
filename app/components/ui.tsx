@@ -9,7 +9,7 @@ export function Panel({ title, subtitle, children, className = "", action }: { t
         <header className="mb-3 flex items-start justify-between gap-3">
           <div>
             <h2 className="font-display text-[1.05rem] font-semibold leading-tight tracking-tight text-[var(--lab-ink)]">{title}</h2>
-            {subtitle ? <p className="mt-0.5 text-[0.72rem] leading-snug text-[var(--lab-ink-2)]">{subtitle}</p> : null}
+            {subtitle ? <p className="mt-0.5 text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">{subtitle}</p> : null}
           </div>
           {action}
         </header>
@@ -22,7 +22,7 @@ export function Panel({ title, subtitle, children, className = "", action }: { t
 export function SectionLabel({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
     <div className="mb-2 mt-4 flex items-center justify-between gap-2 first:mt-0">
-      <h3 className="text-[0.66rem] font-bold uppercase tracking-[0.14em] text-[var(--lab-ink-2)]">{children}</h3>
+      <h3 className="text-[0.75rem] font-bold uppercase tracking-[0.14em] text-[var(--lab-ink-2)]">{children}</h3>
       {right}
     </div>
   );
@@ -58,8 +58,8 @@ export function Slider({
   return (
     <label className={`lab-field ${disabled ? "opacity-50" : ""}`}>
       <span className="flex items-baseline justify-between gap-2">
-        <span className="text-[0.78rem] font-medium text-[var(--lab-ink)]">{label}</span>
-        <span className="font-mono text-[0.78rem] tabular-nums text-[var(--lab-ink)]">{shown}</span>
+        <span className="lab-slider-label text-[0.78rem] font-medium text-[var(--lab-ink)]">{label}</span>
+        <span className="lab-slider-value font-mono text-[0.78rem] tabular-nums text-[var(--lab-ink)]">{shown}</span>
       </span>
       <span className="relative mt-1 block">
         {refPct !== null ? <span aria-hidden="true" className="lab-ref-tick" style={{ left: `calc(${Math.max(0, Math.min(100, refPct))}% - 1px)` }} /> : null}
@@ -76,7 +76,7 @@ export function Slider({
           aria-label={label}
         />
       </span>
-      {hint ? <span className="mt-0.5 block text-[0.68rem] leading-snug text-[var(--lab-ink-2)]">{hint}</span> : null}
+      {hint ? <span className="mt-0.5 block text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">{hint}</span> : null}
     </label>
   );
 }
@@ -98,7 +98,7 @@ export function Toggle({ label, checked, onChange, hint }: { label: string; chec
     <label className="lab-field flex cursor-pointer items-start justify-between gap-3">
       <span>
         <span className="block text-[0.78rem] font-medium text-[var(--lab-ink)]">{label}</span>
-        {hint ? <span className="mt-0.5 block text-[0.68rem] leading-snug text-[var(--lab-ink-2)]">{hint}</span> : null}
+        {hint ? <span className="mt-0.5 block text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">{hint}</span> : null}
       </span>
       <span className="relative mt-0.5 inline-flex shrink-0">
         <input type="checkbox" className="peer sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />

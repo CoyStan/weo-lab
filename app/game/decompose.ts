@@ -80,7 +80,7 @@ function pieces(full: ScenarioConfig, start: ScenarioConfig): Piece[] {
     env.push({ id: "history", label: hidden ? "What really hit the economy" : "Underlying trend (WEO path)", kind: "environment", slot: 0, residuals: true });
   }
   const shocks = [...full.shocks].sort((a, b) => a.quarter - b.quarter);
-  for (const s of shocks) env.push({ id: `shock:${s.id}`, label: `${shockLabel(s)}, ${quarterTag(s.quarter, full)}`, kind: "environment", slot: 0, shockIds: [s.id] });
+  for (const s of shocks) env.push({ id: `shock:${s.id}`, label: `${shockLabel(s)} (${quarterTag(s.quarter, full)})`, kind: "environment", slot: 0, shockIds: [s.id] });
   // Four environment slots at most: the rest fold into one.
   let envPieces = env;
   if (env.length > 4) {
@@ -167,7 +167,7 @@ export function decompose(full: ScenarioConfig, start: ScenarioConfig, horizon: 
 
   const momentum: Component = {
     id: "momentum",
-    label: "Starting conditions and momentum",
+    label: "Momentum from the start",
     kind: "momentum",
     slot: 0,
     values: Object.fromEntries(KEYS.map((k) => [k, Array.from({ length: horizon + 1 }, (_, t) => bare[t][k] - startVals[k])])) as Record<DecompMetric, number[]>,
