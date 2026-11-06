@@ -80,7 +80,8 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
       {/* One verdict per goal, first: the status word and its square. Everything under it is subordinate. */}
       <div className="game-goal-head">
         <h3 className="game-goal-title" title={meta.plain}>{meta.label}</h3>
-        {verdict ? <span className={`game-status game-goal-verdict is-${verdict}`}>{STATUS_TEXT[verdict]}</span> : null}
+        {/* "Goal: on track", so the card's verdict never reads as the bonus star's. */}
+        {verdict ? <span className={`game-status game-goal-verdict is-${verdict}`}><span className="game-goal-verdict-k">Goal: </span>{STATUS_TEXT[verdict].toLowerCase()}</span> : null}
       </div>
       <div className="game-goal-figures">
         {clock < end ? (
@@ -129,8 +130,8 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
           : null}
         {stars.map((o) => (
           <li key={o.id} className={`game-goal-bonus is-${statuses[o.id]}`}>
-            <Glyph name="star" label="Extra star" /> Bonus: {o.label.charAt(0).toLowerCase() + o.label.slice(1)}:{" "}
-            <span className="game-goal-star-state">{STATUS_TEXT[statuses[o.id]].toLowerCase()}</span>
+            <Glyph name="star" label="Extra star" /> Bonus star: <span className="game-goal-star-state">{STATUS_TEXT[statuses[o.id]].toLowerCase()}</span>
+            <span className="game-goal-bonus-what">{o.label}</span>
           </li>
         ))}
       </ul>
@@ -346,6 +347,9 @@ function useBox<T extends HTMLElement>() {
 export function Sparkline({ label, digits, past, fut, ghost = [], comp = [], goals = [], clock, end, height = 120 }: { label: string; digits: number; past: number[]; fut: number[]; ghost?: number[]; comp?: number[]; goals?: SparkGoal[]; clock: number; end: number; height?: number }) {
   const [ref, { w: W, fs }] = useBox<HTMLSpanElement>();
   const H = Math.max(80, height);
+  // Axis text one step under the labels (never below 14px); the end figure a step over it.
+  const fsT = Math.max(14, Math.round(fs * 0.875));
+  const fsEnd = Math.max(16, fs);
   const ghostDiffers = ghost.length === fut.length && ghost.some((v, i) => Math.abs(v - fut[i]) > 0.01);
   const judged = goals.filter((o) => !o.bonus);
   const values = [...past, ...fut, ...(ghostDiffers ? ghost : []), ...comp, ...goals.map((o) => o.threshold)];
@@ -361,13 +365,20 @@ export function Sparkline({ label, digits, past, fut, ghost = [], comp = [], goa
   const ticks = niceTicks(lo, hi);
   const tickDigits = ticks.some((t) => Math.abs(t - Math.round(t)) > 1e-6) ? 1 : 0;
   const ch = fs * 0.6;
+  const chT = fsT * 0.6;
   const last = fut.length ? fut[fut.length - 1] : past[past.length - 1];
   const endText = fmtNum(last, digits);
+  const startText = fmtNum(past[0], digits);
+  const startW = startText.length * fs * 0.62;
+  // The goal's short form ("≤ 4.5"), for the right margin when the plot has no clear spot.
+  const goalShort = judged[0] ? `${judged[0].op === "<=" ? "≤" : "≥"} ${fmtNum(judged[0].threshold, digits)}` : "";
+  const tickW = Math.max(...ticks.map((t) => fmtNum(t, tickDigits).length)) * chT;
   const PAD = {
-    l: Math.ceil(Math.max(...ticks.map((t) => fmtNum(t, tickDigits).length)) * ch + 8),
-    r: Math.ceil(endText.length * ch + 14),
+    // The left gutter holds the y ticks and, when it is clear of them, the start value.
+    l: Math.ceil(Math.max(tickW, startW) + 10),
+    r: Math.ceil(Math.max(endText.length * fsEnd * 0.62, goalShort.length * fs * 0.6) + 14),
     t: Math.ceil(fs * 0.5),
-    b: Math.ceil(fs + 8),
+    b: Math.ceil(fsT + 8),
   };
   const x = (t: number) => PAD.l + (t / end) * (W - PAD.l - PAD.r);
   const y = (v: number) => PAD.t + (1 - (v - lo) / (hi - lo)) * (H - PAD.t - PAD.b);
@@ -375,81 +386,55 @@ export function Sparkline({ label, digits, past, fut, ghost = [], comp = [], goa
   const years = Array.from({ length: Math.ceil(end / 4) }, (_, i) => 1 + i * 4).filter((t) => t < end);
   const lastPast = past[past.length - 1];
   const main = judged[0];
+  const bonus = goals.find((o) => o.bonus);
   const ariaLabel = `${label}: outturn so far and forecast, ending at ${endText}${main ? `; goal ${main.op === "<=" ? "≤" : "≥"} ${fmtNum(main.threshold, digits)}` : ""}`;
   if (!W) return <span ref={ref} className="game-spark" style={{ height: H }} role="img" aria-label={ariaLabel} />;
 
-  // Collision pass: every label is a box that must clear the drawn series and the labels
-  // placed before it; each tries its candidate spots in order and takes the first clear one.
   const series: { from: number; vals: number[] }[] = [{ from: 0, vals: past }, { from: clock, vals: fut }, ...(ghostDiffers ? [{ from: clock, vals: ghost }] : []), ...(comp.length ? [{ from: 0, vals: comp }] : [])];
-  const at = (sr: { from: number; vals: number[] }, t: number) => {
-    const k = t - sr.from;
-    if (k < 0 || k > sr.vals.length - 1) return null;
-    const a = Math.floor(k);
-    const b = Math.min(sr.vals.length - 1, a + 1);
-    return sr.vals[a] + (sr.vals[b] - sr.vals[a]) * (k - a);
-  };
-  type Box = { x: number; y: number; w: number };
-  const placed: Box[] = [];
-  // Horizontal rules a label must not sit on: gridlines, the baseline and the goal rules.
-  const rules = [...ticks.map(y), H - PAD.b, ...goals.map((o) => y(o.threshold))];
-  const hits = (b: Box, ownRule?: number) => {
-    const top = b.y - fs * 0.8 - 2;
-    const bottom = b.y + fs * 0.25 + 2;
-    if (top < 0 || bottom > H - PAD.b + 1) return 99;
-    let n = 0;
-    for (const r of rules) if (r !== ownRule && r > top + 1 && r < bottom - 1) n += 2;
-    for (let px = b.x - 2; px <= b.x + b.w + 2; px += 3) {
-      const t = ((px - PAD.l) / (W - PAD.l - PAD.r)) * end;
-      for (const sr of series) {
-        const v = at(sr, t);
-        if (v !== null && y(v) > top && y(v) < bottom) n++;
-      }
-    }
-    for (const p of placed) if (b.x < p.x + p.w + 4 && p.x < b.x + b.w + 4 && Math.abs(b.y - p.y) < fs * 1.1) n += 10;
-    return n;
-  };
-  const place = (cands: Box[], ownRule?: number) => {
-    let best = cands[0];
-    let score = Infinity;
-    for (const c of cands) {
-      const h = hits(c, ownRule);
-      if (h < score) {
-        best = c;
-        score = h;
-      }
-      if (h === 0) break;
-    }
-    placed.push(best);
-    return best;
-  };
-  // The start value (ink), at the first point: above it or below it.
-  const startText = fmtNum(past[0], digits);
-  const startW = startText.length * ch;
+  const L = spotLabels({ W, H, PAD, fs, end, y, series, rules: [...ticks.map(y), H - PAD.b, ...goals.map((o) => y(o.threshold))] });
+  // The y ticks are labels too: nothing may sit on them.
+  const tickBoxes = ticks.map((t) => ({ t, box: { x: PAD.l - 6 - fmtNum(t, tickDigits).length * chT, y: y(t) + fsT * 0.35, w: fmtNum(t, tickDigits).length * chT, h: fsT } }));
+  tickBoxes.forEach((tb) => L.add(tb.box));
+  // The forecast's end value (blue), right of its dot.
+  const ends = dodge([{ key: "end", y: y(last) + fsEnd * 0.35, text: endText, fill: fut.length ? "var(--lab-scenario)" : "var(--lab-ink)" }], fsEnd * 1.1, PAD.t + fsEnd * 0.8, H - PAD.b);
+  ends.forEach((e) => L.add({ x: x(end) + 8, y: e.y, w: e.text.length * fsEnd * 0.62, h: fsEnd }));
+  // The start value: first in the left gutter beside its dot, then above or below the dot,
+  // then a line further out; if every spot is taken, the gutter wins and the y tick it
+  // would sit on steps aside.
   const y0 = y(past[0]);
-  // Never on the dot's own baseline, where the dot would read as a minus sign.
-  const start = place(
-    [-7, -7 - fs * 0.5, fs * 0.8 + 6, fs * 1.3 + 6].flatMap((dy) => [
-      { x: x(0) + 2, y: y0 + dy, w: startW },
-      { x: x(0) + 2 + fs, y: y0 + dy, w: startW },
+  const gutter = { x: x(0) - 5 - startW, y: y0 + fs * 0.35, w: startW };
+  const start = L.place([
+    gutter,
+    ...[-7, fs * 0.8 + 6, -7 - fs * 1.1, fs * 1.9 + 6].flatMap((dy) => [
+      { x: x(0) + 4, y: y0 + dy, w: startW },
+      { x: x(0) + 4 + fs, y: y0 + dy, w: startW },
     ]),
-  );
-  // The forecast's end value (blue), right of its dot, clear of the start label by 1.1em.
-  const ends = dodge([{ key: "end", y: y(last) + fs * 0.35, text: endText, fill: fut.length ? "var(--lab-scenario)" : "var(--lab-ink)" }], fs * 1.1, PAD.t + fs * 0.8, H - PAD.b);
-  // The goal, on its own rule and left-aligned: above it or under it, at the left, then
-  // the middle, then the right of the plot, wherever no line or label crosses it.
+  ], undefined, gutter);
+  const hiddenTicks = new Set(start === gutter ? tickBoxes.filter((tb) => Math.abs(tb.box.y - gutter.y) < fs * 1.05).map((tb) => tb.t) : []);
+  // The goal, on its own rule: at the right end of the plot past the last points, above or
+  // under the rule, then the left and the middle, then a line further off the rule.
   const goalWords = main ? `goal ${main.op === "<=" ? "≤" : "≥"} ${fmtNum(main.threshold, digits)}` : "";
-  const goalW = goalWords.length * ch;
+  const goalW = goalWords.length * fs * 0.62;
   const yT = main ? y(main.threshold) : 0;
   const plotW = W - PAD.l - PAD.r;
-  const goal = main
-    ? place(
-        [PAD.l + 4, PAD.l + plotW * 0.4, PAD.l + plotW - goalW - 4, PAD.l + plotW * 0.2, PAD.l + plotW * 0.6]
-          .filter((gx) => gx + goalW <= W - PAD.r + 2)
-          .flatMap((gx) => [
-            { x: gx, y: yT - 4, w: goalW },
-            { x: gx, y: yT + fs * 0.8 + 3, w: goalW },
-          ]),
-        yT,
+  const goalXs = [PAD.l + plotW - goalW - 2, PAD.l + 4, PAD.l + plotW * 0.4, PAD.l + plotW * 0.2, PAD.l + plotW * 0.6].filter((gx) => gx >= PAD.l && gx + goalW <= W - PAD.r + 2);
+  // In the plot when a spot is clear; else in the right margin past the last point, in its
+  // short form, on the rule's level or a line off it, clear of the end figure.
+  const inPlot = main ? L.tryPlace(goalXs.flatMap((gx) => [{ x: gx, y: yT - 4, w: goalW }, { x: gx, y: yT + fs * 0.8 + 3, w: goalW }]), yT) : null;
+  const shortW = goalShort.length * fs * 0.6;
+  const goal = !main
+    ? null
+    : inPlot
+      ? { ...inPlot, text: goalWords }
+      : { ...L.place([yT + fs * 0.35, yT - 4, yT + fs * 0.8 + 3, yT - 4 - fs * 1.1, yT + fs * 1.9 + 3].map((gy) => ({ x: x(end) + 8, y: gy, w: shortW }))), text: goalShort };
+  // A bonus target's rule is named only where it is clear of everything else.
+  const bonusWords = bonus ? `bonus ${bonus.op === "<=" ? "≤" : "≥"} ${fmtNum(bonus.threshold, digits)}` : "";
+  const yB = bonus ? y(bonus.threshold) : 0;
+  const bonusW = bonusWords.length * fsT * 0.6;
+  const bonusLabel = bonus
+    ? L.tryPlace(
+        [PAD.l + plotW - bonusW - 2, PAD.l + 4, PAD.l + plotW * 0.4].filter((gx) => gx >= PAD.l).flatMap((gx) => [{ x: gx, y: yB - 3, w: bonusW, h: fsT }, { x: gx, y: yB + fsT * 0.8 + 3, w: bonusW, h: fsT }]),
+        yB,
       )
     : null;
 
@@ -458,39 +443,125 @@ export function Sparkline({ label, digits, past, fut, ghost = [], comp = [], goa
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ width: W, height: H, margin: 0 }} className="game-outlook" role="img" aria-label={ariaLabel}>
         {ticks.map((t) => (
           <g key={t}>
-            <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} stroke="var(--lab-line)" strokeWidth={1} />
-            <text x={PAD.l - 6} y={y(t) + fs * 0.35} fontSize={fs} textAnchor="end" fill="var(--lab-ink-2)">{fmtNum(t, tickDigits)}</text>
+            {/* Gridlines are solid hairlines: dots belong to the no-change path alone. */}
+            <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} stroke="var(--lab-ink)" strokeOpacity={0.4} strokeWidth={0.5} />
+            {hiddenTicks.has(t) ? null : <text x={PAD.l - 6} y={y(t) + fsT * 0.35} fontSize={fsT} textAnchor="end" fill="var(--lab-ink-2)">{fmtNum(t, tickDigits)}</text>}
           </g>
         ))}
         <line x1={PAD.l} x2={W - PAD.r} y1={H - PAD.b} y2={H - PAD.b} stroke="var(--lab-ink)" strokeWidth={1} />
         {years.map((t) => (
           <g key={t}>
             <line x1={x(t)} x2={x(t)} y1={H - PAD.b} y2={H - PAD.b + 4} stroke="var(--lab-ink)" />
-            <text x={x(t) + 3} y={H - 3} fontSize={fs} fill="var(--lab-ink-2)">
+            <text x={x(t) + 3} y={H - 3} fontSize={fsT} fill="var(--lab-ink-2)">
               {getStartYear() + (t - 1) / 4}
             </text>
           </g>
         ))}
         {goals.map((o, i) => {
-          const yT = y(o.threshold);
-          // The goal: a solid ink hairline across the plot; a bonus target is dotted.
-          return <line key={i} x1={PAD.l} x2={W - PAD.r} y1={yT} y2={yT} stroke="var(--lab-ink)" strokeOpacity={o.bonus ? 0.45 : 1} strokeWidth={o.bonus ? 1 : 1.25} strokeDasharray={o.bonus ? "2 3" : undefined} />;
+          const yG = y(o.threshold);
+          // The goal: a solid ink rule across the plot; a bonus target a lighter solid rule.
+          return <line key={i} x1={PAD.l} x2={W - PAD.r} y1={yG} y2={yG} stroke="var(--lab-ink)" strokeOpacity={o.bonus ? 0.5 : 1} strokeWidth={o.bonus ? 1 : 1.25} />;
         })}
         {comp.length ? <path d={line(comp, 0)} fill="none" stroke="var(--lab-ink)" strokeOpacity={0.3} strokeWidth={2} strokeLinejoin="round" /> : null}
         {ghostDiffers ? <path d={line(ghost, clock)} fill="none" stroke="var(--lab-ink-2)" strokeWidth={1.5} strokeDasharray="1.5 3.5" strokeLinecap="round" /> : null}
         {fut.length ? <path d={line(fut, clock)} fill="none" stroke="var(--lab-scenario)" strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" className="game-forecast-line" /> : null}
         <path d={line(past, 0)} fill="none" stroke="var(--lab-ink)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-        <g fontSize={fs} stroke="var(--lab-paper)" strokeWidth={5} strokeLinejoin="round" paintOrder="stroke">
-          <text x={start.x} y={start.y} fontWeight={600} fill="var(--lab-ink)">{startText}</text>
-          {goal ? <text x={goal.x} y={goal.y} fontWeight={700} fill="var(--lab-ink)">{goalWords}</text> : null}
+        {/* Labels carry a paper halo, so a line that still passes under one never cuts a figure. */}
+        <g stroke="var(--lab-paper)" strokeWidth={4} strokeLinejoin="round" paintOrder="stroke">
+          <text x={start.x} y={start.y} fontSize={fs} fontWeight={600} fill="var(--lab-ink)">{startText}</text>
+          {goal ? <text x={goal.x} y={goal.y} fontSize={fs} fontWeight={600} fill="var(--lab-ink)">{goal.text}</text> : null}
+          {bonusLabel ? <text x={bonusLabel.x} y={bonusLabel.y} fontSize={fsT} fill="var(--lab-ink-2)">{bonusWords}</text> : null}
         </g>
         <circle cx={x(0)} cy={y0} r={3} fill="var(--lab-ink)" />
         <circle cx={x(clock)} cy={y(lastPast)} r={3.5} fill="var(--lab-ink)" stroke="var(--lab-paper)" strokeWidth={1.5} />
         {fut.length ? <circle cx={x(end)} cy={y(last)} r={4} fill="var(--lab-scenario)" stroke="var(--lab-paper)" strokeWidth={1.5} /> : null}
         {ends.map((e) => (
-          <text key={e.key} x={x(end) + 8} y={e.y} fontSize={fs} fontWeight={700} fill={e.fill}>{e.text}</text>
+          <text key={e.key} x={x(end) + 8} y={e.y} fontSize={fsEnd} fontWeight={700} fill={e.fill}>{e.text}</text>
         ))}
       </svg>
     </span>
   );
+}
+
+type LabelBox = { x: number; y: number; w: number; h?: number };
+
+/**
+ * Label placement shared by every series chart (goal cards, the recap, the framework's Why
+ * tiles): each label is a box (x, baseline y, width) that must clear the drawn series, the
+ * horizontal rules inside the plot and every label placed before it, the y ticks included.
+ * A label takes the first clear candidate; when none is clear, the least crowded one (or a
+ * given fallback), and its paper halo keeps it legible.
+ */
+export function spotLabels({ W, H, PAD, fs, end, y, series, rules }: { W: number; H: number; PAD: { l: number; r: number; t: number; b: number }; fs: number; end: number; y: (v: number) => number; series: { from: number; vals: number[] }[]; rules: number[] }) {
+  const placed: Required<LabelBox>[] = [];
+  const at = (sr: { from: number; vals: number[] }, t: number) => {
+    const k = t - sr.from;
+    if (k < 0 || k > sr.vals.length - 1) return null;
+    const a = Math.floor(k);
+    const b = Math.min(sr.vals.length - 1, a + 1);
+    return sr.vals[a] + (sr.vals[b] - sr.vals[a]) * (k - a);
+  };
+  const hits = (b: LabelBox, ownRule?: number) => {
+    const h = b.h ?? fs;
+    const top = b.y - h * 0.8 - 2;
+    const bottom = b.y + h * 0.25 + 2;
+    if (top < 0 || bottom > H - PAD.b + 1 || b.x < 0 || b.x + b.w > W) return 99;
+    let n = 0;
+    // Rules run across the plot only: a label in the gutter never meets them.
+    const inPlot = b.x + b.w > PAD.l && b.x < W - PAD.r;
+    if (inPlot) for (const r of rules) if (r !== ownRule && r > top + 1 && r < bottom - 1) n += 2;
+    for (let px = b.x - 3; px <= b.x + b.w + 3; px += 2) {
+      const t = ((px - PAD.l) / (W - PAD.l - PAD.r)) * end;
+      for (const sr of series) {
+        // A line sample counts if it passes through the box, or the stroke's width beside it.
+        for (const dt of [0, 0.5 / Math.max(1, (W - PAD.l - PAD.r) / end)]) {
+          const v = at(sr, t + dt);
+          if (v !== null && y(v) > top - 2 && y(v) < bottom + 2) {
+            n++;
+            break;
+          }
+        }
+      }
+    }
+    for (const p of placed) {
+      const pTop = p.y - p.h * 0.8 - 2;
+      const pBottom = p.y + p.h * 0.25 + 2;
+      if (b.x < p.x + p.w + 4 && p.x < b.x + b.w + 4 && top < pBottom && pTop < bottom) n += 10;
+    }
+    return n;
+  };
+  const add = (b: LabelBox) => {
+    placed.push({ ...b, h: b.h ?? fs });
+  };
+  const best = (cands: LabelBox[], ownRule?: number) => {
+    let pick = cands[0];
+    let score = Infinity;
+    for (const c of cands) {
+      const s = hits(c, ownRule);
+      if (s < score) {
+        pick = c;
+        score = s;
+      }
+      if (s === 0) break;
+    }
+    return { pick, score };
+  };
+  return {
+    add,
+    /** Takes the first clear candidate, else `fallback` (or the least crowded one). */
+    place<T extends LabelBox>(cands: T[], ownRule?: number, fallback?: T): T {
+      const { pick, score } = best(cands, ownRule);
+      const chosen = (score > 0 && fallback ? fallback : pick) as T;
+      add(chosen);
+      return chosen;
+    },
+    /** Places a label only where it is fully clear; otherwise leaves it out. */
+    tryPlace<T extends LabelBox>(cands: T[], ownRule?: number): T | null {
+      if (!cands.length) return null;
+      const { pick, score } = best(cands, ownRule);
+      if (score > 0) return null;
+      add(pick);
+      return pick as T;
+    },
+  };
 }
