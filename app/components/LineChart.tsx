@@ -114,8 +114,8 @@ export default function LineChart({
       }}
     >
       <div className="mb-0.5 flex items-baseline justify-between gap-2">
-        <span className="text-[0.7rem] font-bold uppercase tracking-wider text-[var(--lab-ink-2)]">{title}</span>
-        <span className="text-[0.62rem] text-[var(--lab-ink-2)]">{unit}</span>
+        <span className="text-(length:--t-xs) font-bold uppercase tracking-wider text-[var(--lab-ink-2)]">{title}</span>
+        <span className="text-(length:--t-xs) text-[var(--lab-ink-2)]">{unit}</span>
       </div>
       <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} onPointerMove={handlePointer} onPointerDown={handlePointer} aria-hidden="true">
         <defs>
@@ -178,7 +178,7 @@ export default function LineChart({
       </svg>
       {showTip ? (
         <div className="lab-tooltip" style={{ left: `min(max(${tipLeftPct}%, 4.5rem), calc(100% - 4.5rem))`, top: 22, transform: "translateX(-50%)" }} role="status">
-          <div className="mb-0.5 text-[0.66rem] font-bold text-[var(--lab-ink-2)]">{quarterLabel(activeT)}</div>
+          <div className="mb-0.5 text-(length:--t-xs) font-bold text-[var(--lab-ink-2)]">{quarterLabel(activeT)}</div>
           {series.map((s) => (
             <div key={s.key} className="lab-tooltip-row">
               <span className="text-[var(--lab-ink-2)]">

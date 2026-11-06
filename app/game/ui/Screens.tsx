@@ -10,9 +10,10 @@ import { ADVISORS } from "../advisors";
 import { GAME_METRICS } from "../metrics";
 import { getMission, MISSIONS, type LeverId } from "../missions";
 import { INSTITUTIONS } from "../politics";
-import { CostChips, TrustIcon, VotesIcon } from "./Capital";
+import { CostChips } from "./Capital";
 import { missionUnlocked, useGame } from "../store";
 import SoundToggle from "./SoundToggle";
+import Glyph from "./Glyph";
 import { BADGES } from "../../contagion/flavour";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -32,6 +33,22 @@ const LEVER_NAMES: Record<LeverId, string> = {
   restructure: "Debt restructuring",
 };
 
+/** One line per lever for the briefing's tools table. */
+const LEVER_DOES: Record<LeverId, string> = {
+  rate: "Set the interest rate: higher cools demand and, later, inflation.",
+  rule: "Let a rule set the rate from inflation and the output gap.",
+  fiscal: "Tighten or loosen the budget each year, in % of GDP.",
+  mix: "Choose whether the budget moves through spending or taxes.",
+  investment: "Spend on roads and ports: demand now, capacity later.",
+  fxRegime: "Float, manage or peg the currency.",
+  intervention: "Sell reserves to steady the currency.",
+  controls: "Slow money leaving the country, at a price in spreads.",
+  reforms: "Adopt reforms with votes and trust.",
+  imf: "Borrow from the IMF while you tighten.",
+  devalue: "Reset the peg weaker in one go.",
+  restructure: "Cut the debt stock, at a cost in trust and spreads.",
+};
+
 export function TitleScreen() {
   const progress = useGame((s) => s.progress);
   const startMission = useGame((s) => s.startMission);
@@ -45,7 +62,7 @@ export function TitleScreen() {
         <p className="game-eyebrow">A policy game for economists, and for anyone curious</p>
         <h1 className="game-title">WEO Scenario Lab</h1>
         <p className="game-subtitle">Run an economy one quarter at a time. Set rates, budgets and exchange rates, hear out your advisors, and see what your choices do before you commit.</p>
-        <div className="mt-6 flex flex-wrap items-center gap-2.5">
+        <div className="game-title-actions mt-6 flex flex-wrap items-center gap-2.5">
           <button type="button" className="lab-btn lab-btn-primary lab-btn-md game-cta" onClick={() => startMission(next.id)} autoFocus>
             {won === 0 ? "Start the campaign" : `Continue: ${next.title}`}
           </button>
@@ -59,12 +76,10 @@ export function TitleScreen() {
         <ul className="game-title-points">
           <li><strong>6 missions</strong> across four economies, from a first rate decision to a sudden stop.</li>
           <li><strong>One quarter per turn.</strong> Shocks arrive unannounced; the forecast only knows what you know.</li>
-          <li><strong>Contagion:</strong> start a crisis anywhere in the world, then try to contain it.</li>
-          <li><strong>Free play</strong> opens the full lab: every lever, assumption, shock and constraint.</li>
         </ul>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <SoundToggle />
-          <p className="max-w-[24rem] text-[0.66rem] leading-snug text-[var(--lab-ink-2)]">An independent educational game, not affiliated with or endorsed by the IMF. Economies and results are illustrative; details in Settings, About.</p>
+          <p className="max-w-[24rem] text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">An independent educational game, not affiliated with or endorsed by the IMF. Economies and results are illustrative; details in Settings, About.</p>
         </div>
       </div>
     </div>
@@ -80,11 +95,13 @@ export function MissionSelect() {
   const startToday = useGame((s) => s.startToday);
   const setScreen = useGame((s) => s.setScreen);
   const [tab, setTab] = useState<Tab>("campaign");
+  // The next mission to play leads the page as a double-width card.
+  const nextUp = MISSIONS.find((m) => missionUnlocked(m, progress) && !(progress.stars[m.id] > 0));
   return (
     <div className="game-overlay is-scroll">
       <div className="game-missions">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h1 className="font-display text-[1.6rem] font-semibold leading-none">Play</h1>
+        <div className="game-missions-head mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h1 className="game-missions-title font-display text-(length:--t-lg) font-semibold leading-none">Play</h1>
           <Segmented<Tab>
             ariaLabel="Mode"
             size="md"
@@ -105,20 +122,23 @@ export function MissionSelect() {
         </div>
 
         {tab === "campaign" ? (
-          <ol className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+          <ol className="game-mission-grid grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
             {MISSIONS.map((m) => {
               const open = missionUnlocked(m, progress);
               const preset = getPreset(m.presetId);
+              const lead = m.id === nextUp?.id;
               return (
-                <li key={m.id}>
-                  <button type="button" className={`game-mission ${open ? "" : "is-locked"}`} disabled={!open} onClick={() => startMission(m.id)}>
+                <li key={m.id} className={lead ? "game-mission-lead" : undefined}>
+                  <button type="button" className={`game-mission ${open ? "" : "is-locked"} ${lead ? "is-lead" : ""}`} disabled={!open} onClick={() => startMission(m.id)}>
                     <span className="flex items-center justify-between gap-2">
                       <span className="game-mission-number">Mission {m.number}</span>
-                      <Stars n={progress.stars[m.id] ?? 0} />
+                      {open ? <Stars n={progress.stars[m.id] ?? 0} /> : <LockIcon />}
                     </span>
                     <span className="game-mission-title">{m.title}</span>
                     <span className="game-mission-meta">{preset.name} · {preset.archetype} · {m.quarters} quarters</span>
-                    <span className="game-mission-kicker">{open ? m.kicker : "Win the previous mission to unlock."}</span>
+                    <span className="game-mission-kicker">{m.kicker}</span>
+                    {open ? null : <span className="game-mission-unlock">Locked: win mission {m.number - 1} to open it</span>}
+                    {lead ? <span className="game-mission-play">Play mission {m.number}</span> : null}
                   </button>
                 </li>
               );
@@ -173,7 +193,7 @@ export function MissionSelect() {
                 );
               })}
             </ol>
-            <p className="mt-3 text-[0.66rem] text-[var(--lab-ink-2)]">2025 figures. Source: IMF, {WEO.vintage}, retrieved {WEO.fetched}. The game is independent of the IMF.</p>
+            <p className="mt-3 text-(length:--t-xs) text-[var(--lab-ink-2)]">2025 figures. Source: IMF, {WEO.vintage}, retrieved {WEO.fetched}. The game is independent of the IMF.</p>
           </>
         )}
       </div>
@@ -203,11 +223,20 @@ function ContagionTab() {
   );
 }
 
+function LockIcon() {
+  return (
+    <svg className="game-lock" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-label="Locked">
+      <rect x="3" y="7" width="10" height="7" rx="1.5" />
+      <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
+    </svg>
+  );
+}
+
 function Stars({ n }: { n: number }) {
   return (
     <span className="game-mission-stars" aria-label={`${n} of 3 stars`}>
       {[1, 2, 3].map((k) => (
-        <span key={k} className={k <= n ? "is-on" : ""}>★</span>
+        <span key={k} className={k <= n ? "is-on" : ""}><Glyph name={k <= n ? "star" : "star-outline"} /></span>
       ))}
     </span>
   );
@@ -224,28 +253,34 @@ export function Briefing() {
   const bonus = mission.objectives.filter((o) => o.bonus);
 
   return (
-    <div className="game-overlay is-scroll">
+    <div className="game-overlay is-scroll is-briefing">
       <div className="game-card game-briefing" role="dialog" aria-labelledby="briefing-title">
         <p className="game-eyebrow">{mission.number ? `Mission ${mission.number} of ${MISSIONS.length} · ${preset.name}, ${preset.archetype.toLowerCase()}` : mission.comparison?.story ? `History · ${mission.kicker}` : `World today · ${preset.name}`}</p>
         <h1 id="briefing-title" className="game-title is-small">{mission.title}</h1>
-        <div className="mt-2 flex flex-col gap-2 text-[0.86rem] leading-relaxed">
-          {mission.briefing.map((p) => (
-            <p key={p}>{p}</p>
-          ))}
+        <div className="mt-2 flex flex-col gap-2 text-(length:--t-sm) leading-relaxed">
+          <p>{mission.briefing[0]}</p>
+          {mission.briefing.length > 1 ? (
+            <details className="game-brief-more">
+              <summary>More</summary>
+              {mission.briefing.slice(1).map((p) => (
+                <p key={p} className="mt-2">{p}</p>
+              ))}
+            </details>
+          ) : null}
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
             <h2 className="game-section">To win</h2>
-            <ul className="flex flex-col gap-1 text-[0.78rem]">
+            <ul className="flex flex-col gap-1 text-(length:--t-sm)">
               {primary.map((o) => (
                 <li key={o.id} className="game-bullet">{o.label}</li>
               ))}
             </ul>
             <h2 className="game-section mt-2">For extra stars</h2>
-            <ul className="flex flex-col gap-1 text-[0.78rem]">
+            <ul className="flex flex-col gap-1 text-(length:--t-sm)">
               {bonus.map((o) => (
-                <li key={o.id} className="game-bullet is-star">{o.label}</li>
+                <li key={o.id} className="game-bullet is-star"><Glyph name="star" label="Extra star" /> {o.label}</li>
               ))}
             </ul>
             <h2 className="game-section mt-3">Your advisors</h2>
@@ -255,7 +290,7 @@ export function Briefing() {
                 return (
                   <li key={id} className="flex items-center gap-2">
                     <img src={`${base}${a.portrait}`} alt="" width={30} height={30} className="game-portrait is-small" style={{ ["--advisor" as string]: a.accent }} />
-                    <span className="text-[0.74rem] leading-tight">
+                    <span className="text-(length:--t-xs) leading-tight">
                       <strong>{a.name}</strong>
                       <span className="block text-[var(--lab-ink-2)]">Cares about {a.cares.toLowerCase()}</span>
                     </span>
@@ -266,29 +301,38 @@ export function Briefing() {
           </div>
           <div>
             <h2 className="game-section">Your tools</h2>
-            <div className="flex flex-wrap gap-1">
-              {mission.unlocks.map((l) => (
-                <span key={l} className="lab-chip lab-chip-info">{LEVER_NAMES[l]}</span>
-              ))}
-            </div>
-            <h2 className="game-section mt-2">Political capital</h2>
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.74rem]">
-              <span className="game-counter is-votes"><VotesIcon /> {mission.politics.start.votes}</span>
-              <span className="game-counter is-trust"><TrustIcon /> {mission.politics.start.trust}</span>
-              <span className="text-[var(--lab-ink-2)]">
-                {mission.politics.elections.length ? `Elections end ${mission.politics.elections.map((q) => quarterLabel(q)).join(" and ")}; you need ${mission.politics.threshold} votes.` : "No elections in this mission."}
-              </span>
+            <table className="game-tools">
+              <thead>
+                <tr>
+                  <th scope="col">Tool</th>
+                  <th scope="col">What it does</th>
+                  <th scope="col">Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mission.unlocks.filter((l) => l !== "reforms").map((l) => (
+                  <tr key={l}>
+                    <th scope="row">{LEVER_NAMES[l]}</th>
+                    <td>{LEVER_DOES[l]}</td>
+                    <td>free</td>
+                  </tr>
+                ))}
+                {mission.politics.institutions.slice(0, 3).map((id) => (
+                  <tr key={id}>
+                    <th scope="row">{INSTITUTIONS[id].name}</th>
+                    <td>{INSTITUTIONS[id].effect}</td>
+                    <td><CostChips cost={INSTITUTIONS[id].cost} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {mission.politics.institutions.length > 3 ? <p className="game-tools-more">and {mission.politics.institutions.length - 3} more reforms under Reforms</p> : null}
+            <h2 className="game-section mt-3">Votes and trust</h2>
+            <p className="game-capital-note">
+              You start with <strong>Votes {mission.politics.start.votes} · Trust {mission.politics.start.trust}</strong>. Higher is better: votes come from growth and jobs, trust from hitting targets; reforms spend them.{" "}
+              {mission.politics.elections.length ? `Elections end ${mission.politics.elections.map((q) => quarterLabel(q)).join(" and ")}; you need ${mission.politics.threshold} votes.` : "No elections in this mission."}
             </p>
-            <ul className="mt-1 flex flex-col gap-0.5 text-[0.7rem]">
-              {mission.politics.institutions.slice(0, 4).map((id) => (
-                <li key={id} className="flex items-center justify-between gap-2">
-                  <span>{INSTITUTIONS[id].name}</span>
-                  <CostChips cost={INSTITUTIONS[id].cost} />
-                </li>
-              ))}
-              {mission.politics.institutions.length > 4 ? <li className="text-[var(--lab-ink-2)]">and {mission.politics.institutions.length - 4} more reforms</li> : null}
-            </ul>
-            <p className="mt-2 text-[0.7rem] text-[var(--lab-ink-2)]">
+            <p className="mt-2 text-(length:--t-xs) text-[var(--lab-ink-2)]">
               {mission.number === 0 ? `Data: IMF, ${WEO.vintage}. Policy rates, reserves and spreads are model estimates. ` : ""}
               {mission.quarters} quarters, {quarterLabel(1)} to {quarterLabel(mission.quarters)}. Watched: {Array.from(new Set(mission.objectives.map((o) => GAME_METRICS[o.metric].label.toLowerCase()))).join(", ")}.
             </p>

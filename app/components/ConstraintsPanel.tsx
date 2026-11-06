@@ -56,7 +56,7 @@ export default function ConstraintsPanel() {
         />
       </div>
       {constraints.length === 0 ? (
-        <p className="text-[0.72rem] leading-snug text-[var(--lab-ink-2)]">
+        <p className="text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">
           No constraints yet. Try <button type="button" className="font-semibold text-[var(--lab-ink)] underline decoration-[var(--lab-alert)] underline-offset-2" onClick={() => applyTemplate("program")}>programme-style targets</button> or add a ceiling on any indicator.
         </p>
       ) : (
@@ -70,10 +70,10 @@ export default function ConstraintsPanel() {
             return (
               <li key={c.id} className={`rounded-lg border bg-white px-2.5 py-2 ${soFar.length ? "border-[color-mix(in_srgb,var(--lab-alert)_50%,transparent)]" : "border-[color-mix(in_srgb,var(--lab-ink)_10%,transparent)]"}`}>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[0.76rem] font-semibold">{spec.label}</span>
+                  <span className="text-(length:--t-xs) font-semibold">{spec.label}</span>
                   <div className="flex items-center gap-1.5">
                     <Chip tone={tone}>{label}</Chip>
-                    <button type="button" onClick={() => removeConstraint(c.id)} aria-label={`Remove constraint on ${spec.label}`} className="text-[0.95rem] leading-none text-[var(--lab-ink-2)] hover:text-[var(--lab-bad)]">×</button>
+                    <button type="button" onClick={() => removeConstraint(c.id)} aria-label={`Remove constraint on ${spec.label}`} className="text-(length:--t-sm) leading-none text-[var(--lab-ink-2)] hover:text-[var(--lab-bad)]">×</button>
                   </div>
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -81,7 +81,7 @@ export default function ConstraintsPanel() {
                     {c.op === "<=" ? "≤" : "≥"}
                   </Btn>
                   <NumberInput ariaLabel={`${spec.label} threshold`} value={c.threshold} step={spec.step} onChange={(v) => updateConstraint(c.id, { threshold: v })} />
-                  <span className="text-[0.68rem] text-[var(--lab-ink-2)]">{spec.unit}</span>
+                  <span className="text-(length:--t-xs) text-[var(--lab-ink-2)]">{spec.unit}</span>
                   <Select ariaLabel="Start year" value={c.fromQuarter} onChange={(v) => updateConstraint(c.id, { fromQuarter: Number(v) })} options={yearOptions} className="ml-auto" />
                 </div>
               </li>

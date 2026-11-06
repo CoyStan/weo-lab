@@ -56,7 +56,7 @@ export default function ChartsStrip() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="mb-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[0.68rem] text-[var(--lab-ink-2)]" aria-label="Chart legend">
+      <div className="mb-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-(length:--t-xs) text-[var(--lab-ink-2)]" aria-label="Chart legend">
         <span className="flex items-center gap-1.5"><span className="inline-block h-0 w-5 border-t-2" style={{ borderColor: SCENARIO }} /> Your scenario</span>
         <span className="flex items-center gap-1.5"><span className="inline-block h-0 w-5 border-t-2 border-dashed" style={{ borderColor: refColor }} /> {refLabel}</span>
         <span className="flex items-center gap-1.5"><span className="inline-block h-0 w-5 border-t border-[var(--lab-alert)]" /> Constraint</span>

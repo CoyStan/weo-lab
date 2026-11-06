@@ -9,6 +9,9 @@ import type { Assumptions, Constraint, ConstraintVar, OneOffKind, Policy, Scenar
 
 export type FocusKey = "growth" | "infl" | "rate" | "debt" | "ob" | "ca" | "reserves" | "unemp" | "spread" | "cred" | "rer" | "oil";
 
+/** A delta tag on a district: "Campus · inflation ▲1.4 pp". */
+export type SceneCue = { label: string; up: boolean; size: string };
+
 export type CompareMode = "baseline" | "pinned";
 
 export type Pinned = { label: string; config: ScenarioConfig; result: SimResult };
@@ -35,6 +38,14 @@ type LabState = {
   labels: "all" | "focus";
   /** Districts whose labels stay visible in "focus" mode (the campaign's watched goals). */
   spotlight: FocusKey[];
+  /** Districts whose goal is at risk or missed (the campaign sets it), shown on their island tags. */
+  districtStatus: Partial<Record<FocusKey, "at-risk" | "failed">>;
+  /** Short tags pinned to districts whose figure moved most last quarter: "inflation ▲1.4 pp". */
+  sceneCue: Partial<Record<FocusKey, SceneCue>>;
+  /** The district a news card points at: it pulses harder while the card is open. */
+  shockFocus: FocusKey | null;
+  /** The quarter's recap is open: the weather clears so the payoff reads in full colour. */
+  sceneCalm: boolean;
   /** Reduced motion chosen in settings, on top of the system preference. */
   reduceMotion: boolean;
   /** Bumped to ask the 3D camera to fly home. */
@@ -143,10 +154,14 @@ export const useLab = create<LabState>((set, get) => ({
   showFan: false,
   labels: "all",
   spotlight: [],
+  districtStatus: {},
+  sceneCue: {},
+  shockFocus: null,
+  sceneCalm: false,
   reduceMotion: false,
   cameraHome: 0,
   storyId: null,
-  theme: "palari",
+  theme: "ledger",
 
   setPreset: (id) =>
     set((s) => {

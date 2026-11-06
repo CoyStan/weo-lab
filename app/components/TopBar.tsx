@@ -72,19 +72,19 @@ export default function TopBar() {
   return (
     <header className="shrink-0 px-3 pt-2">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <button type="button" onClick={() => useGame.getState().setScreen("title")} className="inline-flex shrink-0 items-center gap-2" aria-label="Back to the campaign">
+        <button type="button" onClick={() => useGame.getState().setScreen("title")} className="lab-topbar-logo inline-flex shrink-0 items-center gap-2" aria-label="Back to the campaign">
           <Image src={`${process.env.NEXT_PUBLIC_BASE_PATH}/brand/palari-logo.svg`} alt="" width={542} height={220} className="h-7 w-auto" />
         </button>
         <button type="button" className="lab-btn lab-btn-soft lab-btn-sm" onClick={() => useGame.getState().setScreen("missions")} title="Back to the missions">
           Campaign
         </button>
         <div className="flex items-baseline gap-2">
-          <h1 className="font-display text-[1.25rem] font-semibold leading-none tracking-tight text-[var(--lab-ink)]">WEO Scenario Lab</h1>
+          <h1 className="font-display text-(length:--t-lg) font-semibold leading-none tracking-tight text-[var(--lab-ink)]">WEO Scenario Lab</h1>
           <span className="lab-stamp text-[var(--lab-bad)]" title="An independent educational game, not affiliated with or endorsed by the IMF. Stylised economies and an illustrative model; not forecasts or policy advice.">Illustrative</span>
         </div>
         <div className="flex items-center gap-2 lg:ml-2">
           <Segmented ariaLabel="Economy" size="md" value={config.presetId} onChange={setPreset} options={PRESETS.map((p) => ({ value: p.id, label: p.name, title: p.tagline }))} />
-          <span className="hidden text-[0.7rem] text-[var(--lab-ink-2)] 2xl:inline">{preset.tagline}</span>
+          <span className="hidden text-(length:--t-xs) text-[var(--lab-ink-2)] 2xl:inline">{preset.tagline}</span>
         </div>
         <details ref={storyMenu} className="lab-menu">
           <summary className={`lab-btn lab-btn-sm ${storyId ? "lab-btn-ghost" : "lab-btn-soft"}`} title="Load a ready-made exercise">
@@ -102,11 +102,11 @@ export default function TopBar() {
                   if (storyMenu.current) storyMenu.current.open = false;
                 }}
               >
-                <span className="flex items-center gap-2 text-[0.8rem] font-semibold">
+                <span className="flex items-center gap-2 text-(length:--t-xs) font-semibold">
                   {story.title}
                   {storyId === story.id ? <span className="lab-chip lab-chip-info">loaded</span> : null}
                 </span>
-                <span className="mt-0.5 block text-[0.7rem] leading-snug text-[var(--lab-ink-2)]">{story.brief}</span>
+                <span className="mt-0.5 block text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">{story.brief}</span>
               </button>
             ))}
           </div>
@@ -146,7 +146,7 @@ export default function TopBar() {
                     if (designMenu.current) designMenu.current.open = false;
                   }}
                 >
-                  <span className="flex items-center gap-2 text-[0.78rem] font-semibold">
+                  <span className="flex items-center gap-2 text-(length:--t-xs) font-semibold">
                     <span aria-hidden="true" className="inline-flex h-3.5 w-7 overflow-hidden rounded-sm border border-[var(--lab-line-strong)]">
                       <span className="flex-1" style={{ background: t.vars["--lab-bg"] ?? "#f7f5f2" }} />
                       <span className="flex-1" style={{ background: t.vars["--lab-scenario"] ?? "#4a3aa7" }} />
@@ -155,7 +155,7 @@ export default function TopBar() {
                     {t.name}
                     {t.id === themeId ? <span className="lab-chip lab-chip-info">on</span> : null}
                   </span>
-                  <span className="mt-0.5 block text-[0.68rem] leading-snug text-[var(--lab-ink-2)]">{t.description}</span>
+                  <span className="mt-0.5 block text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">{t.description}</span>
                 </button>
               ))}
             </div>
@@ -172,8 +172,8 @@ export default function TopBar() {
                   if (exportMenu.current) exportMenu.current.open = false;
                 }}
               >
-                <span className="block text-[0.78rem] font-semibold">Projection table (CSV)</span>
-                <span className="block text-[0.68rem] text-[var(--lab-ink-2)]">Annual and quarterly paths, scenario and reference</span>
+                <span className="block text-(length:--t-xs) font-semibold">Projection table (CSV)</span>
+                <span className="block text-(length:--t-xs) text-[var(--lab-ink-2)]">Annual and quarterly paths, scenario and reference</span>
               </button>
               <button
                 type="button"
@@ -184,8 +184,8 @@ export default function TopBar() {
                   if (exportMenu.current) exportMenu.current.open = false;
                 }}
               >
-                <span className="block text-[0.78rem] font-semibold">Scenario setup (JSON)</span>
-                <span className="block text-[0.68rem] text-[var(--lab-ink-2)]">Assumptions, decisions, shocks and constraints</span>
+                <span className="block text-(length:--t-xs) font-semibold">Scenario setup (JSON)</span>
+                <span className="block text-(length:--t-xs) text-[var(--lab-ink-2)]">Assumptions, decisions, shocks and constraints</span>
               </button>
             </div>
           </details>
@@ -214,12 +214,12 @@ export default function TopBar() {
           />
         </div>
         <div className="flex items-baseline gap-2">
-          <span className="font-display text-[1.5rem] font-semibold leading-none tabular-nums text-[var(--lab-ink)]">{clock === 0 ? "Start" : `${quarterYear(clock)} Q${((clock - 1) % 4) + 1}`}</span>
-          <span className="text-[0.68rem] text-[var(--lab-ink-2)]">{clock === 0 ? "2025 outturn" : `quarter ${clock} of ${HORIZON}`}</span>
+          <span className="font-display text-(length:--t-lg) font-semibold leading-none tabular-nums text-[var(--lab-ink)]">{clock === 0 ? "Start" : `${quarterYear(clock)} Q${((clock - 1) % 4) + 1}`}</span>
+          <span className="text-(length:--t-xs) text-[var(--lab-ink-2)]">{clock === 0 ? "2025 outturn" : `quarter ${clock} of ${HORIZON}`}</span>
         </div>
         <div className="flex min-w-[220px] flex-1 flex-col gap-0.5">
           <input type="range" className="lab-range" min={0} max={HORIZON} step={1} value={clock} onChange={(e) => setClock(Number(e.target.value))} style={{ ["--pct" as string]: `${(clock / HORIZON) * 100}%` }} aria-label="Clock" aria-valuetext={quarterLabel(clock)} />
-          <div className="flex justify-between px-1 text-[0.6rem] tabular-nums text-[var(--lab-ink-2)]" aria-hidden="true">
+          <div className="flex justify-between px-1 text-(length:--t-xs) tabular-nums text-[var(--lab-ink-2)]" aria-hidden="true">
             {yearLabels().map((y) => (
               <span key={y}>{y}</span>
             ))}

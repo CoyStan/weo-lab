@@ -13,7 +13,7 @@ export type SectorId = "real" | "prices" | "fiscal" | "external";
 
 export type RowKey = "growth" | "gap" | "potGrowth" | "unemp" | "infl" | "rate" | "realRate" | "cred" | "pb" | "interest" | "ob" | "debt" | "gfn" | "ca" | "rer" | "reserves" | "spread";
 
-export type RowMeta = { key: RowKey; label: string; unit: string; digits: number; plain: string };
+export type RowMeta = { key: RowKey; label: string; unit: string; digits: number; plain: string; /** +1 if higher is better, −1 if lower is better, 0 if it depends. */ good?: 1 | -1 };
 
 export type Sector = {
   id: SectorId;
@@ -29,10 +29,10 @@ export const SECTORS: Sector[] = [
     title: "Real sector",
     blurb: "Output, capacity and jobs. Demand moves output against potential; the gap drives growth and unemployment.",
     rows: [
-      { key: "growth", label: "GDP growth", unit: "%", digits: 1, plain: "Real GDP against the same quarter a year earlier." },
+      { key: "growth", good: 1, label: "GDP growth", unit: "%", digits: 1, plain: "Real GDP against the same quarter a year earlier." },
       { key: "gap", label: "Output gap", unit: "% of potential", digits: 1, plain: "How far demand runs above (+) or below (−) what the economy can produce without overheating." },
-      { key: "potGrowth", label: "Potential growth", unit: "%", digits: 1, plain: "How fast capacity grows. Reforms and investment raise it; deep slumps and heavy debt lower it." },
-      { key: "unemp", label: "Unemployment", unit: "%", digits: 1, plain: "Moves against the output gap (Okun's law)." },
+      { key: "potGrowth", good: 1, label: "Potential growth", unit: "%", digits: 1, plain: "How fast capacity grows. Reforms and investment raise it; deep slumps and heavy debt lower it." },
+      { key: "unemp", good: -1, label: "Unemployment", unit: "%", digits: 1, plain: "Moves against the output gap (Okun's law)." },
     ],
   },
   {
@@ -40,10 +40,10 @@ export const SECTORS: Sector[] = [
     title: "Prices and money",
     blurb: "Inflation comes from expectations, demand, the currency and supply shocks. The central bank acts through the real interest rate.",
     rows: [
-      { key: "infl", label: "Inflation", unit: "%", digits: 1, plain: "Headline inflation, annualised." },
+      { key: "infl", good: -1, label: "Inflation", unit: "%", digits: 1, plain: "Headline inflation, annualised." },
       { key: "rate", label: "Policy rate", unit: "%", digits: 2, plain: "The central bank's rate, or the one the peg imposes." },
       { key: "realRate", label: "Real rate", unit: "%", digits: 1, plain: "Policy rate minus inflation. What actually cools or warms demand." },
-      { key: "cred", label: "Credibility", unit: "/ 100", digits: 0, plain: "How far expectations are anchored on the target. Higher means inflation is easier to bring down." },
+      { key: "cred", good: 1, label: "Credibility", unit: "/ 100", digits: 0, plain: "How far expectations are anchored on the target. Higher means inflation is easier to bring down." },
     ],
   },
   {
@@ -51,11 +51,11 @@ export const SECTORS: Sector[] = [
     title: "Fiscal sector",
     blurb: "The budget, the interest bill and the debt they add up to. Overall balance = primary balance − interest.",
     rows: [
-      { key: "pb", label: "Primary balance", unit: "% of GDP", digits: 1, plain: "Revenue minus spending before interest. Your tightening raises it; a slump lowers it." },
-      { key: "interest", label: "Interest bill", unit: "% of GDP", digits: 1, plain: "Interest on the debt. Rises with the policy rate and spreads as debt rolls over." },
-      { key: "ob", label: "Overall balance", unit: "% of GDP", digits: 1, plain: "Primary balance minus interest. Negative is a deficit." },
-      { key: "debt", label: "Public debt", unit: "% of GDP", digits: 1, plain: "Grows with interest, shrinks with nominal growth and primary surpluses, jumps with depreciation on foreign-currency debt." },
-      { key: "gfn", label: "Financing needs", unit: "% of GDP", digits: 1, plain: "Deficit plus maturing debt: what must be borrowed this year." },
+      { key: "pb", good: 1, label: "Primary balance", unit: "% of GDP", digits: 1, plain: "Revenue minus spending before interest. Your tightening raises it; a slump lowers it." },
+      { key: "interest", good: -1, label: "Interest bill", unit: "% of GDP", digits: 1, plain: "Interest on the debt. Rises with the policy rate and spreads as debt rolls over." },
+      { key: "ob", good: 1, label: "Overall balance", unit: "% of GDP", digits: 1, plain: "Primary balance minus interest. Negative is a deficit." },
+      { key: "debt", good: -1, label: "Public debt", unit: "% of GDP", digits: 1, plain: "Grows with interest, shrinks with nominal growth and primary surpluses, jumps with depreciation on foreign-currency debt." },
+      { key: "gfn", good: -1, label: "Financing needs", unit: "% of GDP", digits: 1, plain: "Deficit plus maturing debt: what must be borrowed this year." },
     ],
   },
   {
@@ -63,10 +63,10 @@ export const SECTORS: Sector[] = [
     title: "External sector and markets",
     blurb: "Trade, the currency, reserves and what investors charge. Pressure on the currency shows up as depreciation, lost reserves, or both.",
     rows: [
-      { key: "ca", label: "Current account", unit: "% of GDP", digits: 1, plain: "What the country earns abroad minus what it pays. Weaker demand and a weaker currency improve it." },
+      { key: "ca", good: 1, label: "Current account", unit: "% of GDP", digits: 1, plain: "What the country earns abroad minus what it pays. Weaker demand and a weaker currency improve it." },
       { key: "rer", label: "Real exchange rate", unit: "index", digits: 0, plain: "100 = start; higher means a weaker, more competitive currency." },
-      { key: "reserves", label: "Reserves", unit: "months of imports", digits: 1, plain: "Foreign currency the central bank holds. Spent to defend the currency; rebuilt by IMF money." },
-      { key: "spread", label: "Bond spread", unit: "bp", digits: 0, plain: "Extra interest investors demand. Rises with debt, low reserves, deficits and lost credibility." },
+      { key: "reserves", good: 1, label: "Reserves", unit: "months of imports", digits: 1, plain: "Foreign currency the central bank holds. Spent to defend the currency; rebuilt by IMF money." },
+      { key: "spread", good: -1, label: "Bond spread", unit: "bp", digits: 0, plain: "Extra interest investors demand. Rises with debt, low reserves, deficits and lost credibility." },
     ],
   },
 ];

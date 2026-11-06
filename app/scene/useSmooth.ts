@@ -26,11 +26,13 @@ export function useSmooth<T extends Record<string, number>>(targets: T, speed = 
   const ref = useRef<T>({ ...targets });
   const targetRef = useRef<T>(targets);
   targetRef.current = targets;
+  // The key set is fixed per call site; list it once so the frame loop does not allocate.
+  const keys = useRef<(keyof T)[]>(Object.keys(targets) as (keyof T)[]);
   useFrame((_, dt) => {
     const k = instant ? 1 : Math.min(1, dt * speed);
     const cur = ref.current;
     const tgt = targetRef.current;
-    for (const key of Object.keys(tgt) as (keyof T)[]) {
+    for (const key of keys.current) {
       const next = tgt[key];
       const now = cur[key];
       const v = now + (next - now) * k;

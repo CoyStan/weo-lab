@@ -18,6 +18,7 @@ export default function IndicatorTiles() {
   const focus = useLab((s) => s.focus);
   const setFocus = useLab((s) => s.setFocus);
   const compare = useLab((s) => s.compare);
+  const reduceMotion = useLab((s) => s.reduceMotion);
 
   const breachedNow = useMemo(() => {
     const set = new Set<ConstraintVar>();
@@ -45,22 +46,23 @@ export default function IndicatorTiles() {
               type="button"
               onClick={() => {
                 setFocus(focus === key ? null : key);
-                document.getElementById(`chart-${key}`)?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+                const still = reduceMotion || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                document.getElementById(`chart-${key}`)?.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "nearest", inline: "center" });
               }}
               className={`lab-tile ${focus === key ? "is-focus" : ""} ${breached ? "is-breach" : ""}`}
               aria-pressed={focus === key}
               aria-label={`${m.label} ${fmtMetric(key, v)} ${m.unit}${breached ? ", constraint breached" : ""}`}
             >
-              <span className="flex items-center justify-between gap-1 text-[0.64rem] font-semibold uppercase tracking-wider text-[var(--lab-ink-2)]">
+              <span className="flex items-center justify-between gap-1 text-(length:--t-xs) font-semibold uppercase tracking-wider text-[var(--lab-ink-2)]">
                 {m.short}
                 {breached ? <span className="lab-chip lab-chip-bad" title={`Breaches ${VARIABLES[key as ConstraintVar]?.label ?? ""} constraint`}>!</span> : null}
               </span>
               <span className="mt-0.5 flex items-baseline gap-1">
-                <span className="font-sans text-[1.15rem] font-semibold leading-none tracking-tight text-[var(--lab-ink)]">{fmtMetric(key, v)}</span>
-                <span className="text-[0.62rem] text-[var(--lab-ink-2)]">{m.unit}</span>
+                <span className="font-sans text-(length:--t-md) font-semibold leading-none tracking-tight text-[var(--lab-ink)]">{fmtMetric(key, v)}</span>
+                <span className="text-(length:--t-xs) text-[var(--lab-ink-2)]">{m.unit}</span>
               </span>
               <span className="mt-1 flex items-end justify-between gap-1">
-                <span className={`text-[0.64rem] font-semibold tabular-nums ${tone === "good" ? "text-[var(--lab-good)]" : tone === "bad" ? "text-[var(--lab-bad)]" : "text-[var(--lab-ink-2)]"}`}>{Math.abs(delta) < 0.05 ? "= ref" : fmtDelta(key, delta)}</span>
+                <span className={`text-(length:--t-xs) font-semibold tabular-nums ${tone === "good" ? "text-[var(--lab-good)]" : tone === "bad" ? "text-[var(--lab-bad)]" : "text-[var(--lab-ink-2)]"}`}>{Math.abs(delta) < 0.05 ? "= ref" : fmtDelta(key, delta)}</span>
                 <Sparkline values={series} clock={clock} />
               </span>
             </button>

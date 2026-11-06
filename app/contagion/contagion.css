@@ -1,4 +1,10 @@
-/* Contagion mode: a world map and the fund's desk, on the lab's theme tokens. */
+/* Contagion mode: a world map and the fund's desk, on the lab's theme tokens.
+   Text uses the lab's type scale (--t-*); the px sizes left below are labels
+   inside the map's SVG viewBox, which scale with the map, not the page.
+   Motion uses the lab's one curve (--ease) and three durations
+   (--dur-fast/--dur/--dur-slow, 150/250/400 ms). The exceptions are the idle
+   loops (link dash, crisis pulse, wobble) and the reaction face, each marked
+   below. The reduced-motion rules at the end switch all of it off. */
 
 .ctg {
   min-height: 100dvh;
@@ -6,7 +12,7 @@
   background:
     radial-gradient(ellipse at 30% 0%, color-mix(in srgb, var(--lab-info) 8%, transparent), transparent 60%),
     var(--lab-bg);
-  animation: game-rise 0.5s var(--game-ease) both;
+  animation: game-rise var(--dur-slow) var(--ease) both;
 }
 
 .ctg-bar {
@@ -21,14 +27,14 @@
 
 .ctg-eyebrow,
 .ctg-kicker {
-  font-size: 0.68rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   color: var(--lab-info);
 }
 
 .ctg-title {
   font-family: var(--lab-font-display);
-  font-size: clamp(1.3rem, 2.4vw, 1.75rem);
+  font-size: var(--t-lg);
   font-weight: 600;
   line-height: 1.05;
 }
@@ -74,6 +80,8 @@
 .ctg-links line {
   stroke: var(--lab-ink);
   stroke-dasharray: 3 4;
+  /* Exception: a continuous loop (money flowing along the links), so it runs
+     linear and slow rather than on --ease/--dur-*. Off under reduced motion. */
   animation: ctg-dash 1.2s linear infinite;
 }
 
@@ -92,9 +100,9 @@
   stroke: color-mix(in srgb, var(--lab-ink) 18%, transparent);
   stroke-width: 1;
   transition:
-    fill 0.8s var(--game-ease),
-    stroke 0.2s ease,
-    transform 0.25s var(--game-ease);
+    fill var(--dur-slow) var(--ease),
+    stroke var(--dur-fast) var(--ease),
+    transform var(--dur) var(--ease);
   transform-box: fill-box;
   transform-origin: center;
 }
@@ -111,6 +119,8 @@
 }
 
 .ctg-hex.is-crisis .ctg-hex-body {
+  /* Exception: a slow breathing loop on countries in crisis (like the game's
+     run indicator), so ease-in-out and 2.4 s. Off under reduced motion. */
   animation: ctg-pulse 2.4s ease-in-out infinite;
 }
 
@@ -122,12 +132,12 @@
 
 .ctg-hex.is-flash-crisis .ctg-hex-body {
   animation:
-    ctg-flash 0.9s var(--game-ease) 1,
-    ctg-pulse 2.4s ease-in-out 0.9s infinite;
+    ctg-flash var(--dur-slow) var(--ease) 1,
+    ctg-pulse 2.4s ease-in-out var(--dur-slow) infinite;
 }
 
 .ctg-hex.is-flash-recovery .ctg-hex-body {
-  animation: ctg-relief 1.1s var(--game-ease) 1;
+  animation: ctg-relief var(--dur-slow) var(--ease) 1;
 }
 
 @keyframes ctg-flash {
@@ -172,7 +182,7 @@
 
 .ctg-hex-meter {
   fill: rgb(255 255 255 / 0.9);
-  transition: width 0.8s var(--game-ease);
+  transition: width var(--dur-slow) var(--ease);
 }
 
 .ctg-hex-mark {
@@ -193,7 +203,7 @@
 
 .ctg-hex-badge {
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   text-anchor: middle;
   dominant-baseline: middle;
   fill: #fff;
@@ -233,7 +243,7 @@
   flex-wrap: wrap;
   gap: 0.4rem 1rem;
   margin-top: 0.5rem;
-  font-size: 0.66rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
@@ -250,8 +260,8 @@
   height: 0.8rem;
   border-radius: 3px;
   font-style: normal;
-  font-weight: 800;
-  font-size: 0.7rem;
+  font-weight: 700;
+  font-size: var(--t-xs);
 }
 
 .ctg-legend i.is-ring {
@@ -264,7 +274,7 @@
 }
 
 .ctg-legend b {
-  font-size: 0.55rem;
+  font-size: var(--t-xs);
 }
 
 /* ---- Dashboard -------------------------------------------------------- */
@@ -287,13 +297,13 @@
 }
 
 .ctg-stat-label {
-  font-size: 0.62rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
 .ctg-stat-value {
   font-family: var(--lab-font-mono);
-  font-size: 1rem;
+  font-size: var(--t-md);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -322,7 +332,7 @@
   height: 100%;
   background: currentColor;
   color: var(--lab-info);
-  transition: width 0.6s var(--game-ease);
+  transition: width var(--dur-slow) var(--ease);
 }
 
 .ctg-stat.is-warn .ctg-stat-bar span {
@@ -367,18 +377,18 @@
 
 .ctg-country {
   font-family: var(--lab-font-display);
-  font-size: 1.45rem;
+  font-size: var(--t-lg);
   font-weight: 600;
   line-height: 1.1;
 }
 
 .ctg-h3 {
-  font-size: 0.78rem;
+  font-size: var(--t-xs);
   font-weight: 700;
 }
 
 .ctg-muted {
-  font-size: 0.66rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
@@ -387,7 +397,7 @@
   margin-top: 0.3rem;
   border-radius: 999px;
   padding: 0.1rem 0.55rem;
-  font-size: 0.66rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   background: var(--lab-good-bg);
   color: var(--lab-good);
@@ -407,7 +417,7 @@
   flex: none;
   border-radius: 999px;
   padding: 0.12rem 0.55rem;
-  font-size: 0.66rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   background: var(--lab-good-bg);
   color: var(--lab-good);
@@ -436,8 +446,8 @@
   height: 100%;
   border-radius: 4px;
   transition:
-    width 0.8s var(--game-ease),
-    background 0.8s var(--game-ease);
+    width var(--dur-slow) var(--ease),
+    background var(--dur-slow) var(--ease);
 }
 
 .ctg-stress i {
@@ -456,32 +466,32 @@
 }
 
 .ctg-facts dt {
-  font-size: 0.62rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
 .ctg-facts dd {
   font-family: var(--lab-font-mono);
-  font-size: 0.82rem;
+  font-size: var(--t-sm);
   font-weight: 600;
 }
 
 .ctg-note {
   margin-top: 0.8rem;
-  font-size: 0.78rem;
+  font-size: var(--t-xs);
   line-height: 1.45;
 }
 
 .ctg-protect {
   margin-top: 0.6rem;
-  font-size: 0.7rem;
+  font-size: var(--t-xs);
   color: var(--lab-info);
   font-weight: 600;
 }
 
 .ctg-warn {
   margin-top: 0.5rem;
-  font-size: 0.7rem;
+  font-size: var(--t-xs);
   color: var(--lab-warn);
 }
 
@@ -489,7 +499,7 @@
   display: grid;
   gap: 0.45rem;
   margin-top: 0.45rem;
-  font-size: 0.76rem;
+  font-size: var(--t-xs);
   line-height: 1.45;
 }
 
@@ -509,16 +519,16 @@
   background: var(--lab-surface, var(--lab-paper));
   padding: 0.5rem 0.65rem;
   text-align: left;
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
   line-height: 1.35;
   transition:
-    border-color 0.2s ease,
-    transform 0.2s var(--game-ease),
-    background 0.2s ease;
+    border-color var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease);
 }
 
 .ctg-action strong {
-  font-size: 0.78rem;
+  font-size: var(--t-xs);
 }
 
 .ctg-action > span:last-child {
@@ -545,7 +555,7 @@
   display: inline-flex;
   gap: 0.35rem;
   font-family: var(--lab-font-mono);
-  font-size: 0.64rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
   white-space: nowrap;
 }
@@ -554,7 +564,7 @@
   margin-top: 0.55rem;
   border-left: 3px solid var(--lab-info);
   padding-left: 0.6rem;
-  font-size: 0.76rem;
+  font-size: var(--t-xs);
   line-height: 1.45;
 }
 
@@ -566,14 +576,14 @@
   display: grid;
   gap: 0.35rem;
   margin-top: 0.45rem;
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
   line-height: 1.4;
 }
 
 .ctg-news li {
   border-left: 3px solid var(--lab-line-strong);
   padding-left: 0.5rem;
-  animation: game-rise 0.45s var(--game-ease) both;
+  animation: game-rise var(--dur-slow) var(--ease) both;
 }
 
 .ctg-news li.is-crisis {
@@ -596,7 +606,7 @@
 .ctg-news-q {
   margin-right: 0.4rem;
   font-family: var(--lab-font-mono);
-  font-size: 0.62rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
@@ -635,7 +645,7 @@
 .ctg-spark figcaption {
   display: flex;
   gap: 1rem;
-  font-size: 0.64rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
@@ -649,7 +659,7 @@
 
 .ctg-lesson {
   margin-top: 0.8rem;
-  font-size: 0.78rem;
+  font-size: var(--t-xs);
   line-height: 1.5;
   font-style: italic;
 }
@@ -662,6 +672,8 @@
 
 /* A financial centre under strain trembles a little. */
 .ctg-hex.is-wobbly .ctg-hex-body {
+  /* Exception: an idle tremble loop, so ease-in-out and seconds long, like the
+     crisis pulse. Off under reduced motion. */
   animation: ctg-wobble 2.6s ease-in-out infinite;
 }
 
@@ -697,7 +709,9 @@
   dominant-baseline: middle;
   pointer-events: none;
   opacity: 0;
-  animation: ctg-react 2.4s var(--game-ease) 0.15s both;
+  /* Exception: the face pops in on --ease, then has to stay readable before it
+     drifts away, so 2.4 s in all (like the capital read-out float). */
+  animation: ctg-react 2.4s var(--ease) var(--dur-fast) both;
 }
 
 @keyframes ctg-react {
@@ -723,8 +737,8 @@
 
 .ctg-hex.is-flash-recovery .ctg-hex-body {
   animation:
-    ctg-relief 1.1s var(--game-ease) 1,
-    ctg-bounce 0.7s var(--game-ease) 1;
+    ctg-relief var(--dur-slow) var(--ease) 1,
+    ctg-bounce var(--dur-slow) var(--ease) 1;
 }
 
 @keyframes ctg-bounce {
@@ -738,13 +752,13 @@
 
 .ctg-news-head {
   display: block;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.3;
 }
 
 .ctg-news-fact {
   display: block;
-  font-size: 0.64rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
@@ -754,7 +768,7 @@
 }
 
 .ctg-deputy {
-  font-size: 0.62rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   color: var(--lab-info);
 }
@@ -767,7 +781,7 @@
 
 .ctg-verdict {
   margin-top: 0.25rem;
-  font-size: 0.86rem;
+  font-size: var(--t-sm);
   line-height: 1.45;
 }
 
@@ -786,21 +800,22 @@
   border-radius: min(var(--lab-radius-card), 14px);
   background: color-mix(in srgb, var(--lab-warn-mark) 10%, var(--lab-paper));
   padding: 0.45rem 0.65rem;
-  font-size: 0.74rem;
-  animation: ctg-badge 0.6s var(--game-ease) both;
+  font-size: var(--t-xs);
+  animation: ctg-badge var(--dur-slow) var(--ease) both;
 }
 
+/* Badges land one after another on the same 120 ms stagger as the debrief stars. */
 .ctg-badges li:nth-child(2) {
-  animation-delay: 0.12s;
+  animation-delay: 120ms;
 }
 
 .ctg-badges li:nth-child(3) {
-  animation-delay: 0.24s;
+  animation-delay: 240ms;
 }
 
 .ctg-badges li > span:last-child {
   grid-column: 1 / -1;
-  font-size: 0.66rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
@@ -809,8 +824,8 @@
   border-radius: 999px;
   background: var(--lab-warn-mark);
   padding: 0 0.45rem;
-  font-size: 0.58rem;
-  font-weight: 800;
+  font-size: var(--t-xs);
+  font-weight: 700;
   color: #fff;
 }
 
@@ -840,7 +855,7 @@
   border-radius: min(var(--lab-radius-card), 14px);
   background: var(--lab-info-bg);
   padding: 0.4rem 0.65rem;
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
   font-weight: 600;
   color: var(--lab-info);
 }

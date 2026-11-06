@@ -10,6 +10,7 @@ import { useSettings } from "./settings";
 import type { FocusKey } from "../store";
 import { headline } from "./explain";
 import { attention, eventful } from "./pacing";
+import type { DecompMetric } from "./decompose";
 import { SHOCKS } from "../model/shocks";
 import { quarterLabel } from "../model/economy";
 import { buildEpisode, EPISODES, TODAY, todayMission } from "./economies";
@@ -17,6 +18,8 @@ import { WEO } from "./data";
 import { getMission, registerMission, isSurprise, knownConfig, missionOutcome, MISSIONS, objectiveStatus, policyForTurn, type LeverId, type Mission, type ObjectiveStatus, type Outcome } from "./missions";
 import { ledger, type Entry } from "./politics";
 import type { InstitutionId } from "../model/types";
+
+export type FrameworkTab = "why" | "path" | "channels" | "accounts";
 
 export type Screen = "title" | "missions" | "briefing" | "play" | "sandbox" | "contagion";
 
@@ -75,7 +78,12 @@ type GameState = {
   spotlight: FocusKey[];
   /** The macro framework overlay: every sector and channel at once. */
   framework: boolean;
-  setFramework: (open: boolean) => void;
+  /** Opens or closes the framework; a metric jumps the decomposition to it. */
+  setFramework: (open: boolean, metric?: DecompMetric) => void;
+  frameworkMetric: DecompMetric;
+  setFrameworkMetric: (metric: DecompMetric) => void;
+  frameworkTab: FrameworkTab;
+  setFrameworkTab: (tab: FrameworkTab) => void;
   /** A fast-forward in progress. */
   run: Run | null;
   /** Play quarters one after another until something calls for a decision. */
@@ -280,10 +288,14 @@ export const useGame = create<GameState>((set, get) => ({
   framework: false,
   run: null,
 
-  setFramework: (open) => {
+  setFramework: (open, metric) => {
     if (open !== get().framework) sound.play(open ? "open" : "back");
-    set({ framework: open });
+    set({ framework: open, ...(metric ? { frameworkMetric: metric, frameworkTab: "path" as const } : open && !get().framework ? { frameworkTab: "why" as const } : {}) });
   },
+  frameworkTab: "why",
+  setFrameworkTab: (tab) => set({ frameworkTab: tab }),
+  frameworkMetric: "infl",
+  setFrameworkMetric: (metric) => set({ frameworkMetric: metric }),
 
   recordStars: (id, stars) => {
     const prev = get().progress.stars[id] ?? 0;

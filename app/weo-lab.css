@@ -5,6 +5,14 @@
  * variables; a theme (see themes/) overrides them on .lab[data-theme="id"].
  */
 .lab {
+  /* Motion: one easing curve (quick start, settles with no overshoot) and
+     three durations, shared by the lab and the game. useTween.ts mirrors
+     these values for numbers that count. */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-fast: 150ms;
+  --dur: 250ms;
+  --dur-slow: 400ms;
+
   /* Page and surfaces */
   --lab-bg: #f7f5f2;
   --lab-paper: #fffdf8;
@@ -48,7 +56,19 @@
   --lab-radius-card: 0.75rem;
   --lab-radius-control: 999px;
   --lab-panel-shadow: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 6px 18px color-mix(in srgb, var(--lab-ink) 5%, transparent);
+  /* Type scale: the only sizes and weights the game uses. Hierarchy comes from these, not
+     from small caps, tracking or italics. rem-based, so big screens scale them up. */
+  --t-xs: 0.8rem; /* notes, chart labels, keys */
+  --t-sm: 0.9rem; /* body copy, labels */
+  --t-md: 1rem; /* lead text, buttons */
+  --t-lg: 1.35rem; /* headings */
+  --t-xl: 2.4rem; /* big figures and headlines, read from the sofa */
+  --t-2xl: 3.4rem; /* the title screen only */
+  --w-regular: 400;
+  --w-semi: 600;
+  --w-bold: 700;
   font-family: var(--lab-font-ui);
+  font-variant-numeric: tabular-nums;
   font-feature-settings: "ss01", "cv11";
   -webkit-font-smoothing: antialiased;
   color-scheme: light;
@@ -165,16 +185,16 @@
 .lab-segmented button {
   border-radius: 999px;
   padding: 0.28rem 0.6rem;
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
   font-weight: 600;
   color: var(--lab-ink-2);
   line-height: 1;
   white-space: nowrap;
-  transition: background-color 140ms ease, color 140ms ease;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 .lab-segmented-md button {
   padding: 0.42rem 0.8rem;
-  font-size: 0.8rem;
+  font-size: var(--t-xs);
 }
 .lab-segmented button.is-active {
   background: var(--lab-paper);
@@ -193,7 +213,7 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--lab-ink) 18%, transparent);
   position: relative;
-  transition: background-color 140ms ease;
+  transition: background-color var(--dur-fast) var(--ease);
 }
 .lab-toggle::after {
   content: "";
@@ -205,7 +225,7 @@
   border-radius: 50%;
   background: var(--lab-surface);
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
-  transition: transform 140ms ease;
+  transition: transform var(--dur-fast) var(--ease);
 }
 /* The toggle follows its visually hidden checkbox. */
 input:checked + .lab-toggle {
@@ -227,7 +247,7 @@ input:focus-visible + .lab-toggle {
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
-  transition: background-color 140ms ease, color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
   border: 1px solid transparent;
 }
 .lab-btn:disabled {
@@ -240,15 +260,15 @@ input:focus-visible + .lab-toggle {
 }
 .lab-btn-xs {
   padding: 0.28rem 0.55rem;
-  font-size: 0.68rem;
+  font-size: var(--t-xs);
 }
 .lab-btn-sm {
   padding: 0.42rem 0.8rem;
-  font-size: 0.74rem;
+  font-size: var(--t-xs);
 }
 .lab-btn-md {
   padding: 0.55rem 1rem;
-  font-size: 0.82rem;
+  font-size: var(--t-sm);
 }
 .lab-btn-primary {
   background: linear-gradient(135deg, var(--lab-accent-from), var(--lab-accent-to));
@@ -293,7 +313,7 @@ input:focus-visible + .lab-toggle {
   gap: 0.3rem;
   border-radius: 999px;
   padding: 0.18rem 0.5rem;
-  font-size: 0.66rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   letter-spacing: 0.02em;
   line-height: 1.1;
@@ -326,7 +346,7 @@ input:focus-visible + .lab-toggle {
   border-radius: 0.5rem;
   background: var(--lab-surface);
   color: var(--lab-ink);
-  font-size: 0.76rem;
+  font-size: var(--t-xs);
   padding: 0.3rem 0.45rem;
   line-height: 1.2;
   min-width: 0;
@@ -372,7 +392,7 @@ input:focus-visible + .lab-toggle {
   border-radius: var(--lab-radius-card);
   background: var(--lab-surface);
   padding: 0.55rem 0.65rem 0.5rem;
-  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
 .lab-tile:hover {
   border-color: var(--lab-line-strong);
@@ -397,7 +417,7 @@ input:focus-visible + .lab-toggle {
   padding: 0.45rem 0.55rem 0.35rem;
   scroll-snap-align: start;
   min-width: 0;
-  transition: border-color 140ms ease, box-shadow 140ms ease;
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 .lab-chart.is-focus {
   border-color: var(--lab-scenario);
@@ -423,7 +443,7 @@ input:focus-visible + .lab-toggle {
   background: var(--lab-paper);
   box-shadow: 0 8px 20px color-mix(in srgb, var(--lab-ink) 14%, transparent);
   padding: 0.4rem 0.55rem;
-  font-size: 0.7rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink);
 }
 .lab-tooltip-row {
@@ -450,7 +470,7 @@ input:focus-visible + .lab-toggle {
   border-collapse: separate;
   border-spacing: 0;
   width: 100%;
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
 }
 .lab-table th,
 .lab-table td {
@@ -487,7 +507,7 @@ input:focus-visible + .lab-toggle {
 .lab-table tr.is-reference th {
   color: var(--lab-ink-2);
   font-weight: 400;
-  font-size: 0.68rem;
+  font-size: var(--t-xs);
 }
 .lab-table td.is-breach {
   color: var(--lab-bad);
@@ -520,7 +540,7 @@ input:focus-visible + .lab-toggle {
   }
 }
 .lab-toast {
-  animation: lab-toast-in 220ms ease-out both;
+  animation: lab-toast-in var(--dur) var(--ease) both;
 }
 
 /* Scene chrome */
@@ -559,7 +579,7 @@ input:focus-visible + .lab-toggle {
   background: color-mix(in srgb, var(--lab-paper) 95%, transparent);
   box-shadow: 0 4px 12px color-mix(in srgb, var(--lab-ink) 22%, transparent);
   padding: 0.2rem 0.5rem 0.2rem 0.22rem;
-  font-size: 10.5px;
+  font-size: var(--t-xs);
   line-height: 1.2;
   color: var(--lab-ink);
   transform: translate(-50%, -100%) rotate(var(--tilt, 0deg));
@@ -591,7 +611,7 @@ input:focus-visible + .lab-toggle {
   display: block;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-size: 9px;
+  font-size: var(--t-xs);
   font-weight: 700;
   color: var(--lab-ink-2);
 }
@@ -617,12 +637,12 @@ input:focus-visible + .lab-toggle {
 .lab .lab-scene .lab-scene-label.is-capital .lab-banner-text strong {
   color: var(--lab-paper);
   font-family: var(--lab-font-display);
-  font-size: 14px;
+  font-size: var(--t-sm);
   letter-spacing: 0.04em;
 }
 .lab-scene-label strong {
   display: block;
-  font-size: 12px;
+  font-size: var(--t-xs);
   font-variant-numeric: tabular-nums;
 }
 .lab-scene-label.is-bad {
@@ -641,8 +661,8 @@ input:focus-visible + .lab-toggle {
   border: 2px solid currentColor;
   border-radius: 0.45rem;
   padding: 0.3rem 0.55rem;
-  font-size: 0.62rem;
-  font-weight: 900;
+  font-size: var(--t-xs);
+  font-weight: 700;
   letter-spacing: 0.14em;
   line-height: 1;
   text-transform: uppercase;
@@ -660,7 +680,7 @@ input:focus-visible + .lab-toggle {
   height: 100%;
   border-radius: 999px;
   background: var(--lab-scenario);
-  transition: width 200ms ease;
+  transition: width var(--dur) var(--ease);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -730,8 +750,30 @@ input:focus-visible + .lab-toggle {
   background: var(--lab-surface);
   padding: 0 0.3rem;
   font-family: ui-monospace, monospace;
-  font-size: 0.66rem;
+  font-size: var(--t-xs);
   line-height: 1.35;
   text-align: center;
   color: var(--lab-ink);
+}
+
+/* District place names ("Campus", "Port") show while the label layer is naming districts,
+   and on a tag that carries a cue or a news card's pointer. */
+.lab-banner-place,
+.lab-banner-sep {
+  display: none;
+}
+.is-naming .lab-banner-place,
+.is-naming .lab-banner-sep,
+.lab-scene-label.has-cue .lab-banner-place,
+.lab-scene-label.is-shocked .lab-banner-place,
+.lab-scene-label.is-shocked .lab-banner-sep {
+  display: inline;
+}
+.lab-scene-label.has-cue .lab-banner-sep {
+  display: inline;
+}
+/* A pending decision's tag names its building, so the callout is anchored to a place. */
+.lab-scene-label.is-pending:not(.is-docked) .lab-banner-place,
+.lab-scene-label.is-pending:not(.is-docked) .lab-banner-sep {
+  display: inline;
 }

@@ -1,23 +1,29 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { quarterLabel } from "../../model/economy";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { describeChanges, quarterLabel } from "../../model/economy";
+import { SHOCKS } from "../../model/shocks";
 import { getPreset } from "../../model/presets";
 import { MISSIONS } from "../missions";
 import { sound } from "../audio";
 import { useSettings } from "../settings";
 import { useGame } from "../store";
-import SoundToggle from "./SoundToggle";
+import { MoveStrip } from "./Goals";
+import Glyph from "./Glyph";
 import Capital from "./Capital";
 import Reforms from "./Reforms";
 import { Segmented } from "../../components/ui";
+import { useStickyH } from "../../components/strip";
 import { useTurn } from "../useTurn";
 import { canAdopt } from "../politics";
 import Advisors from "./Advisors";
 import Goals from "./Goals";
 import Levers from "./Levers";
 import { attention } from "../pacing";
-import { useLab } from "../../store";
+import { useLab, type FocusKey, type SceneCue } from "../../store";
+import { nameDistricts } from "../../scene/labelLayer";
+import { PLACE } from "../../scene/places";
+import { deltaUnit, fmtNum, GAME_METRICS, unitShort } from "../metrics";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -25,16 +31,35 @@ export default function Play({ scene }: { scene: ReactNode }) {
   const { mission, clock, deciding, events, changed, statuses } = useTurn();
   const tips = useSettings((s) => s.tips);
   const [panel, setPanel] = useState<"levers" | "reforms">("levers");
+  // Where the turn track's last fill started: when several quarters end at once
+  // (Skip quiet quarters) they fill one after another instead of all together.
+  const [sweep, setSweep] = useState({ clock, from: clock });
+  if (sweep.clock !== clock) setSweep({ clock, from: Math.min(sweep.clock, clock) });
+  const sweepStep = clock - sweep.from > 1 ? Math.min(60, 200 / (clock - sweep.from - 1)) : 0;
   const { books, config } = useTurn();
   const affordable = books
     ? mission.politics.institutions.filter((id) => canAdopt(id, mission.politics, config, { votes: books.votes, trust: books.trust }).ok).length
     : 0;
   const tense = mission.objectives.some((o) => !o.bonus && (statuses[o.id] === "at-risk" || statuses[o.id] === "failed"));
   useEffect(() => sound.setTense(tense), [tense]);
+  // The island tags carry each goal's trouble too, so the map and the goal cards read as one system.
+  const troubleKey = mission.objectives
+    .filter((o) => !o.bonus && (statuses[o.id] === "at-risk" || statuses[o.id] === "failed"))
+    .map((o) => `${o.metric}:${statuses[o.id]}`)
+    .join("|");
+  useEffect(() => {
+    const out: Partial<Record<FocusKey, "at-risk" | "failed">> = {};
+    for (const part of troubleKey ? troubleKey.split("|") : []) {
+      const [metric, st] = part.split(":") as [FocusKey, "at-risk" | "failed"];
+      if (out[metric] !== "failed") out[metric] = st;
+    }
+    useLab.setState({ districtStatus: out });
+    return () => useLab.setState({ districtStatus: {} });
+  }, [troubleKey]);
+  useSceneCues();
   const endQuarter = useGame((s) => s.endQuarter);
   const modal = useGame((s) => s.modal);
   const setScreen = useGame((s) => s.setScreen);
-  const restart = useGame((s) => s.restart);
   const rewind = useGame((s) => s.rewind);
   const setFramework = useGame((s) => s.setFramework);
   const run = useGame((s) => s.run);
@@ -42,6 +67,23 @@ export default function Play({ scene }: { scene: ReactNode }) {
   const preset = getPreset(mission.presetId);
   const done = clock >= mission.quarters;
   const news = useMemo(() => events.filter((e) => e.quarter === clock && e.kind !== "decision"), [events, clock]);
+  // Phones: the End bar is a fixed dock; its height becomes --sticky-h on the page, so the
+  // scroll area ends clear of it and focused levers are never hidden under it (game.css).
+  const footRef = useRef<HTMLDivElement>(null);
+  // The HUD's height, published as --hud-h on the page: the news card hangs just under it,
+  // so its top edge never cuts through the turn track.
+  const hudRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = hudRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement;
+    const ro = new ResizeObserver(() => root.style.setProperty("--hud-h", `${Math.ceil(el.getBoundingClientRect().height)}px`));
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty("--hud-h");
+    };
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -76,42 +118,85 @@ export default function Play({ scene }: { scene: ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Wide screens: the commit sits in the lever rail, right under the levers it commits;
+  // narrower ones dock it to the bottom of the screen.
+  const wide = useMedia("(min-width: 1180px)");
+  useStickyH(footRef, wide);
+  const commit = (
+      <div className={`game-end ${wide ? "is-rail" : ""}`} ref={footRef}>
+        <div className="game-agenda-bar">
+          <Agenda />
+        </div>
+        <MoveStrip />
+        <span className={`game-end-note ${modal || run ? "is-waiting" : ""}`}>
+          {modal ? `Waiting: close the ${modal.kind === "recap" ? "recap" : modal.kind === "shock" ? "news card" : "debrief"} first.` : run ? "Waiting: quarters are playing." : changed ? "You changed policy this quarter." : "No changes: policy carries on as it is."}
+        </span>
+        <button type="button" className="game-end-btn" onClick={endQuarter} disabled={Boolean(modal) || done || Boolean(run)}>
+          End {quarterLabel(clock + 1)}
+          <kbd>Enter</kbd>
+        </button>
+        <button type="button" className="game-skip-btn" onClick={skipAhead} disabled={Boolean(modal) || done || Boolean(run)} title="Play quarter after quarter until something needs a decision (F)">
+          Skip quiet quarters <Glyph name="skip" />
+          <kbd>F</kbd>
+        </button>
+      </div>
+  );
+
   return (
     <div className="game-play">
-      <header className="game-hud">
+      <header ref={hudRef} className="game-hud">
         <button type="button" className="game-logo" onClick={() => setScreen("title")} aria-label="Back to the title screen">
           <img src={`${base}/brand/palari-logo.svg`} alt="" width={68} height={28} />
+          <span className="game-wordmark" aria-hidden="true">
+            <span className="is-long">WEO Scenario Lab</span>
+            <span className="is-short">WEO Lab</span>
+          </span>
         </button>
         <div className="min-w-0">
           <p className="game-eyebrow !mb-0">{mission.number ? `Mission ${mission.number} of ${MISSIONS.length} · ${preset.name}` : mission.kicker.length < 40 ? mission.kicker : preset.name}</p>
-          <h1 className="truncate font-display text-[1.15rem] font-semibold leading-tight">{mission.title}</h1>
+          <h1 className="truncate font-display text-(length:--t-lg) font-semibold leading-tight">{mission.title}</h1>
         </div>
         <div className="game-progress" aria-label={`Quarter ${Math.min(clock + 1, mission.quarters)} of ${mission.quarters}`}>
-          <div className="flex items-baseline justify-between gap-2 text-[0.68rem]">
-            <span className="font-semibold">{done ? "Final quarter played" : `Deciding ${deciding}`}</span>
-            <span className="text-[var(--lab-ink-2)] tabular-nums">turn {Math.min(clock + 1, mission.quarters)} of {mission.quarters}</span>
+          <div className="game-progress-head">
+            <strong>{done ? "Final quarter played" : `Deciding ${deciding}`}</strong>
+            {!done ? <span className="tabular-nums">· {mission.quarters - clock - 1} left</span> : null}
           </div>
           <div className="game-progress-track">
-            {Array.from({ length: mission.quarters }, (_, i) => (
-              <span key={i} className={i < clock ? "is-done" : i === clock ? "is-now" : ""} />
-            ))}
+            {Array.from({ length: mission.quarters }, (_, i) => {
+              // A known shock is named under its square ("shock") only where no other label
+              // sits within three squares; it is always in the square's tooltip.
+              const labelled = (j: number) => j === clock || (j % 4 === 0 && j !== clock - 1);
+              const flagClear = (k: number) => ![-3, -2, -1, 1, 2, 3].some((o) => k + o >= 0 && k + o < mission.quarters && labelled(k + o));
+              const q = i + 1;
+              const shock = config.shocks.some((s) => !s.id.startsWith("surprise") && s.quarter === q);
+              const election = mission.politics.elections.includes(q);
+              return (
+                <span
+                  key={i}
+                  className={`${i < clock ? "is-done" : i === clock ? "is-now" : ""} ${shock ? "has-shock" : ""} ${election ? "has-election" : ""}`}
+                  style={i >= sweep.from && i < clock && sweepStep ? ({ "--sweep-delay": `${Math.round((i - sweep.from) * sweepStep)}ms` } as CSSProperties) : undefined}
+                  title={`${quarterLabel(q)}${shock ? " · known shock" : ""}${election ? " · election" : ""}`}>
+                  {(q - 1) % 4 === 0 && i !== clock && i !== clock - 1 ? <em>{quarterLabel(q).slice(0, 4)}{shock && i > clock ? " · shock" : ""}</em> : shock && i > clock && flagClear(i) ? <em className="is-flag">shock</em> : null}
+                  {i === clock ? <em className="is-code">{(q - 1) % 4 === 0 ? quarterLabel(q).replace("Q", " Q") : quarterLabel(q).slice(4)}</em> : null}
+                </span>
+              );
+            })}
           </div>
+          <NextUp />
         </div>
         <Capital />
-        <div className="ml-auto flex items-center gap-1.5">
-          <button type="button" className="lab-btn lab-btn-soft lab-btn-sm game-fw-open" onClick={() => setFramework(true)} title="Every sector, every channel, and why things are or aren't moving (M)">
-            Macro framework <kbd className="game-fw-kbd">M</kbd>
+        <div className="game-hud-actions ml-auto flex items-center justify-end gap-1.5">
+          <button type="button" className="lab-btn lab-btn-sm game-fw-open" onClick={() => setFramework(true)} title="Every sector, every channel, and why things are or aren't moving (M)">
+            <ChartIcon /> <span className="game-fw-open-label">Macro framework</span><span className="game-fw-open-short">Framework</span> <kbd className="game-fw-kbd">M</kbd>
           </button>
-          <SoundToggle />
-          <button type="button" className="lab-btn lab-btn-ghost lab-btn-sm" onClick={rewind} disabled={clock === 0} title="Go back one quarter and decide again">Rewind</button>
-          <button type="button" className="lab-btn lab-btn-ghost lab-btn-sm" onClick={restart}>Restart</button>
-          <button type="button" className="lab-btn lab-btn-soft lab-btn-sm" onClick={() => setScreen("missions")}>Missions</button>
+          {clock > 0 ? <button type="button" className="lab-btn lab-btn-ghost lab-btn-sm game-hud-rewind" onClick={rewind} title="Go back one quarter and decide again">Rewind</button> : null}
+          <HudMenu clock={clock} />
         </div>
       </header>
 
       <main id="main-content" className="game-grid">
         <aside className="game-col game-col-levers" aria-label="Your levers">
-          <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="game-levers-head mb-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
             <h2 className="game-col-title !mb-0">{panel === "levers" ? "Your levers" : "Reforms"}</h2>
             <Segmented
               ariaLabel="Levers or reforms"
@@ -123,24 +208,20 @@ export default function Play({ scene }: { scene: ReactNode }) {
               ]}
             />
           </div>
-          {tips && mission.number === 1 && clock < 2 ? (
-            <p className="game-coach">
-              {clock === 0 ? "Try moving the policy rate. The dashed line on each goal card shows where that choice leads; the faint one is where you started." : "Inflation reacts slowly. Judge your rate by the forecast at the end, not by this quarter."}
-            </p>
-          ) : null}
-          {panel === "levers" ? (
-            <>
-              <Levers />
-              <Hint text={mission.hint} />
-            </>
-          ) : (
-            <Reforms />
-          )}
+          {tips && mission.number === 1 && clock === 0 && !changed ? <p className="game-coach">Move the policy rate and watch the blue forecast on each goal.</p> : null}
+          <div className="game-agenda-top">
+            <Agenda />
+          </div>
+          {panel === "levers" ? <Levers /> : <Reforms />}
+          {wide ? commit : null}
+          {panel === "levers" && !wide ? <DecisionLog /> : null}
         </aside>
 
         <section className="game-stage" aria-label="Island">
           <div className="game-scene">
             {scene}
+            <SceneStrip />
+            <RecapIslandLine />
             {run ? <RunTicker /> : null}
             <div className="game-scene-news">
               {news.map((e, i) => (
@@ -153,34 +234,258 @@ export default function Play({ scene }: { scene: ReactNode }) {
           </div>
           <div className="game-stage-foot">
             <Advisors />
-            <div className="game-end">
-              <Agenda />
-              {changed ? <span className="game-end-note">You changed policy this quarter.</span> : <span className="game-end-note">No changes: policy carries on as it is.</span>}
-              <button type="button" className="game-end-btn" onClick={endQuarter} disabled={Boolean(modal) || done || Boolean(run)}>
-                End {quarterLabel(clock + 1)}
-                <kbd>Enter</kbd>
-              </button>
-              <button type="button" className="game-skip-btn" onClick={skipAhead} disabled={Boolean(modal) || done || Boolean(run)} title="Play quarter after quarter until something needs a decision (F)">
-                Skip quiet quarters <span aria-hidden="true">⏩</span>
-                <kbd>F</kbd>
-              </button>
-            </div>
+            {wide ? null : commit}
           </div>
         </section>
 
         <aside className="game-col game-col-goals" aria-label="Goals">
           <h2 className="game-col-title">Goals</h2>
           <Goals />
-          <FreePlayLink />
+          {wide ? <DecisionLog /> : null}
         </aside>
       </main>
     </div>
   );
 }
 
+/**
+ * The island names its districts while a lever moves and for a few seconds after a quarter
+ * ends, and pins a delta tag to the district whose goal figure moved most; the tag stays up
+ * through the recap and goes when the group starts planning again.
+ */
+function useSceneCues() {
+  const { mission, actual, clock } = useTurn();
+  const modal = useGame((s) => s.modal);
+  const lastClock = useRef(clock);
+  const hadModal = useRef(Boolean(modal));
+
+  useEffect(() => {
+    const isLever = (t: EventTarget | null) => t instanceof Element && Boolean(t.closest(".game-col-levers .lab-range, .game-col-levers .lab-step"));
+    let dragging = false;
+    const down = (e: PointerEvent) => {
+      if (!isLever(e.target)) return;
+      dragging = true;
+      nameDistricts("hold");
+    };
+    const up = () => {
+      if (!dragging) return;
+      dragging = false;
+      nameDistricts(1500);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (isLever(e.target) && e.key.startsWith("Arrow")) nameDistricts(2000);
+    };
+    window.addEventListener("pointerdown", down);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("keydown", key);
+    return () => {
+      window.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("keydown", key);
+      nameDistricts("off");
+      useLab.setState({ sceneCue: {} });
+    };
+  }, []);
+
+  useEffect(() => {
+    const prev = lastClock.current;
+    lastClock.current = clock;
+    if (clock <= prev || !actual[prev]) {
+      if (clock < prev) useLab.setState({ sceneCue: {} });
+      return;
+    }
+    nameDistricts(3000);
+    const judged = Array.from(new Set(mission.objectives.filter((o) => !o.bonus).map((o) => o.metric)));
+    const moves = judged
+      .map((m) => ({ m, d: actual[clock][m] - actual[prev][m] }))
+      .filter((x) => Math.abs(x.d) >= 0.1)
+      .sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+    const cue: Partial<Record<FocusKey, SceneCue>> = {};
+    // A callout on every district that moved (the two biggest moves), not just the first.
+    for (const { m, d } of moves.slice(0, 2)) {
+      const meta = GAME_METRICS[m];
+      cue[m as FocusKey] = { label: meta.label.toLowerCase(), up: d > 0, size: `${fmtNum(Math.abs(d), meta.digits)}${deltaUnit(meta.unit)}` };
+    }
+    useLab.setState({ sceneCue: cue });
+  }, [clock, actual, mission]);
+
+  useEffect(() => {
+    if (hadModal.current && !modal) useLab.setState({ sceneCue: {} });
+    hadModal.current = Boolean(modal);
+    useLab.setState({ sceneCalm: modal?.kind === "recap" });
+  }, [modal]);
+  useEffect(() => () => useLab.setState({ sceneCalm: false }), []);
+}
+
+/** What each district shows, for the island's key: the thing to watch, and what it tracks. */
+const DISTRICT_KEY: { key: "infl" | "growth" | "ca" | "reserves" | "unemp" | "debt"; what: string; tracks: string }[] = [
+  { key: "infl", what: "Campus flags", tracks: "inflation" },
+  { key: "growth", what: "Smoke", tracks: "output" },
+  { key: "ca", what: "Ships", tracks: "exports" },
+  { key: "reserves", what: "Vault", tracks: "reserves" },
+  { key: "unemp", what: "House lights", tracks: "jobs" },
+  { key: "debt", what: "Tower", tracks: "debt" },
+];
+
+/**
+ * The island's key, in one ruled strip along its top edge: what each district's motion
+ * means (campus flags = inflation, smoke = output, ships = exports, the vault = reserves),
+ * each with the way it is heading now. The mission's own goals come first. The figures
+ * themselves live on the goal cards; this strip only teaches the map. Hidden when the
+ * player asks for every tag on the island, or none.
+ */
+function SceneStrip() {
+  const { actual, forecast, clock, mission } = useTurn();
+  const labels = useLab((s) => s.labels);
+  if (labels !== "focus") return null;
+  const now = actual[clock];
+  const before = clock > 0 ? actual[clock - 1] : null;
+  const next = forecast[clock + 1];
+  const goals = new Set<string>(mission.objectives.map((o) => o.metric));
+  const items = [...DISTRICT_KEY.filter((d) => goals.has(d.key)), ...DISTRICT_KEY.filter((d) => !goals.has(d.key))].slice(0, 4);
+  return (
+    <p className="game-scene-strip is-key" aria-label="Island key">
+      {items.map((d) => {
+        // Last quarter's move, or (before any quarter is played) where the forecast heads.
+        const delta = before ? now[d.key] - before[d.key] : next ? next[d.key] - now[d.key] : 0;
+        const dir = Math.abs(delta) < 0.05 ? null : delta > 0 ? "up" : "down";
+        return (
+          <span key={d.key}>
+            {d.what}: <b>{d.tracks}</b>
+            {dir ? <> <Glyph name={dir} label={dir === "up" ? "rising" : "falling"} /></> : <span className="game-scene-strip-flat"> steady</span>}
+          </span>
+        );
+      })}
+    </p>
+  );
+}
+
+/** The next thing everyone can see coming: a known shock or an election. */
+function NextUp() {
+  const { mission, config, clock } = useTurn();
+  const shock = config.shocks.filter((s) => !s.id.startsWith("surprise") && s.quarter > clock).sort((a, b) => a.quarter - b.quarter)[0];
+  const election = mission.politics.elections.find((q) => q > clock);
+  const items: { q: number; text: string; kind: string }[] = [];
+  if (shock) items.push({ q: shock.quarter, text: SHOCKS[shock.kind].name, kind: "shock" });
+  if (election) items.push({ q: election, text: "Election", kind: "election" });
+  const next = items.sort((a, b) => a.q - b.q)[0];
+  // An event this quarter is already on the agenda; the clock only names what's further out.
+  if (!next || next.q === clock + 1) return null;
+  return (
+    <p className={`game-nextup is-${next.kind}`} title="Dots on the track: amber = known shock, violet = election">
+      <span aria-hidden="true" className="game-nextup-dot" /> Next: {next.text}, {quarterLabel(next.q)}
+      {next.q === clock + 1 ? <span className="game-nextup-now"> (this quarter)</span> : null}
+    </p>
+  );
+}
+
+/** The group's choices so far, newest first: a record to argue about. */
+function DecisionLog() {
+  const turns = useGame((s) => s.turns);
+  const config = useLab((s) => s.config);
+  const clock = useLab((s) => s.clock);
+  // Wide screens have the room: the record starts open in the lever column.
+  const wide = useMedia("(min-width: 1180px) and (min-height: 760px)");
+  const start = turns[0];
+  if (!start) return null;
+  const inherited = new Set(start.decisions.map((d) => JSON.stringify(d)));
+  const inheritedText = start.decisions.filter((d) => d.quarter === 0).map((d) => describeChanges(d.changes)).join(" · ");
+  const mine = config.decisions.filter((d) => d.quarter >= 1 && d.quarter <= clock && !inherited.has(JSON.stringify(d))).sort((a, b) => b.quarter - a.quarter);
+  return (
+    <details className="game-log" open={wide || undefined}>
+      <summary>Your decisions so far{mine.length ? ` · ${mine.length}` : ""}</summary>
+      <table className="game-log-table">
+        <thead>
+          <tr>
+            <th scope="col">Quarter</th>
+            <th scope="col">Decision</th>
+          </tr>
+        </thead>
+        <tbody>
+          {mine.slice(0, 8).map((d) => (
+            <tr key={d.quarter}>
+              <th scope="row">{quarterLabel(d.quarter)}</th>
+              <td>{describeChanges(d.changes)}</td>
+            </tr>
+          ))}
+          <tr className="is-start">
+            <th scope="row">Start</th>
+            <td>{inheritedText || "Policy as you found it"}</td>
+          </tr>
+        </tbody>
+      </table>
+    </details>
+  );
+}
+
+/** A media query, kept live (false on the server and in the first render). */
+function useMedia(query: string) {
+  const [match, setMatch] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const on = () => setMatch(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, [query]);
+  return match;
+}
+
+/** Everything that isn't the turn: the framework (phones), sound, settings, missions, restart. */
+function HudMenu({ clock }: { clock: number }) {
+  const setScreen = useGame((s) => s.setScreen);
+  const restart = useGame((s) => s.restart);
+  const rewind = useGame((s) => s.rewind);
+  const setFramework = useGame((s) => s.setFramework);
+  const muted = useSettings((s) => s.muted);
+  const setSettings = useSettings((s) => s.set);
+  const setSettingsOpen = useSettings((s) => s.setOpen);
+  const openSandbox = useGame((s) => s.openSandbox);
+  const ref = useRef<HTMLDetailsElement>(null);
+  const close = () => ref.current?.removeAttribute("open");
+  return (
+    <details className="game-menu" ref={ref}>
+      <summary className="lab-btn lab-btn-ghost lab-btn-sm" aria-label="Menu" title="Menu: framework, sound, settings, missions">
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M2 3.5h12v1.5H2zM2 7.25h12v1.5H2zM2 11h12v1.5H2z" /></svg>
+        <span className="game-menu-label">Menu</span>
+      </summary>
+      <div className="game-menu-list" role="menu">
+        <button type="button" role="menuitem" className="game-menu-fw" onClick={() => { close(); setFramework(true); }}>Macro framework</button>
+        {clock > 0 ? <button type="button" role="menuitem" className="game-menu-rewind" onClick={() => { close(); rewind(); }}>Rewind one quarter</button> : null}
+        <button
+          type="button"
+          role="menuitemcheckbox"
+          aria-checked={!muted}
+          onClick={() => {
+            sound.unlock();
+            setSettings({ muted: !muted });
+            if (muted) window.setTimeout(() => sound.play("toggle"), 50);
+          }}
+        >
+          Sound: {muted ? "off" : "on"}
+        </button>
+        <MenuHint close={close} />
+        <button type="button" role="menuitem" onClick={() => { close(); openSandbox(true); }}>Open in free play</button>
+        <button type="button" role="menuitem" onClick={() => { close(); setSettingsOpen(true); }}>Settings</button>
+        <button type="button" role="menuitem" onClick={() => setScreen("missions")}>All missions</button>
+        <button type="button" role="menuitem" onClick={restart}>Restart this mission</button>
+      </div>
+    </details>
+  );
+}
+
+function ChartIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+      <path d="M2 14h12M4 11V7M8 11V3M12 11V8" />
+    </svg>
+  );
+}
+
 /** What needs a decision this quarter, or a note that it is quiet. */
 function Agenda() {
-  const { mission, config, clock, statuses, forecast, actual, policy, books } = useTurn();
+  const { mission, config, clock, statuses, forecast, actual, policy, books, deciding } = useTurn();
+  const modal = useGame((s) => s.modal);
   if (clock >= mission.quarters) return null;
   const items = attention({ mission, config, clock, statuses, forecast, actual, policy, votes: books?.votes ?? 0 });
   if (!items.length) {
@@ -191,14 +496,31 @@ function Agenda() {
       </div>
     );
   }
+  // One line leads; once the news card has been answered, its shock (already read in full on
+  // the card) waits behind "More" so the lever sits right under the heading.
+  const answered = !modal && items.every((a) => a.key.startsWith("shock:"));
+  const list = (
+    <ul>
+      {items.slice(0, 3).map((a) => (
+        <li key={a.key} className={`is-${a.tone}`}>{a.text}</li>
+      ))}
+    </ul>
+  );
   return (
     <div className="game-agenda" role="status">
-      <strong>Decide now{items.length > 1 ? ` · ${items.length} things` : ""}</strong>
-      <ul>
-        {items.slice(0, 3).map((a) => (
-          <li key={a.key} className={`is-${a.tone}`}>{a.text}</li>
-        ))}
-      </ul>
+      <strong>
+        Decide now for {deciding}
+        {items.length > 1 ? ` · ${items.length} things` : ""}
+        {clock === 0 ? <span className="game-agenda-note">: it stays in force until you change it.</span> : null}
+      </strong>
+      {answered ? (
+        <details className="game-agenda-more">
+          <summary>More</summary>
+          {list}
+        </details>
+      ) : (
+        list
+      )}
     </div>
   );
 }
@@ -235,13 +557,15 @@ function RunTicker() {
   );
 }
 
-function Hint({ text }: { text: string }) {
+/** "Need a hint?" lives in the menu: one press shows the mission's hint in place. */
+function MenuHint({ close }: { close: () => void }) {
+  const { mission } = useTurn();
   const [open, setOpen] = useState(false);
   return (
-    <div className="game-hint-box">
+    <>
       <button
         type="button"
-        className="game-why"
+        role="menuitem"
         aria-expanded={open}
         onClick={() => {
           if (!open) sound.play("pluck");
@@ -250,16 +574,35 @@ function Hint({ text }: { text: string }) {
       >
         {open ? "Hide the hint" : "Need a hint?"}
       </button>
-      {open ? <p>{text}</p> : null}
-    </div>
+      {open ? (
+        <p className="game-menu-hint" role="note" onClick={close}>
+          {mission.hint}
+        </p>
+      ) : null}
+    </>
   );
 }
 
-function FreePlayLink() {
-  const openSandbox = useGame((s) => s.openSandbox);
+/**
+ * Phones, while the recap is open: the island strip stays unlabelled and the districts that
+ * moved are named in one ruled line under it ("On the island: Campus · inflation up 1.4 pp"),
+ * so the payoff's one full-colour picture is not a backdrop for tags. CSS shows it only there.
+ */
+function RecapIslandLine() {
+  const cue = useLab((s) => s.sceneCue);
+  const modal = useGame((s) => s.modal);
+  if (modal?.kind !== "recap") return null;
+  const items = (Object.entries(cue) as [FocusKey, SceneCue | undefined][]).filter((e): e is [FocusKey, SceneCue] => Boolean(e[1]));
+  if (!items.length) return null;
   return (
-    <button type="button" className="game-freeplay" onClick={() => openSandbox(true)}>
-      Open this scenario in free play to see every indicator, chart and lever.
-    </button>
+    <p className="game-scene-recapline">
+      <strong>On the island:</strong>{" "}
+      {items.map(([k, c], i) => (
+        <span key={k}>
+          {i ? " · " : ""}
+          {PLACE[k] ?? k} {c.label} <Glyph name={c.up ? "up" : "down"} label={c.up ? "up" : "down"} /> <b>{c.size}</b>
+        </span>
+      ))}
+    </p>
   );
 }

@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { getPreset } from "../model/presets";
 import { SHOCKS } from "../model/shocks";
 import { selectCurrent, useLab } from "../store";
+import Ambient from "./Ambient";
 import Districts, { DISTRICT_POS } from "./Districts";
 import Island from "./Island";
 import Traffic from "./Traffic";
@@ -14,7 +15,14 @@ import Water from "./Water";
 import { clamp, useReducedMotionFlag } from "./useSmooth";
 import Weather from "./Weather";
 import { applyScenePalette, P } from "./palette";
-import { labelLayer } from "./labelLayer";
+import { labelLayer, startLabelDodge } from "./labelLayer";
+
+/** A stable ref callback: registers the banner layer and runs its collision pass while mounted. */
+function attachLabelLayer(el: HTMLDivElement | null) {
+  labelLayer.current = el;
+  if (!el) return;
+  return startLabelDodge(el);
+}
 import { getTheme } from "../themes";
 
 class SceneErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -25,7 +33,7 @@ class SceneErrorBoundary extends Component<{ children: ReactNode }, { failed: bo
   render() {
     if (this.state.failed) {
       return (
-        <div className="flex h-full w-full items-center justify-center p-6 text-center text-[0.8rem] leading-relaxed text-[#4A4D73]" role="status">
+        <div className="flex h-full w-full items-center justify-center p-6 text-center text-(length:--t-xs) leading-relaxed text-[#4A4D73]" role="status">
           The 3D view could not start in this browser (WebGL is unavailable). The indicators, charts and table below still reflect every change you make.
         </div>
       );
@@ -134,11 +142,15 @@ function WeatherBridge({ reducedMotion }: { reducedMotion: boolean }) {
   const presetId = useLab((s) => s.config.presetId);
   const spreadBase = getPreset(presetId).params.spreadBase;
   const badShock = current.activeShocks.some((k) => SHOCKS[k].severity === "bad");
-  const storm = badShock ? 1 : clamp((current.spread - spreadBase) / 900, 0, 0.6);
+  // While the recap is open the sky clears to a light haze, so the payoff reads in full colour.
+  const calm = useLab((s) => s.sceneCalm);
+  const raw = badShock ? 1 : clamp((current.spread - spreadBase) / 900, 0, 0.6);
+  const storm = calm ? Math.min(raw, 0.15) : raw;
   return (
     <>
       <Weather storm={storm} reducedMotion={reducedMotion} />
       <Water reducedMotion={reducedMotion} choppy={storm} />
+      <Ambient reducedMotion={reducedMotion} storm={storm} />
     </>
   );
 }
@@ -161,9 +173,7 @@ export default function IslandScene() {
       </Canvas>
       {/* Overlays (district banners) render here; see labelLayer.ts. */}
       <div
-        ref={(el) => {
-          labelLayer.current = el;
-        }}
+        ref={attachLabelLayer}
         className="pointer-events-none absolute inset-0 overflow-hidden"
       />
     </SceneErrorBoundary>

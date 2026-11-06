@@ -4,7 +4,8 @@
   --game-good: var(--lab-good);
   --game-risk: var(--lab-warn);
   --game-bad: var(--lab-bad);
-  --game-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Motion tokens (--ease, --dur-fast/--dur/--dur-slow) live on .lab in
+     weo-lab.css. */
 }
 
 .game .lab-btn:focus-visible,
@@ -62,19 +63,19 @@
 
 .game-title-card {
   max-width: 34rem;
-  animation: game-rise 0.9s var(--game-ease) both;
+  animation: game-rise var(--dur-slow) var(--ease) both;
 }
 
 .game-eyebrow {
   margin-bottom: 0.5rem;
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
   font-weight: 600;
   color: var(--lab-info);
 }
 
 .game-title {
   font-family: var(--lab-font-display);
-  font-size: clamp(2.6rem, 6vw, 4.4rem);
+  font-size: var(--t-2xl);
   font-weight: 600;
   line-height: 0.95;
   letter-spacing: -0.03em;
@@ -82,19 +83,20 @@
 }
 
 .game-title.is-small {
-  font-size: clamp(1.8rem, 3.4vw, 2.5rem);
+  font-size: var(--t-xl);
 }
 
 .game-subtitle {
   margin-top: 1rem;
   max-width: 30rem;
-  font-size: 1rem;
+  font-size: var(--t-md);
   line-height: 1.55;
   color: var(--lab-ink-2);
 }
 
 .game-cta {
   padding-inline: 1.25rem;
+  font-size: var(--t-md);
 }
 
 .game-title-points {
@@ -102,7 +104,7 @@
   display: grid;
   gap: 0.45rem;
   max-width: 30rem;
-  font-size: 0.8rem;
+  font-size: var(--t-xs);
   line-height: 1.45;
   color: var(--lab-ink-2);
 }
@@ -120,7 +122,7 @@
   width: 100%;
   max-width: 68rem;
   margin: 0 auto;
-  animation: game-rise 0.6s var(--game-ease) both;
+  animation: game-rise var(--dur-slow) var(--ease) both;
 }
 
 .game-mission {
@@ -136,9 +138,9 @@
   text-align: left;
   box-shadow: var(--lab-panel-shadow);
   transition:
-    transform 0.25s var(--game-ease),
-    border-color 0.25s var(--game-ease),
-    box-shadow 0.25s var(--game-ease);
+    transform var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
 }
 
 .game-mission:not(:disabled):hover {
@@ -153,26 +155,26 @@
 }
 
 .game-mission-number {
-  font-size: 0.68rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   color: var(--lab-info);
 }
 
 .game-mission-title {
   font-family: var(--lab-font-display);
-  font-size: 1.2rem;
+  font-size: var(--t-lg);
   font-weight: 600;
   line-height: 1.15;
 }
 
 .game-mission-meta {
-  font-size: 0.68rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
 .game-mission-kicker {
   margin-top: 0.25rem;
-  font-size: 0.78rem;
+  font-size: var(--t-xs);
   line-height: 1.4;
 }
 
@@ -199,7 +201,7 @@
   background: var(--lab-paper);
   padding: 1.25rem 1.35rem;
   box-shadow: 0 24px 60px color-mix(in srgb, var(--lab-ink) 22%, transparent);
-  animation: game-rise 0.45s var(--game-ease) both;
+  animation: game-rise var(--dur-slow) var(--ease) both;
 }
 
 .game-briefing {
@@ -209,7 +211,7 @@
 
 .game-section {
   margin-bottom: 0.35rem;
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   color: var(--lab-ink-2);
 }
@@ -239,7 +241,7 @@
   left: 0;
   background: none;
   color: var(--lab-warn-mark);
-  font-size: 0.8rem;
+  font-size: var(--t-xs);
 }
 
 .game-modal-backdrop {
@@ -247,13 +249,21 @@
   inset: 0;
   z-index: 50;
   display: flex;
-  align-items: center;
+  /* safe: a card taller than the screen starts at the top and scrolls,
+     instead of losing its top edge above the viewport. */
+  align-items: safe center;
   justify-content: center;
   padding: 1rem;
   background: color-mix(in srgb, var(--lab-ink) 28%, transparent);
   backdrop-filter: blur(3px);
-  animation: game-fade 0.3s ease both;
+  animation: game-fade var(--dur) var(--ease) both;
   overflow-y: auto;
+}
+
+/* Auto block margins centre the card while it fits and fall back to the
+   top edge when it does not, so the whole card can be scrolled to. */
+.game-modal-backdrop > * {
+  margin-block: auto;
 }
 
 .game-recap {
@@ -273,7 +283,7 @@
   border-bottom: 1px solid color-mix(in srgb, var(--lab-ink) 20%, transparent);
   padding-bottom: 0.3rem;
   font-family: var(--lab-font-display);
-  font-size: 0.78rem;
+  font-size: var(--t-xs);
   font-style: italic;
   color: var(--lab-ink-2);
 }
@@ -281,7 +291,7 @@
 .game-headline {
   margin-top: 0.5rem;
   font-family: var(--lab-font-display);
-  font-size: clamp(1.4rem, 3vw, 1.9rem);
+  font-size: var(--t-xl);
   font-weight: 600;
   line-height: 1.12;
   letter-spacing: -0.015em;
@@ -306,7 +316,7 @@
   border-radius: 999px;
   background: var(--lab-bad-bg);
   padding: 0.15rem 0.6rem;
-  font-size: 0.68rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   color: var(--lab-bad);
 }
@@ -314,7 +324,7 @@
 .game-shock-title {
   margin-bottom: 0.4rem;
   font-family: var(--lab-font-display);
-  font-size: 1.6rem;
+  font-size: var(--t-lg);
   font-weight: 600;
   line-height: 1.1;
 }
@@ -329,17 +339,17 @@
   padding: 0.6rem 0.8rem;
   text-align: left;
   transition:
-    border-color 0.2s var(--game-ease),
-    transform 0.2s var(--game-ease),
-    background 0.2s var(--game-ease);
+    border-color var(--dur) var(--ease),
+    transform var(--dur) var(--ease),
+    background var(--dur) var(--ease);
 }
 
 .game-choice strong {
-  font-size: 0.86rem;
+  font-size: var(--t-sm);
 }
 
 .game-choice span {
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
   line-height: 1.4;
   color: var(--lab-ink-2);
 }
@@ -366,7 +376,7 @@
   display: flex;
   justify-content: center;
   gap: 0.4rem;
-  font-size: 2.6rem;
+  font-size: var(--t-xl);
   line-height: 1;
 }
 
@@ -376,7 +386,7 @@
 
 .game-stars span.is-on {
   color: var(--lab-warn-mark);
-  animation: game-star 0.55s var(--game-ease) both;
+  animation: game-star var(--dur-slow) var(--ease) both;
 }
 
 .game-lesson {
@@ -384,7 +394,7 @@
   border-left: 3px solid var(--lab-info-mark);
   padding: 0.3rem 0 0.3rem 0.75rem;
   font-family: var(--lab-font-display);
-  font-size: 0.95rem;
+  font-size: var(--t-sm);
   line-height: 1.45;
 }
 
@@ -427,16 +437,31 @@
   flex: 1;
   border-radius: 3px;
   background: color-mix(in srgb, var(--lab-ink) 12%, transparent);
-  transition: background 0.4s var(--game-ease);
+  transition: background-color var(--dur-slow) var(--ease);
 }
 
-.game-progress-track span.is-done {
-  background: var(--lab-scenario);
+/* A played quarter fills from the left (a scaled layer, so the fill sweeps
+   when a quarter ends); themes recolour it with --game-track-done. */
+.game-progress-track span::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--game-track-done, var(--lab-scenario));
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--dur-slow) var(--ease);
+  /* Several quarters ending at once (Skip quiet quarters) fill one after
+     another; Play.tsx sets the per-slot delay. */
+  transition-delay: var(--sweep-delay, 0ms);
+}
+
+.game-progress-track span.is-done::before {
+  transform: scaleX(1);
 }
 
 .game-progress-track span.is-now {
   background: color-mix(in srgb, var(--lab-scenario) 45%, transparent);
-  animation: game-pulse 1.8s ease-in-out infinite;
 }
 
 .game-grid {
@@ -484,7 +509,7 @@
 .game-col-title {
   margin-bottom: 0.5rem;
   font-family: var(--lab-font-display);
-  font-size: 1.05rem;
+  font-size: var(--t-md);
   font-weight: 600;
 }
 
@@ -493,14 +518,14 @@
   border-radius: 0.7rem;
   background: var(--lab-info-bg);
   padding: 0.55rem 0.7rem;
-  font-size: 0.74rem;
+  font-size: var(--t-xs);
   line-height: 1.45;
-  animation: game-rise 0.5s var(--game-ease) both;
+  animation: game-rise var(--dur-slow) var(--ease) both;
 }
 
 .game-turn-note {
   margin-bottom: 0.25rem;
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
@@ -519,7 +544,7 @@
 
 .game-lever-group h3 {
   margin-bottom: 0.15rem;
-  font-size: 0.7rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   color: var(--lab-ink-2);
 }
@@ -529,7 +554,7 @@
   margin: 0 -0.45rem;
   border-radius: 0.6rem;
   padding: 0.1rem 0.45rem 0.25rem;
-  transition: background 0.2s var(--game-ease);
+  transition: background var(--dur) var(--ease);
 }
 
 .game-lever:hover,
@@ -554,7 +579,7 @@
 .game-hint {
   display: block;
   margin-top: 0.15rem;
-  font-size: 0.68rem;
+  font-size: var(--t-xs);
   line-height: 1.4;
   color: var(--lab-ink-2);
 }
@@ -562,7 +587,7 @@
 .game-warn {
   display: block;
   margin-top: 0.2rem;
-  font-size: 0.68rem;
+  font-size: var(--t-xs);
   font-weight: 600;
   color: var(--lab-bad);
 }
@@ -580,16 +605,16 @@
   border: 1px solid color-mix(in srgb, var(--lab-scenario) 30%, transparent);
   box-shadow: 0 8px 22px color-mix(in srgb, var(--lab-ink) 16%, transparent);
   padding: 0.35rem 0.5rem;
-  font-size: 0.68rem;
+  font-size: var(--t-xs);
   line-height: 1.45;
   pointer-events: none;
-  animation: game-fade 0.2s ease both;
+  animation: game-fade var(--dur) var(--ease) both;
 }
 
 .game-reset {
   margin-top: 0.6rem;
   align-self: flex-start;
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
   font-weight: 600;
   color: var(--lab-info);
   text-decoration: underline;
@@ -638,15 +663,15 @@
   background: color-mix(in srgb, var(--lab-paper) 94%, transparent);
   padding: 0.4rem 0.65rem;
   text-align: right;
-  font-size: 0.7rem;
+  font-size: var(--t-xs);
   line-height: 1.35;
   box-shadow: 0 6px 16px color-mix(in srgb, var(--lab-ink) 12%, transparent);
   backdrop-filter: blur(6px);
-  animation: game-slide 0.5s var(--game-ease) both;
+  animation: game-slide var(--dur-slow) var(--ease) both;
 }
 
 .game-toast strong {
-  font-size: 0.78rem;
+  font-size: var(--t-xs);
 }
 
 .game-toast.is-bad {
@@ -701,7 +726,7 @@
 
 .game-advice-text {
   margin-top: 0.1rem;
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
   line-height: 1.42;
 }
 
@@ -735,7 +760,7 @@
 }
 
 .game-end-note {
-  font-size: 0.68rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
   text-align: center;
 }
@@ -749,13 +774,13 @@
   background: linear-gradient(135deg, var(--lab-accent-from), var(--lab-accent-to));
   color: var(--lab-on-accent);
   padding: 0.95rem 1.4rem;
-  font-size: 1.05rem;
+  font-size: var(--t-md);
   font-weight: 700;
   box-shadow: 0 10px 24px color-mix(in srgb, var(--lab-accent-to) 35%, transparent);
   transition:
-    transform 0.2s var(--game-ease),
-    box-shadow 0.2s var(--game-ease),
-    filter 0.2s;
+    transform var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    filter var(--dur) var(--ease);
 }
 
 .game-end-btn:not(:disabled):hover {
@@ -777,7 +802,7 @@
   border-radius: 0.35rem;
   padding: 0.05rem 0.35rem;
   font-family: var(--lab-font-ui);
-  font-size: 0.62rem;
+  font-size: var(--t-xs);
   font-weight: 600;
   opacity: 0.85;
 }
@@ -785,17 +810,45 @@
 /* On phones and tablets the end-turn button stays within reach. */
 @media (max-width: 1179px) {
   .game-play {
-    padding-bottom: 5.5rem;
+    padding-bottom: 9rem;
   }
   .game-end {
     position: fixed;
-    left: 0.75rem;
-    right: 0.75rem;
-    bottom: 0.75rem;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: 0.5rem;
     z-index: 30;
     min-width: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 0.4rem;
+    border: 1px solid var(--lab-line);
+    border-radius: 1.1rem;
+    background: var(--lab-paper);
+    padding: 0.45rem;
+    box-shadow: 0 -6px 24px color-mix(in srgb, var(--lab-ink) 14%, transparent);
   }
   .game-end-note {
+    display: none;
+  }
+  /* The agenda shrinks to one line: the headline and the first item. */
+  .game-end .game-agenda {
+    flex-basis: 100%;
+    max-width: none;
+  }
+  .game-end .game-agenda li:not(:first-child) {
+    display: none;
+  }
+  .game-end .game-end-btn {
+    flex: 1 1 auto;
+    padding: 0.75rem 1rem;
+  }
+  .game-end .game-skip-btn {
+    flex: 0 0 auto;
+  }
+  .game-end .game-skip-btn kbd,
+  .game-end .game-end-btn kbd {
     display: none;
   }
 }
@@ -814,9 +867,9 @@
 
 .game-hint-box p {
   margin-top: 0.35rem;
-  font-size: 0.74rem;
+  font-size: var(--t-xs);
   line-height: 1.45;
-  animation: game-fade 0.25s ease both;
+  animation: game-fade var(--dur) var(--ease) both;
 }
 
 /* ---- Goals ------------------------------------------------------------ */
@@ -827,7 +880,7 @@
   border-radius: var(--lab-radius-card);
   background: var(--lab-surface);
   padding: 0.6rem 0.7rem 0.55rem;
-  transition: border-color 0.3s var(--game-ease);
+  transition: border-color var(--dur) var(--ease);
 }
 
 .game-goal.is-at-risk {
@@ -839,17 +892,18 @@
 }
 
 .game-goal-title {
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   color: var(--lab-ink-2);
   cursor: help;
 }
 
 .game-goal-value {
-  font-size: 1.5rem;
-  font-weight: 650;
+  font-size: var(--t-xl);
+  font-weight: 700;
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .game-status {
@@ -860,7 +914,7 @@
   min-width: 4.4rem;
   border-radius: 999px;
   padding: 0.05rem 0.45rem;
-  font-size: 0.62rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   text-align: center;
 }
@@ -889,16 +943,16 @@
   flex: none;
   border-radius: 999px;
   padding: 0.12rem 0.5rem;
-  font-size: 0.68rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   background: color-mix(in srgb, var(--lab-scenario) 12%, transparent);
   color: var(--lab-scenario);
-  animation: game-fade 0.2s ease both;
+  animation: game-fade var(--dur) var(--ease) both;
 }
 
 .game-why {
-  font-size: 0.68rem;
+  font-size: var(--t-xs);
   font-weight: 600;
   color: var(--lab-info);
   text-decoration: underline;
@@ -910,7 +964,7 @@
   border-radius: 0.6rem;
   background: color-mix(in srgb, var(--lab-ink) 4%, transparent);
   padding: 0.5rem 0.6rem;
-  animation: game-fade 0.25s ease both;
+  animation: game-fade var(--dur) var(--ease) both;
 }
 
 .game-why-track {
@@ -948,7 +1002,7 @@
 
 .game-freeplay {
   margin-top: 0.9rem;
-  font-size: 0.7rem;
+  font-size: var(--t-xs);
   line-height: 1.4;
   color: var(--lab-ink-2);
   text-align: left;
@@ -994,22 +1048,13 @@
 }
 
 @keyframes game-star {
-  0% {
+  from {
     opacity: 0;
-    transform: scale(0.3) rotate(-30deg);
+    transform: scale(0.6) rotate(-12deg);
   }
-  70% {
-    transform: scale(1.18) rotate(6deg);
-  }
-  100% {
+  to {
     opacity: 1;
     transform: none;
-  }
-}
-
-@keyframes game-pulse {
-  50% {
-    opacity: 0.45;
   }
 }
 
@@ -1019,6 +1064,7 @@
   .game *::after {
     animation: none !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
   }
 }
 
@@ -1053,18 +1099,18 @@
   background: var(--lab-surface);
   padding: 0.5rem 0.7rem;
   text-align: left;
-  transition: border-color 0.2s var(--game-ease);
+  transition: border-color var(--dur) var(--ease);
 }
 
 .game-track strong {
   display: block;
-  font-size: 0.8rem;
+  font-size: var(--t-xs);
 }
 
 .game-track span span,
 .game-track > span:last-child > span {
   display: block;
-  font-size: 0.68rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
@@ -1104,7 +1150,7 @@
   border-radius: 0.6rem;
   background: var(--lab-surface);
   padding: 0.4rem 0.55rem;
-  font-size: 0.74rem;
+  font-size: var(--t-xs);
   text-align: left;
 }
 
@@ -1138,6 +1184,7 @@
 .game.is-reduced *::after {
   animation: none !important;
   transition-duration: 0.01ms !important;
+  transition-delay: 0s !important;
 }
 
 /* ---- Political capital ------------------------------------------------- */
@@ -1149,12 +1196,12 @@
   gap: 0.3rem;
   border-radius: 999px;
   padding: 0.22rem 0.6rem;
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
   font-weight: 600;
 }
 
 .game-counter strong {
-  font-size: 0.86rem;
+  font-size: var(--t-xs);
 }
 
 .game-counter.is-votes {
@@ -1175,10 +1222,12 @@
   position: absolute;
   right: -0.2rem;
   top: -0.6rem;
-  font-size: 0.72rem;
-  font-weight: 800;
+  font-size: var(--t-xs);
+  font-weight: 700;
   pointer-events: none;
-  animation: game-float 1.6s var(--game-ease) forwards;
+  /* Intentional exception to the 150-400 ms scale: a capital +/- read-out
+     has to stay on screen long enough to read before it fades. */
+  animation: game-float 1.6s var(--ease) forwards;
 }
 
 .game-counter-float.is-up {
@@ -1207,7 +1256,7 @@
   border-radius: 999px;
   border: 1px dashed var(--lab-line-strong);
   padding: 0.2rem 0.55rem;
-  font-size: 0.66rem;
+  font-size: var(--t-xs);
   font-weight: 600;
   color: var(--lab-ink-2);
   white-space: nowrap;
@@ -1224,7 +1273,7 @@
   gap: 0.15rem;
   border-radius: 999px;
   padding: 0.05rem 0.4rem;
-  font-size: 0.66rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -1245,7 +1294,7 @@
   border-radius: 0.7rem;
   background: var(--lab-surface);
   padding: 0.5rem 0.6rem;
-  transition: border-color 0.2s var(--game-ease);
+  transition: border-color var(--dur) var(--ease);
 }
 
 .game-reform:hover {
@@ -1266,7 +1315,7 @@
   margin-top: 0.6rem;
   border-radius: 0.6rem;
   padding: 0.45rem 0.65rem;
-  font-size: 0.78rem;
+  font-size: var(--t-xs);
   font-weight: 600;
 }
 
@@ -1285,7 +1334,7 @@
 .game-tab-note {
   margin-bottom: 0.75rem;
   max-width: 46rem;
-  font-size: 0.8rem;
+  font-size: var(--t-xs);
   line-height: 1.5;
   color: var(--lab-ink-2);
 }
@@ -1302,8 +1351,8 @@
   text-align: left;
   box-shadow: var(--lab-panel-shadow);
   transition:
-    transform 0.25s var(--game-ease),
-    border-color 0.25s var(--game-ease);
+    transform var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
 }
 
 .game-country:hover {
@@ -1313,21 +1362,21 @@
 
 .game-country strong {
   font-family: var(--lab-font-display);
-  font-size: 1.05rem;
+  font-size: var(--t-md);
 }
 
 .game-country-stats {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem 0.6rem;
-  font-size: 0.68rem;
+  font-size: var(--t-xs);
   font-variant-numeric: tabular-nums;
 }
 
 .game-compare {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.7rem;
+  font-size: var(--t-xs);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1371,10 +1420,29 @@
   align-items: flex-start;
 }
 
+/* The framework frame: one fixed top offset and one fixed height, so its title and tab
+   strip never move when the tabs cross-fade; only the body scrolls. */
 .game-fw {
+  display: flex;
+  flex-direction: column;
   width: min(100%, 76rem);
-  margin: auto 0;
+  height: min(calc(100dvh - 3rem), 960px);
+  margin: 1.5rem 0 0;
   padding: 1.1rem 1.25rem 1.25rem;
+}
+
+.game-fw-tabs {
+  position: static;
+}
+
+.game-fw-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0 -0.5rem;
+  padding: 0 0.5rem 2rem;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent);
 }
 
 .game-fw-head {
@@ -1392,7 +1460,7 @@
   border-radius: 0.3rem;
   padding: 0 0.3rem;
   font-family: var(--lab-font-mono, ui-monospace, monospace);
-  font-size: 0.62rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
@@ -1402,7 +1470,7 @@
 
 .game-fw-h {
   margin-bottom: 0.35rem;
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1411,7 +1479,7 @@
 
 .game-fw-sub {
   margin-bottom: 0.5rem;
-  font-size: 0.7rem;
+  font-size: var(--t-xs);
   line-height: 1.4;
   color: var(--lab-ink-2);
 }
@@ -1430,7 +1498,7 @@
   border-radius: 0.5rem;
   background: color-mix(in srgb, var(--lab-info-mark) 8%, transparent);
   padding: 0.55rem 0.7rem;
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
   line-height: 1.45;
 }
 
@@ -1440,7 +1508,7 @@
 }
 
 .game-fw-note strong {
-  font-size: 0.78rem;
+  font-size: var(--t-xs);
 }
 
 .game-fw-channels {
@@ -1465,33 +1533,46 @@
 }
 
 .game-fw-pill {
+  display: inline-flex;
   flex-shrink: 0;
-  border-radius: 0.35rem;
-  padding: 0.05rem 0.4rem;
-  font-size: 0.62rem;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: var(--game-r-sm);
+  padding: 0.1rem 0.45rem;
+  font-size: var(--t-xs);
   font-weight: 700;
-  color: var(--lab-paper);
-  background: var(--lab-good-mark);
+  color: var(--lab-good);
+  background: color-mix(in srgb, var(--lab-good-mark) 16%, transparent);
+}
+
+.game-fw-pill::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .game-fw-pill.is-weak {
-  background: var(--lab-warn-mark);
+  color: var(--lab-warn);
+  background: color-mix(in srgb, var(--lab-warn-mark) 18%, transparent);
 }
 
 .game-fw-pill.is-blocked {
-  background: var(--lab-alert);
+  color: var(--lab-bad);
+  background: color-mix(in srgb, var(--lab-alert) 14%, transparent);
 }
 
 .game-fw-pill.is-idle {
   color: var(--lab-ink-2);
-  background: color-mix(in srgb, var(--lab-ink) 10%, transparent);
+  background: color-mix(in srgb, var(--lab-ink) 8%, transparent);
 }
 
 .game-fw-chain {
   display: flex;
   flex-wrap: wrap;
   gap: 0.15rem 0.3rem;
-  font-size: 0.66rem;
+  font-size: var(--t-xs);
   font-weight: 600;
   line-height: 1.35;
   color: var(--lab-ink);
@@ -1506,7 +1587,7 @@
   grid-template-columns: minmax(0, 1fr) 52px 40px;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.66rem;
+  font-size: var(--t-xs);
 }
 
 .game-fw-legend {
@@ -1515,7 +1596,7 @@
   align-items: center;
   gap: 0.35rem 1rem;
   margin-bottom: 0.5rem;
-  font-size: 0.66rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
@@ -1552,7 +1633,7 @@
 .game-fw-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
 }
 
 .game-fw-table th,
@@ -1564,7 +1645,7 @@
 
 .game-fw-table thead th {
   border-bottom: 1px solid var(--lab-line);
-  font-size: 0.6rem;
+  font-size: var(--t-xs);
   font-weight: 600;
   color: var(--lab-ink-2);
 }
@@ -1574,7 +1655,7 @@
 }
 
 .game-fw-table tbody th {
-  font-weight: 500;
+  font-weight: 600;
   cursor: help;
 }
 
@@ -1584,7 +1665,7 @@
 
 .game-fw-unit {
   margin-left: 0.1rem;
-  font-size: 0.6rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
@@ -1610,7 +1691,7 @@
 
 .game-fw-drivers > p {
   margin-bottom: 0.35rem;
-  font-size: 0.68rem;
+  font-size: var(--t-xs);
   line-height: 1.35;
   color: var(--lab-ink-2);
 }
@@ -1625,7 +1706,7 @@
   margin-top: 0.9rem;
   border-top: 1px solid var(--lab-line);
   padding-top: 0.6rem;
-  font-size: 0.68rem;
+  font-size: var(--t-xs);
   line-height: 1.45;
   color: var(--lab-ink-2);
 }
@@ -1653,7 +1734,7 @@
   border-radius: 0.5rem;
   background: color-mix(in srgb, var(--lab-warn-mark) 10%, transparent);
   padding: 0.4rem 0.6rem;
-  font-size: 0.68rem;
+  font-size: var(--t-xs);
   line-height: 1.35;
 }
 
@@ -1663,7 +1744,7 @@
 }
 
 .game-agenda strong {
-  font-size: 0.74rem;
+  font-size: var(--t-xs);
 }
 
 .game-agenda ul {
@@ -1691,10 +1772,10 @@
   border-radius: 0.8rem;
   background: var(--lab-paper);
   padding: 0.5rem 0.9rem;
-  font-size: 0.82rem;
+  font-size: var(--t-sm);
   font-weight: 600;
   color: var(--lab-ink);
-  transition: background 0.15s ease;
+  transition: background var(--dur-fast) var(--ease);
 }
 
 .game-skip-btn:not(:disabled):hover {
@@ -1709,7 +1790,7 @@
   border: 1px solid var(--lab-line);
   border-radius: 0.3rem;
   padding: 0 0.3rem;
-  font-size: 0.6rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
@@ -1726,14 +1807,14 @@
   padding: 0.7rem 0.9rem;
   box-shadow: 0 16px 40px color-mix(in srgb, var(--lab-ink) 20%, transparent);
   backdrop-filter: blur(6px);
-  animation: game-fade 0.25s ease both;
+  animation: game-fade var(--dur) var(--ease) both;
 }
 
 .game-run-head {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.95rem;
+  font-size: var(--t-sm);
 }
 
 .game-run-head button {
@@ -1745,6 +1826,8 @@
   height: 0.6rem;
   border-radius: 50%;
   background: var(--lab-scenario);
+  /* Intentional exception: a looping "working" indicator shown only while a
+     run plays, so it breathes on a symmetric curve. Off under reduced motion. */
   animation: game-run-pulse 1.1s ease-in-out infinite;
 }
 
@@ -1765,12 +1848,12 @@
   flex-direction: column;
   gap: 0.2rem;
   margin-top: 0.5rem;
-  font-size: 0.82rem;
+  font-size: var(--t-sm);
   line-height: 1.35;
 }
 
 .game-run li {
-  animation: game-fade 0.3s ease both;
+  animation: game-fade var(--dur) var(--ease) both;
 }
 
 .game-run li span {
@@ -1782,12 +1865,12 @@
 
 .game-run > p {
   margin-top: 0.5rem;
-  font-size: 0.8rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
 .game-run-foot {
-  font-size: 0.66rem !important;
+  font-size: var(--t-xs) !important;
 }
 
 .game-run-recap {
@@ -1799,4 +1882,2623 @@
 
 .is-reduced .game-run-pulse {
   animation: none;
+}
+
+/* ---- Shock decomposition ------------------------------------------------- */
+
+.game {
+  /* Validated categorical palette, fixed order: environment takes the warm slots, instruments the cool ones. */
+  --dc-1: #2a78d6;
+  --dc-2: #eb6834;
+  --dc-3: #1baf7a;
+  --dc-4: #eda100;
+  --dc-5: #e87ba4;
+  --dc-6: #008300;
+  --dc-7: #6250d6;
+  --dc-8: #e34948;
+  --dc-momentum: color-mix(in srgb, var(--lab-ink) 28%, var(--lab-paper));
+}
+
+.game-dc {
+  border: 1px solid var(--lab-line);
+  border-radius: 0.8rem;
+  padding: 0.75rem 0.85rem;
+}
+
+.game-dc-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.game-dc-metrics button {
+  border: 1px solid var(--lab-line);
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--lab-ink-2);
+  background: var(--lab-paper);
+}
+
+.game-dc-metrics button.is-on {
+  border-color: var(--lab-ink);
+  background: var(--lab-ink);
+  color: var(--lab-paper);
+}
+
+.game-dc-lede {
+  margin: 0.6rem 0 0.4rem;
+  font-size: var(--t-xs);
+  line-height: 1.5;
+}
+
+.game-dc-key {
+  font-weight: 700;
+  border-bottom: 3px solid;
+}
+
+.game-dc-key.is-env {
+  border-image: linear-gradient(90deg, var(--dc-4), var(--dc-2), var(--dc-8)) 1;
+}
+
+.game-dc-key.is-pol {
+  border-image: linear-gradient(90deg, var(--dc-1), var(--dc-3), var(--dc-7)) 1;
+}
+
+.game-dc-chart {
+  position: relative;
+}
+
+.game-dc-axis,
+.game-dc-note {
+  font-size: var(--t-xs);
+  line-height: 1.4;
+  color: var(--lab-ink-2);
+}
+
+.game-dc-note {
+  margin-top: 0.5rem;
+}
+
+.game-dc-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 0.5rem 1rem;
+  margin-top: 0.6rem;
+}
+
+.game-dc-group h5 {
+  margin-bottom: 0.25rem;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--lab-ink-2);
+}
+
+.game-dc-group > p {
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+
+.game-dc-group ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.game-dc-group button {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 0.7rem minmax(0, 1fr) 3.2rem 3rem;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 0.35rem;
+  padding: 0.15rem 0.25rem;
+  font-size: var(--t-xs);
+  text-align: left;
+}
+
+.game-dc-group button:hover {
+  background: color-mix(in srgb, var(--lab-ink) 5%, transparent);
+}
+
+.game-dc-group button.is-off {
+  opacity: 0.4;
+}
+
+.game-dc-group button i {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 3px;
+}
+
+.game-dc-group button > span:last-child {
+  text-align: right;
+  font-weight: 600;
+}
+
+.game-dc-mini {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--lab-ink) 6%, transparent);
+  overflow: hidden;
+}
+
+.game-dc-mini span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.game-dc-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-self: end;
+  border-top: 2px solid var(--lab-ink);
+  padding-top: 0.3rem;
+  font-size: var(--t-xs);
+}
+
+/* Big shared screens: scale the whole interface up so it reads from the sofa. */
+@media (min-width: 1680px) {
+  html {
+    font-size: 17px;
+  }
+}
+
+@media (min-width: 1920px) {
+  html {
+    font-size: 18.5px;
+  }
+}
+
+/* ---- Design council, round 1 --------------------------------------------- */
+
+.game {
+  --game-r-sm: 6px;
+  --game-r-md: 10px;
+  --game-r-lg: 16px;
+}
+
+/* Framework: tabs, one view at a time, readable at a distance. */
+.game-fw-tabs {
+  position: sticky;
+  top: -1.1rem;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 0.8rem -0.25rem 0;
+  background: var(--lab-paper);
+  padding: 0.5rem 0.25rem;
+}
+
+.game-fw-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid var(--lab-line);
+  border-radius: var(--game-r-md);
+  background: var(--lab-paper);
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.game-fw-tabs button:hover {
+  border-color: color-mix(in srgb, var(--lab-ink) 35%, transparent);
+}
+
+.game-fw-tabs button.is-on {
+  border-color: var(--lab-ink);
+  background: var(--lab-ink);
+  color: var(--lab-paper);
+}
+
+.game-fw-tabs strong {
+  display: block;
+  font-size: var(--t-sm);
+  line-height: 1.2;
+}
+
+.game-fw-tabs small {
+  display: block;
+  font-size: var(--t-xs);
+  line-height: 1.25;
+  opacity: 0.75;
+}
+
+.game-fw-tab-n {
+  display: inline-grid;
+  flex-shrink: 0;
+  width: 1.6rem;
+  height: 1.6rem;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  font-size: var(--t-xs);
+  font-weight: 700;
+}
+
+.game-fw-section {
+  margin-top: 0.75rem;
+}
+
+.game-fw-sub,
+.game-fw-note,
+.game-fw-channel p,
+.game-fw-link,
+.game-fw-drivers > p,
+.game-fw-legend {
+  font-size: var(--t-xs);
+}
+
+.game-fw-note strong {
+  font-size: var(--t-md);
+}
+
+.game-fw-note {
+  padding: 0.75rem 0.9rem;
+  line-height: 1.5;
+}
+
+.game-fw-channel h4 {
+  font-size: var(--t-md);
+}
+
+.game-fw-chain {
+  font-size: var(--t-xs);
+}
+
+.game-fw-link {
+  grid-template-columns: minmax(0, 1fr) 56px 44px;
+}
+
+.game-fw-sector h4 {
+  font-size: var(--t-md);
+}
+
+.game-fw-table {
+  font-size: var(--t-sm);
+}
+
+.game-fw-table th,
+.game-fw-table td {
+  padding: 0.4rem 0.35rem;
+}
+
+.game-fw-table thead th {
+  font-size: var(--t-xs);
+}
+
+.game-fw-table th:last-child,
+.game-fw-table td:last-child {
+  background: color-mix(in srgb, var(--lab-scenario) 7%, transparent);
+}
+
+.game-fw-effect {
+  font-weight: 700;
+}
+
+.game-fw-head h2 {
+  font-size: var(--t-lg);
+}
+
+/* Decomposition: legend labels wrap instead of truncating; momentum is hatched. */
+.game-dc-group button {
+  grid-template-columns: 0.85rem minmax(0, 1fr) 3rem 3.2rem;
+  font-size: var(--t-sm);
+  align-items: start;
+}
+
+.game-dc-group button i {
+  width: 0.85rem;
+  height: 0.85rem;
+  margin-top: 0.15rem;
+}
+
+.game-dc-group button i.is-hatch {
+  background: repeating-linear-gradient(45deg, var(--dc-momentum) 0 2px, color-mix(in srgb, var(--lab-ink) 10%, var(--lab-paper)) 2px 5px);
+}
+
+.game-dc-mini {
+  margin-top: 0.4rem;
+}
+
+.game-dc-label {
+  line-height: 1.3;
+}
+
+.game-dc-group h5 {
+  font-size: var(--t-xs);
+}
+
+.game-dc-lede {
+  font-size: var(--t-sm);
+}
+
+.game-dc-total {
+  font-size: var(--t-sm);
+}
+
+.game-dc-total strong {
+  font-family: var(--lab-font-display);
+  font-size: var(--t-lg);
+}
+
+.game-dc-metrics button {
+  border-radius: var(--game-r-sm);
+  font-size: var(--t-xs);
+  padding: 0.3rem 0.7rem;
+}
+
+/* The lever is the decision: big value, chunky track. */
+.game-lever .lab-slider-label {
+  font-size: var(--t-sm);
+  font-weight: 600;
+}
+
+.game-lever .lab-slider-value {
+  font-family: var(--lab-font-display);
+  font-size: var(--t-xl);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.game-lever .lab-range {
+  height: 28px;
+}
+
+.game-lever .lab-range::-webkit-slider-runnable-track {
+  height: 8px;
+}
+
+.game-lever .lab-range::-moz-range-track,
+.game-lever .lab-range::-moz-range-progress {
+  height: 8px;
+}
+
+.game-lever .lab-range::-webkit-slider-thumb {
+  width: 24px;
+  height: 24px;
+  margin-top: -8px;
+  border-width: 3px;
+}
+
+.game-lever .lab-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-width: 3px;
+}
+
+/* Agenda reads from across the room. */
+.game-agenda {
+  max-width: 20rem;
+  font-size: var(--t-sm);
+  padding: 0.55rem 0.75rem;
+}
+
+.game-agenda strong {
+  font-size: var(--t-sm);
+}
+
+/* HUD: the framework button is a feature, not a utility. */
+.game-fw-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1.5px solid var(--lab-scenario);
+  color: var(--lab-scenario);
+  background: color-mix(in srgb, var(--lab-scenario) 6%, var(--lab-paper));
+  font-weight: 600;
+}
+
+.game-fw-open:hover {
+  background: color-mix(in srgb, var(--lab-scenario) 12%, var(--lab-paper));
+}
+
+.game-skip-btn svg {
+  color: var(--lab-scenario);
+}
+
+/* Locked missions: readable roadmap, dim background only. */
+.game-mission.is-locked {
+  opacity: 1;
+  background: color-mix(in srgb, var(--lab-paper) 62%, transparent);
+  color: var(--lab-ink-2);
+}
+
+.game-mission.is-locked * {
+  color: var(--lab-ink-2);
+}
+
+/* Recap numbers. */
+.game-recap-stat {
+  gap: 0.2rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.game-advice-text {
+  font-size: var(--t-sm);
+}
+
+@media (max-width: 760px) {
+  .game-fw-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .game-fw-tabs small {
+    display: none;
+  }
+}
+
+/* The agenda sits at the top of the levers on wide screens, in the end bar on narrow ones. */
+.game-agenda-top {
+  margin-bottom: 0.75rem;
+}
+
+.game-agenda-top .game-agenda {
+  max-width: none;
+}
+
+.game-agenda-bar {
+  display: none;
+}
+
+@media (max-width: 1179px) {
+  .game-agenda-top {
+    display: none;
+  }
+  .game-agenda-bar {
+    display: block;
+    flex-basis: 100%;
+  }
+  .game-agenda-bar .game-agenda {
+    max-width: none;
+  }
+  .game-agenda-bar .game-agenda li:not(:first-child) {
+    display: none;
+  }
+}
+
+@media (min-width: 900px) {
+  .game-stage-foot {
+    grid-template-columns: minmax(0, 1fr) 16rem;
+  }
+}
+
+.game-mission.is-locked {
+  border-style: dashed;
+}
+
+/* Phones: the decomposition chart scrolls sideways instead of shrinking to illegibility. */
+
+
+/* Phones: island labels shrink to their value so they don't pile up. */
+@media (max-width: 760px) {
+  .lab-scene-label .lab-banner-text {
+    font-size: 0;
+  }
+  .lab-scene-label .lab-banner-text strong {
+    font-size: var(--t-xs);
+  }
+  .lab-scene-label .lab-banner-icon {
+    display: none;
+  }
+}
+
+/* ---- Design council, round 2 --------------------------------------------- */
+
+/* Framework: a fixed frame; only the tab's content scrolls, so switching tabs doesn't jump. */
+
+@media (hover: none) {
+  .game-fw-kbd,
+  .game-fw-open kbd {
+    display: none;
+  }
+}
+
+/* "Your policies": green helps, red hurts, purple depends. */
+.game-fw-effect.is-good {
+  color: var(--lab-good);
+}
+
+.game-fw-effect.is-bad {
+  color: var(--lab-bad);
+}
+
+.game-fw-goodkey {
+  color: var(--lab-good);
+}
+
+.game-fw-badkey {
+  color: var(--lab-bad);
+}
+
+/* Channel cards: the status pill gets its own line; bar labels sit above their bars. */
+.game-fw-channel > header {
+  flex-direction: column-reverse;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.game-fw-channel .game-fw-link {
+  grid-template-columns: minmax(0, 1fr) 3rem;
+  grid-template-areas: "label label" "bar value";
+  row-gap: 0.15rem;
+}
+
+.game-fw-channel .game-fw-link > :nth-child(1) {
+  grid-area: label;
+  white-space: normal;
+  overflow: visible;
+}
+
+.game-fw-channel .game-fw-link > :nth-child(2) {
+  grid-area: bar;
+}
+
+.game-fw-channel .game-fw-link > :nth-child(3) {
+  grid-area: value;
+}
+
+.game-fw-chain li {
+  white-space: nowrap;
+}
+
+/* Header menu. */
+.game-menu {
+  position: relative;
+}
+
+.game-menu summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  list-style: none;
+  cursor: pointer;
+}
+
+.game-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.game-menu-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.35rem);
+  z-index: 40;
+  display: flex;
+  min-width: 13rem;
+  flex-direction: column;
+  border: 1px solid var(--lab-line);
+  border-radius: var(--game-r-md);
+  background: var(--lab-paper);
+  padding: 0.3rem;
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--lab-ink) 18%, transparent);
+}
+
+.game-menu-list button {
+  border-radius: var(--game-r-sm);
+  padding: 0.5rem 0.65rem;
+  font-size: var(--t-sm);
+  text-align: left;
+}
+
+.game-menu-list button:hover {
+  background: color-mix(in srgb, var(--lab-ink) 6%, transparent);
+}
+
+/* Locked missions: a lock, not stars. */
+.game-lock {
+  color: var(--lab-ink-2);
+}
+
+/* Shock options show their effect on the goals. */
+.game-choice-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem 0.75rem;
+}
+
+.game-outcomes {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.game-outcome {
+  border-radius: var(--game-r-sm);
+  background: color-mix(in srgb, var(--lab-scenario) 10%, transparent);
+  padding: 0.1rem 0.45rem;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--lab-scenario);
+  white-space: nowrap;
+}
+
+.game-outcome.is-hold {
+  background: color-mix(in srgb, var(--lab-ink) 6%, transparent);
+  color: var(--lab-ink-2);
+}
+
+/* Phones and tablets: map, then the decision, then advice, then goals; the dock is one row. */
+@media (max-width: 1179px) {
+  .game-stage,
+  .game-stage-foot {
+    display: contents;
+  }
+  .game-scene {
+    order: 1;
+    max-height: 42vh;
+  }
+  .game-col-levers {
+    order: 2;
+  }
+  .game-advisors {
+    order: 3;
+  }
+  .game-col-goals {
+    order: 4;
+  }
+  .game-agenda-top {
+    display: block;
+  }
+  .game-agenda-bar {
+    display: none;
+  }
+  .game-play {
+    padding-bottom: 5.5rem;
+  }
+  .game-end {
+    flex-wrap: nowrap;
+  }
+}
+
+@media (max-width: 760px) {
+  .game-fw-dq {
+    display: none;
+  }
+  .game-fw-table {
+    table-layout: auto;
+  }
+  .game-fw-head h2 {
+    font-size: var(--t-lg);
+  }
+  .game-fw-open-label,
+  .game-menu-label {
+    display: none;
+  }
+}
+
+/* ---- Design council, round 3 prep ---------------------------------------- */
+
+/* One key for every goal chart. */
+.game-goal-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.8rem;
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+
+.game-goal-key i {
+  display: inline-block;
+  width: 1.1rem;
+  height: 0;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+  border-top: 2.2px solid var(--lab-ink);
+}
+
+.game-goal-key i.is-forecast {
+  border-top: 2px dashed var(--lab-scenario);
+}
+
+.game-goal-key i.is-ghost {
+  border-top: 2px dotted color-mix(in srgb, var(--lab-ink-2) 60%, transparent);
+}
+
+.game-goal-key i.is-comp {
+  border-top: 2px solid color-mix(in srgb, var(--lab-ink) 30%, transparent);
+}
+
+.game-goal-key i.is-goal {
+  border-top: 1.5px solid var(--lab-alert);
+}
+
+/* Channel bars use the decomposition's palette: instruments blue, shocks amber, confidence neutral. */
+.game-fw-channel.is-policy .game-why-bar {
+  background: var(--dc-1);
+}
+
+.game-fw-channel.is-env .game-why-bar {
+  background: var(--dc-4);
+}
+
+.game-fw-channel.is-mixed .game-why-bar {
+  background: var(--dc-momentum);
+}
+
+/* Focus: a clean outline, no ring at rest on pointer sessions. */
+.game .lab-btn-primary:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+.game .lab-btn-primary:focus-visible {
+  outline: 2px solid var(--lab-focus);
+  outline-offset: 3px;
+  box-shadow: none;
+}
+
+/* ---- Design council, round 3 ---------------------------------------------- */
+
+.game-outcome.is-good {
+  background: color-mix(in srgb, var(--lab-good-mark) 16%, transparent);
+  color: var(--lab-good);
+}
+
+.game-outcome.is-bad {
+  background: color-mix(in srgb, var(--lab-alert) 12%, transparent);
+  color: var(--lab-bad);
+}
+
+.game-fw-valence {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.game-fw-valence b {
+  border-radius: var(--game-r-sm);
+  padding: 0.05rem 0.45rem;
+  font-weight: 700;
+}
+
+.game-fw-valence .is-good {
+  background: color-mix(in srgb, var(--lab-good-mark) 16%, transparent);
+  color: var(--lab-good);
+}
+
+.game-fw-valence .is-bad {
+  background: color-mix(in srgb, var(--lab-alert) 12%, transparent);
+  color: var(--lab-bad);
+}
+
+.game-fw-valence .is-neutral {
+  background: color-mix(in srgb, var(--lab-scenario) 10%, transparent);
+  color: var(--lab-scenario);
+}
+
+
+/* Phones: the slider must be on the first screen of the lever panel. */
+@media (max-width: 760px) {
+  .game-coach {
+    display: none;
+  }
+  .game-scene {
+    max-height: 34vh;
+    min-height: 240px;
+  }
+  .game-fw-table td:last-child,
+  .game-fw-table th:last-child {
+    padding-right: 0.6rem;
+  }
+}
+
+/* Side columns: links settle at the bottom instead of leaving a hole. */
+@media (min-width: 1180px) {
+  .game-col {
+    display: flex;
+    flex-direction: column;
+  }
+  .game-col .game-hint-box {
+    margin-top: auto;
+  }
+}
+
+@media (max-width: 1179px) {
+  .game-col-levers {
+    display: flex;
+    flex-direction: column;
+  }
+  .game-col-levers > .game-agenda-top {
+    order: 2;
+    margin: 0.75rem 0 0;
+  }
+  .game-col-levers > .game-hint-box {
+    order: 3;
+  }
+}
+
+@media (max-width: 640px) {
+  .game-fw-tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.25rem;
+  }
+  .game-fw-tabs button {
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.4rem 0.25rem;
+    text-align: center;
+  }
+  .game-fw-tabs strong {
+    font-size: var(--t-xs);
+  }
+  .game-fw-tab-n {
+    width: 1.3rem;
+    height: 1.3rem;
+  }
+  .game-fw-head > div > p {
+    display: none;
+  }
+}
+
+/* ---- Design council, round 4 prep: game feel and the empty places -------- */
+
+/* The island answers a decision before it plays out. */
+.lab-scene-label.is-pending {
+  border-color: var(--lab-scenario);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--lab-scenario) 22%, transparent), 0 6px 16px color-mix(in srgb, var(--lab-ink) 16%, transparent);
+}
+
+.lab-banner-value {
+  animation: game-label-pop var(--dur-slow) var(--ease) both;
+}
+
+.lab-banner-next {
+  font-style: normal;
+  color: var(--lab-scenario);
+}
+
+@keyframes game-label-pop {
+  from {
+    transform: scale(0.94);
+    opacity: 0.4;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.is-reduced .lab-banner-value {
+  animation: none;
+}
+
+/* Goal cards: what this quarter's change does, in the card's corner. */
+.game-move-chip {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.55rem;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  border-radius: var(--game-r-sm);
+  padding: 0.15rem 0.5rem;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--lab-scenario) 10%, transparent);
+  color: var(--lab-scenario);
+  animation: game-label-pop var(--dur-slow) var(--ease) both;
+}
+
+.game-move-chip small {
+  font-size: var(--t-xs);
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.game-move-chip.is-good {
+  background: color-mix(in srgb, var(--lab-good-mark) 16%, transparent);
+  color: var(--lab-good);
+}
+
+.game-move-chip.is-bad {
+  background: color-mix(in srgb, var(--lab-alert) 12%, transparent);
+  color: var(--lab-bad);
+}
+
+/* Turn track: thicker, so time passing reads from across the room. */
+.game-progress-track {
+  gap: 4px;
+}
+
+.game-progress-track span {
+  height: 9px;
+  border-radius: 5px;
+}
+
+/* Title: a paper panel keeps the copy legible over the island. */
+.game-title-card {
+  border: 1px solid color-mix(in srgb, var(--lab-line) 70%, transparent);
+  border-radius: var(--game-r-lg);
+  background: color-mix(in srgb, var(--lab-paper) 90%, transparent);
+  padding: clamp(1.25rem, 3vw, 2.25rem);
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--lab-ink) 14%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+/* Mission list: uses the screen, cards with presence. */
+.game-overlay.is-scroll {
+  align-items: safe center;
+}
+
+.game-mission {
+  min-height: 10.5rem;
+  padding: 1.1rem 1.2rem;
+  gap: 0.35rem;
+}
+
+.game-mission-title {
+  font-size: var(--t-lg);
+}
+
+.game-mission-kicker {
+  font-size: var(--t-sm);
+}
+
+.game-mission-meta {
+  font-size: var(--t-xs);
+}
+
+/* Framework "Why": a four-number overview and onward links. */
+.game-fw-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+.game-fw-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  border: 1px solid var(--lab-line);
+  border-radius: var(--game-r-md);
+  background: var(--lab-paper);
+  padding: 0.75rem 0.85rem;
+  text-align: left;
+  transition: border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.game-fw-tile:hover {
+  border-color: var(--lab-scenario);
+  transform: translateY(-2px);
+}
+
+.game-fw-tile svg {
+  width: 100%;
+  height: 34px;
+}
+
+.game-fw-tile-sector {
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--lab-ink-2);
+}
+
+.game-fw-tile-label {
+  font-size: var(--t-sm);
+  font-weight: 600;
+}
+
+.game-fw-tile-value {
+  font-family: var(--lab-font-display);
+  font-size: var(--t-xl);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.game-fw-tile-value small {
+  margin-left: 0.15rem;
+  font-family: var(--lab-font-ui);
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+
+.game-fw-tile-foot {
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+
+.game-fw-tile-foot .is-good {
+  color: var(--lab-good);
+}
+
+.game-fw-tile-foot .is-bad {
+  color: var(--lab-bad);
+}
+
+.game-fw-next {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+  font-size: var(--t-sm);
+  color: var(--lab-ink-2);
+}
+
+.game-fw-next button {
+  border: 1px solid var(--lab-line);
+  border-radius: var(--game-r-sm);
+  padding: 0.3rem 0.65rem;
+  font-weight: 600;
+  color: var(--lab-ink);
+}
+
+.game-fw-next button:hover {
+  border-color: var(--lab-scenario);
+  color: var(--lab-scenario);
+}
+
+@media (max-width: 760px) {
+  .game-fw-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .lab-scene-label {
+    transform: scale(0.88) !important;
+  }
+}
+
+/* ---- Design council, round 4 ---------------------------------------------- */
+
+/* Driver bars by family, the same colours as the decomposition. */
+.game-why-bar.is-kind-policy {
+  background: var(--dc-1);
+}
+
+.game-why-bar.is-kind-env {
+  background: var(--dc-4);
+}
+
+.game-why-bar.is-kind-mixed {
+  background: color-mix(in srgb, var(--lab-ink) 45%, var(--lab-paper));
+}
+
+.game-why-bar.is-kind-momentum {
+  background: var(--dc-momentum);
+}
+
+.game-fw-channel.is-mixed .game-why-bar {
+  background: color-mix(in srgb, var(--lab-ink) 45%, var(--lab-paper));
+}
+
+.game-fw-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1rem;
+  margin-bottom: 0.5rem;
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+
+.game-fw-palette i {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  margin-right: 0.3rem;
+  vertical-align: -0.1rem;
+  border-radius: 3px;
+}
+
+.game-fw-palette .is-policy {
+  background: var(--dc-1);
+}
+
+.game-fw-palette .is-env {
+  background: var(--dc-4);
+}
+
+.game-fw-palette .is-mixed {
+  background: color-mix(in srgb, var(--lab-ink) 45%, var(--lab-paper));
+}
+
+/* Advisors: the verdict first, in bold. */
+.game-advice-lead {
+  font-weight: 700;
+  color: var(--lab-ink);
+}
+
+.game-shock:focus {
+  outline: none;
+}
+
+/* Locked missions: the premise stays visible, dimmed, with how to unlock. */
+.game-mission.is-locked .game-mission-kicker {
+  opacity: 0.75;
+}
+
+.game-mission-unlock {
+  margin-top: auto;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--lab-ink-2);
+}
+
+/* Votes and Trust are the game's resources: give them weight. */
+.game-hud .game-counter {
+  font-size: var(--t-sm);
+  padding: 0.3rem 0.7rem;
+}
+
+.game-hud .game-counter strong {
+  font-size: var(--t-md);
+}
+
+/* Why-tab tiles: bigger sparklines. */
+.game-fw-tile svg {
+  height: 48px;
+}
+
+/* Phones: keep the island clean; only the capital and a pending decision label it. */
+@media (max-width: 480px) {
+  .lab-scene-label:not(.is-pending):not(.is-capital) {
+    display: none;
+  }
+  .game-play {
+    padding-bottom: 6.5rem;
+  }
+}
+
+.game-log {
+  margin-top: 1rem;
+  border-top: 1px solid var(--lab-line);
+  padding-top: 0.75rem;
+}
+
+.game-log h3 {
+  margin-bottom: 0.4rem;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--lab-ink-2);
+}
+
+.game-log ol {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: var(--t-sm);
+  line-height: 1.35;
+}
+
+.game-log li span {
+  margin-right: 0.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--lab-scenario);
+}
+
+.game-log p {
+  font-size: var(--t-sm);
+  color: var(--lab-ink-2);
+}
+
+@media (max-width: 640px) {
+  .game-dc-metrics {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    mask-image: linear-gradient(90deg, #000 85%, transparent);
+  }
+  .game-dc-metrics button {
+    flex: none;
+  }
+  .game-fw-valence b {
+    font-size: var(--t-xs);
+  }
+}
+
+/* Round 4 follow-ups. */
+
+.game-fw-open-short {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .game-fw-open-short {
+    display: inline;
+    font-size: var(--t-xs);
+  }
+}
+
+/* Phones: one line of agenda above the lever, so the reason comes before the decision. */
+@media (max-width: 1179px) {
+  .game-col-levers > .game-agenda-top {
+    order: -1;
+    margin: 0 0 0.6rem;
+  }
+  .game-col-levers > .game-agenda-top .game-agenda li:not(:first-child) {
+    display: none;
+  }
+}
+
+@media (max-width: 1179px) {
+  .game-col-levers > :first-child {
+    order: -2;
+  }
+}
+
+/* ---- Design council, round 5 ---------------------------------------------- */
+
+/* Island: only the pending decision and the focused district carry full banners on desktop too. */
+@media (min-width: 761px) {
+  .lab-scene-label:not(.is-pending):not(.is-capital):not(.is-focus) .lab-banner-text {
+    font-size: 0;
+  }
+  .lab-scene-label:not(.is-pending):not(.is-capital):not(.is-focus) .lab-banner-text strong {
+    font-size: var(--t-xs);
+  }
+}
+
+/* Advisors: a stance chip, numbers in bold, the rest at reading weight. */
+.game-stance {
+  flex: none;
+  border-radius: var(--game-r-sm);
+  padding: 0.1rem 0.45rem;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--lab-ink) 7%, transparent);
+  color: var(--lab-ink-2);
+}
+
+.game-stance.is-worried {
+  background: color-mix(in srgb, var(--lab-alert) 12%, transparent);
+  color: var(--lab-bad);
+}
+
+.game-stance.is-pleased {
+  background: color-mix(in srgb, var(--lab-good-mark) 16%, transparent);
+  color: var(--lab-good);
+}
+
+.game-advice-text strong {
+  font-weight: 700;
+  color: var(--lab-ink);
+}
+
+.game-advice.is-worried .game-advice-text::before {
+  content: none;
+}
+
+/* Recap: a stamp on the paper. */
+.game-paper {
+  position: relative;
+}
+
+.game-stamp {
+  display: inline-block;
+  border: 2.5px solid currentColor;
+  border-radius: var(--game-r-sm);
+  padding: 0.15rem 0.6rem;
+  font-family: var(--lab-font-display);
+  font-size: var(--t-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transform: rotate(-4deg);
+  animation: game-stamp var(--dur-slow) var(--dur) var(--ease) both;
+}
+
+.game-stamp.is-good {
+  color: var(--lab-good);
+}
+
+.game-stamp.is-bad {
+  color: var(--lab-bad);
+}
+
+.game-stamp.is-warn {
+  color: var(--lab-warn);
+}
+
+@keyframes game-stamp {
+  0% {
+    opacity: 0;
+    transform: rotate(-4deg) scale(1.8);
+  }
+  100% {
+    opacity: 0.9;
+    transform: rotate(-4deg) scale(1);
+  }
+}
+
+.is-reduced .game-stamp {
+  animation: none;
+  opacity: 0.9;
+}
+
+.game-recap-go {
+  min-height: 3rem;
+  padding-inline: 1.6rem;
+  font-size: var(--t-md);
+}
+
+/* Turn track: years under the track, known shocks and elections marked. */
+.game-progress-track span {
+  position: relative;
+}
+
+.game-progress-track span em {
+  position: absolute;
+  top: 0.75rem;
+  left: 0;
+  font-size: var(--t-xs);
+  font-style: normal;
+  font-weight: 600;
+  color: var(--lab-ink-2);
+}
+
+.game-progress-track span.has-shock::after,
+.game-progress-track span.has-election::after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  background: var(--dc-4);
+  box-shadow: 0 0 0 2px var(--lab-paper);
+}
+
+.game-progress-track span.has-election::after {
+  background: var(--dc-7);
+}
+
+.game-progress {
+  padding-bottom: 0.7rem;
+}
+
+/* Lever column: the hint follows the content; locked missions readable. */
+@media (min-width: 1180px) {
+  .game-col-levers .game-hint-box {
+    margin-top: 1rem;
+  }
+}
+
+.game-mission.is-locked {
+  background: color-mix(in srgb, var(--lab-paper) 88%, transparent);
+}
+
+.game-mission.is-locked .game-mission-kicker {
+  opacity: 1;
+  color: var(--lab-ink-2);
+}
+
+@media (max-width: 640px) {
+  .game-fw-kbd {
+    display: none;
+  }
+}
+
+.game-fw-table {
+  font-size: var(--t-sm);
+}
+
+.game-dc-axis {
+  margin-top: 0.4rem;
+}
+
+html:not(.is-kbd) .game .lab-btn:focus-visible,
+html:not(.is-kbd) .game button:focus-visible {
+  outline: none;
+}
+
+.game-fw-channel > ul {
+  margin-top: 0.25rem;
+}
+
+@media (max-width: 640px) {
+  .game-dc-metrics {
+    mask-image: linear-gradient(90deg, #000 calc(100% - 2.5rem), transparent);
+    scroll-snap-type: x proximity;
+  }
+}
+
+.game-end-btn {
+  padding: 0.8rem 1.2rem;
+  font-size: var(--t-md);
+}
+
+@media (min-width: 1180px) {
+  .game-grid {
+    /* rem, so the side columns grow with the big-screen scale-up. */
+    grid-template-columns: 18.125rem minmax(0, 1fr) 20.625rem;
+  }
+}
+
+/* ---- Design council, round 6 ---------------------------------------------- */
+
+.game-stamp-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: -0.35rem 0 0.75rem;
+}
+
+.game-stamp {
+  font-size: var(--t-sm);
+}
+
+/* Channel cards: natural heights, long notes clamp to four lines (full text on hover). */
+.game-fw-channels {
+  align-items: start;
+}
+
+.game-fw-note-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: var(--t-sm) !important;
+}
+
+/* Advisors: steady is a stance too. */
+.game-stance {
+  background: color-mix(in srgb, var(--lab-info-mark) 12%, transparent);
+  color: var(--lab-info);
+}
+
+/* "Neither direction" reads grey, clearly apart from body ink. */
+.game-fw-effect.is-up:not(.is-good):not(.is-bad),
+.game-fw-effect.is-down:not(.is-good):not(.is-bad) {
+  color: var(--lab-ink-2);
+}
+
+.game-fw-valence .is-neutral {
+  background: color-mix(in srgb, var(--lab-ink) 7%, transparent);
+  color: var(--lab-ink-2);
+}
+
+/* Goal cards: now and the judged forecast side by side. */
+.game-goal-figures {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.game-goal-now,
+.game-goal-fc {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.25rem;
+}
+
+.game-goal-now small,
+.game-goal-fc small {
+  flex-basis: 100%;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--lab-ink-2);
+}
+
+.game-goal-fc {
+  color: var(--lab-scenario);
+}
+
+.game-goal-fc small {
+  color: var(--lab-scenario);
+}
+
+/* What's next on the clock. */
+.game-nextup {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.85rem;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--lab-ink-2);
+}
+
+.game-nextup span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dc-4);
+}
+
+.game-nextup.is-election span {
+  background: var(--dc-7);
+}
+
+.game-progress {
+  padding-bottom: 0;
+}
+
+.game-fw-jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.6rem;
+}
+
+.game-fw-jump button {
+  border: 1px solid var(--lab-line);
+  border-radius: var(--game-r-sm);
+  padding: 0.25rem 0.65rem;
+  font-size: var(--t-xs);
+  font-weight: 600;
+}
+
+.game-fw-jump button:hover {
+  border-color: var(--lab-scenario);
+  color: var(--lab-scenario);
+}
+
+.game-fw-sector {
+  scroll-margin-top: 0.5rem;
+}
+
+/* Phones: the last block always clears the dock. */
+@media (max-width: 1179px) {
+  .game-play {
+    padding-bottom: 8rem;
+  }
+}
+
+/* ---- Design council, round 7 ---------------------------------------------- */
+
+.game-nextup {
+  display: inline-flex;
+  margin-top: 0.95rem;
+  border-radius: var(--game-r-sm);
+  background: color-mix(in srgb, var(--dc-4) 14%, transparent);
+  padding: 0.15rem 0.5rem;
+  font-size: var(--t-xs);
+  color: var(--lab-ink);
+}
+
+.game-nextup.is-election {
+  background: color-mix(in srgb, var(--dc-7) 12%, transparent);
+}
+
+.game-nextup .game-nextup-dot {
+  width: 8px;
+  height: 8px;
+}
+
+@media (max-width: 480px) {
+  .game-nextup-now {
+    display: none;
+  }
+}
+
+.game-fw-tile-sector {
+  display: flex;
+  justify-content: space-between;
+}
+
+.game-fw-tile-go {
+  font-size: var(--t-md);
+  color: var(--lab-scenario);
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.game-fw-tile:hover .game-fw-tile-go {
+  transform: translateX(3px);
+}
+
+.game-stamp-row {
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.game-stamp-note {
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--lab-ink-2);
+}
+
+/* Island pins: value pills stand on a short stem, so they read as markers, not floating text. */
+.lab-scene-label::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 1.5px;
+  height: 12px;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--label-accent, var(--lab-ink)) 70%, transparent);
+}
+
+.lab-scene-label {
+  position: relative;
+}
+
+/* Round 7 follow-ups. */
+
+@media (max-width: 640px) {
+  .game-dc-metrics {
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 2.5rem), transparent);
+  }
+  .game-progress-track span em {
+    display: none;
+  }
+  .game-nextup {
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.game-fw-note-clamp {
+  word-break: normal;
+  overflow-wrap: normal;
+  hyphens: none;
+}
+
+.game-fw-valence b.game-fw-effect {
+  background: none;
+  padding: 0;
+  margin-right: 0.6rem;
+}
+
+.game-fw-valence b.is-neutral {
+  color: var(--lab-ink-2);
+}
+
+/* Typography fixes shared by every theme. */
+.lab :is(strong, b) {
+  font-weight: var(--w-bold);
+}
+@media (max-width: 640px) {
+  .game-headline {
+    font-size: var(--t-lg);
+  }
+}
+
+/* Phones, every theme: the dock is a full-width strip, so nothing shows
+   beneath it, and the turn counter keeps to one line. */
+@media (max-width: 1179px) {
+  .game-end {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-width: 1px 0 0;
+    border-radius: 1.1rem 1.1rem 0 0;
+    padding: 0.5rem 0.6rem 0.75rem;
+  }
+}
+@media (max-width: 480px) {
+  .game-progress > div:first-child b {
+    display: none;
+  }
+  .game-progress > div:first-child > span {
+    white-space: nowrap;
+  }
+}
+/* The levers header: the title stays on one line; the tabs drop below it
+   when the column is too narrow for both. */
+.game-levers-head h2 {
+  white-space: nowrap;
+}
+/* Narrow phones: sector table headers may wrap so the table fits. */
+@media (max-width: 400px) {
+  .game-fw-table thead th {
+    white-space: normal;
+    vertical-align: bottom;
+  }
+}
+
+/* ---- Motion: purposeful, one curve ---------------------------------------
+   Every move in the game uses --ease and --dur-fast/--dur/--dur-slow
+   (150/250/400 ms). The two documented exceptions are the capital read-out
+   float and the run indicator's loop. The .is-reduced and
+   prefers-reduced-motion rules above switch all of it off. */
+
+/* The shock card lands with weight: drops a short way and settles, no bounce.
+   Higher specificity than the themes' .game-card rules, which drop the rise. */
+.lab.game .game-card.game-shock {
+  animation: game-drop var(--dur-slow) var(--ease) both;
+}
+
+@keyframes game-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-36px) scale(1.04);
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Framework tabs cross-fade: each pane is keyed by its tab and fades in. */
+.game-fw-pane {
+  animation: game-fade var(--dur) var(--ease) both;
+}
+
+.game-move-chip {
+  animation-duration: var(--dur);
+}
+
+/* Island, phones: a pending decision's banner pins to the canvas's top-right corner and the
+   capital's to the bottom-left, so neither covers the debt tower; the bank's pulsing ring
+   still marks the building, and the quarter's news drops below the pinned banner. */
+.lab-scene-label.is-docked {
+  transform: none !important;
+}
+.lab-scene-label.is-docked-top-right {
+  transform: translateX(-100%) !important;
+}
+.lab-scene-label.is-docked-bottom-left {
+  transform: translateY(-100%) !important;
+}
+.game-scene:has(.lab-scene-label.is-docked-top-right) .game-scene-news {
+  top: 4.25rem;
+}
+.lab-scene-label.is-docked::after {
+  display: none;
+}
+.lab-scene-label.is-docked .lab-banner-icon {
+  display: inline-grid;
+}
+
+/* ---- Design council, Ledger round 1 ---------------------------------------- */
+
+/* Goal cards: the judged forecast as the hero figure, the goal and "now" beside it,
+   then what your move does, directly under the figure. */
+.game-goal-figures {
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.2rem 1rem;
+  margin-top: 0.15rem;
+}
+.game-goal-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding-bottom: 0.2rem;
+}
+.game-goal-now {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+.game-goal-now small {
+  flex-basis: auto;
+}
+.game-goal-move {
+  min-height: 1.6rem;
+  margin-top: 0.3rem;
+}
+.game-move-chip,
+.game-probe-chip {
+  position: static;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+.game-goal-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-top: 0.35rem;
+}
+.game-goal-lines li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+.game-goal-lines .game-status {
+  align-self: flex-start;
+}
+.game-goal-stars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-top: 0.3rem;
+}
+.game-goal-stars li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+.game-goal-key {
+  margin-top: 0.25rem;
+}
+
+/* Phones: the goals sit below the levers, so a strip above the End button shows
+   what the lever does to each judged forecast. */
+.game-move-strip {
+  display: none;
+}
+@media (max-width: 1179px) {
+  .game-move-strip {
+    display: flex;
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    gap: 0.15rem 1rem;
+    border-bottom: 1px solid var(--lab-line);
+    padding: 0.1rem 0 0.35rem;
+    font-size: var(--t-sm);
+    line-height: 1.25;
+  }
+  .game-move-strip-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    white-space: nowrap;
+  }
+  .game-move-strip-item .tabular-nums {
+    font-weight: 700;
+  }
+  .game-move-strip-d {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.1rem;
+    font-weight: 700;
+  }
+  .game-move-strip-d.is-good {
+    color: var(--lab-good);
+  }
+  .game-move-strip-d.is-bad {
+    color: var(--lab-bad);
+  }
+  .game-move-strip .game-status {
+    min-width: 0;
+    font-size: var(--t-xs);
+  }
+}
+
+/* Recap: figures as columns, a dateline and a dek under the headline. */
+.game-recap-stats {
+  display: grid;
+  gap: 0.4rem;
+  grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
+}
+.game-recap-stats.is-1 {
+  --cols: 1;
+}
+.game-recap-stats.is-3 {
+  --cols: 3;
+}
+.game-recap-stats.is-4 {
+  --cols: 4;
+}
+.game-dateline {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+.game-dek {
+  margin-top: 0.35rem;
+  font-size: var(--t-sm);
+  color: var(--lab-ink-2);
+}
+.game-recap-more > summary {
+  cursor: pointer;
+}
+
+/* Lever steppers: − and + either side of the track. */
+.lab-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.lab-step {
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--lab-line-strong);
+  border-radius: var(--lab-radius-control);
+  font-weight: 700;
+}
+
+/* Decisions so far: quarter | decision. */
+.game-log-table {
+  width: 100%;
+  font-size: var(--t-sm);
+}
+.game-log-table th,
+.game-log-table td {
+  padding: 0.2rem 0.4rem 0.2rem 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.game-progress-head {
+  display: flex;
+  gap: 0.35rem;
+  font-size: var(--t-xs);
+}
+
+/* Channels: full-width rows (channel and state | how it travels | what flowed), one shared
+   bar axis for all of them, the value printed at each bar's end. */
+.game-fw-channels {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.game-fw-channel-scale,
+.game-fw-channel {
+  display: grid;
+  grid-template-columns: minmax(9rem, 13rem) minmax(0, 1fr) minmax(15rem, 20rem);
+  align-items: start;
+  gap: 0.4rem 1.25rem;
+}
+.game-fw-channel-scale {
+  border-bottom: 1px solid var(--lab-ink);
+  padding-bottom: 0.25rem;
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+.game-fw-channel {
+  flex-direction: row;
+  border: 0;
+  border-bottom: 1px solid var(--lab-line);
+  border-radius: 0;
+  background: transparent;
+  padding: 0.65rem 0;
+}
+.game-fw-channel.is-blocked,
+.game-fw-channel.is-idle {
+  background: transparent;
+}
+.game-fw-channel > .game-fw-channel-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+}
+.game-fw-chain {
+  font-weight: 400;
+}
+.game-fw-chain li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: normal;
+}
+.game-fw-chev {
+  color: var(--lab-ink-2);
+}
+.game-fw-channel-note {
+  margin-top: 0.3rem;
+  font-size: var(--t-xs);
+  line-height: 1.45;
+  color: var(--lab-ink-2);
+}
+.game-fw-channel .game-fw-link {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-areas: none;
+  gap: 0.1rem;
+}
+.game-fw-channel .game-fw-link > :nth-child(1),
+.game-fw-channel .game-fw-link > :nth-child(2) {
+  grid-area: auto;
+}
+.game-fw-axis {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+}
+.game-fw-axisbar {
+  position: relative;
+  display: block;
+  height: 12px;
+  background: linear-gradient(var(--lab-ink), var(--lab-ink)) 50% 0 / 1px 100% no-repeat;
+}
+.game-fw-axisbar-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--lab-ink);
+}
+.game-fw-channel.is-policy .game-fw-axisbar-fill {
+  background: var(--dc-1);
+}
+.game-fw-channel.is-env .game-fw-axisbar-fill {
+  background: var(--dc-4);
+}
+.game-fw-axisbar-val {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: var(--t-xs);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.game-fw-channel-none {
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+@media (max-width: 760px) {
+  .game-fw-channel-scale,
+  .game-fw-channel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .game-fw-channel-scale > span:not(.game-fw-axis) {
+    display: none;
+  }
+  .game-fw-channel-bars {
+    padding-inline: 2.75rem;
+  }
+  .game-fw-channel-scale .game-fw-axis {
+    margin-inline: 2.75rem;
+  }
+}
+@media (min-width: 761px) {
+  .game-fw-channel-bars,
+  .game-fw-channel-scale .game-fw-axis {
+    padding-inline: 2.75rem;
+  }
+}
+
+/* Why tab: the numbers first, then notes whose detail clamps to two lines behind "More". */
+.game-fw-note-text.is-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.game-fw-note .game-why {
+  align-self: flex-start;
+}
+.game-fw-section .game-fw-overview {
+  margin-bottom: 0.9rem;
+}
+.game-fw-tile-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.game-fw-tile-ends b {
+  color: var(--lab-ink);
+}
+
+/* Goal hero: label over figure and unit, side by side with the goal readout. */
+.game-goal-figures > .game-goal-fc {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  column-gap: 0.2rem;
+}
+.game-goal-figures > .game-goal-fc small {
+  grid-column: 1 / -1;
+}
+.game-goal-star-state {
+  white-space: nowrap;
+}
+.game-mission-stars {
+  display: inline-flex;
+  gap: 0.15rem;
+}
+.game-advice-text.is-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Decomposition key: one compact table under the chart (swatch, name, value), total ruled. */
+.game-dc-table {
+  width: 100%;
+  max-width: 34rem;
+  margin-top: 0.5rem;
+  border-collapse: collapse;
+  font-size: var(--t-sm);
+}
+.game-dc-table th,
+.game-dc-table td {
+  padding: 0.18rem 0;
+  text-align: left;
+  font-weight: 400;
+}
+.game-dc-table td {
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.game-dc-table .game-dc-group-row th {
+  padding-top: 0.5rem;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--lab-ink-2);
+}
+.game-dc-table tbody tr:not(.game-dc-group-row):not(.game-dc-total-row) {
+  border-bottom: 1px solid var(--lab-line);
+}
+.game-dc-table button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: left;
+}
+.game-dc-table button i {
+  flex: none;
+  width: 0.8rem;
+  height: 0.8rem;
+}
+.game-dc-table button i.is-hatch {
+  background: repeating-linear-gradient(45deg, var(--dc-momentum) 0 1.5px, color-mix(in srgb, var(--dc-momentum) 22%, var(--lab-paper)) 1.5px 5px);
+}
+.game-dc-table tr.is-off {
+  opacity: 0.5;
+}
+.game-dc-table tr.is-off .game-dc-label {
+  text-decoration: line-through;
+}
+.game-dc-total-row th,
+.game-dc-total-row td {
+  border-top: 2px solid var(--lab-ink);
+  padding-top: 0.35rem;
+  font-weight: 700;
+}
+.game-dc-total-row td {
+  font-size: var(--t-md);
+}
+.game-dc-empty {
+  font-size: var(--t-xs);
+  font-weight: 400 !important;
+  text-align: left !important;
+  white-space: normal !important;
+  color: var(--lab-ink-2);
+}
+.game-fw-channels {
+  align-items: stretch;
+}
+.game-goal-stars li {
+  display: block;
+}
+.game-goal-stars li > * + * {
+  margin-left: 0.3rem;
+}
+.game-fw-narrow-note {
+  display: none;
+}
+@media (max-width: 760px) {
+  .game-fw-narrow-note {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-size: var(--t-xs);
+    color: var(--lab-ink-2);
+  }
+}
+
+/* ---- Design council, Ledger round 2 ---------------------------------------- */
+
+/* Helps or hurts a goal: a square and a word, never colour alone (Valence.tsx). Filled
+   square = helps, hollow = hurts. The triangle beside a figure is direction only, in ink. */
+.game-valence {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  margin-left: 0.4em;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+.game-valence-mark {
+  display: inline-block;
+  flex: none;
+  width: 0.7em;
+  height: 0.7em;
+  box-sizing: border-box;
+}
+.game-valence.is-good {
+  color: var(--lab-good);
+}
+.game-valence.is-good .game-valence-mark {
+  background: var(--lab-good-mark);
+}
+.game-valence.is-bad {
+  color: var(--lab-bad);
+}
+.game-valence.is-bad .game-valence-mark {
+  border: 1.5px solid var(--lab-alert);
+  background: transparent;
+}
+/* At risk, in every theme: amber words with a half-filled marker. */
+.game-valence.is-warn {
+  color: var(--lab-warn);
+}
+.game-valence.is-warn .game-valence-mark {
+  border: 1.5px solid var(--lab-warn-mark);
+  background: linear-gradient(to top, var(--lab-warn-mark) 50%, transparent 50%);
+}
+.game-direction {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.1em;
+  color: var(--lab-ink);
+}
+:is(.game-move-chip, .game-probe-chip, .game-outcome, .game-move-strip-d, .game-recap-change, .game-fw-effect):is(.is-good, .is-bad, .is-neutral, .is-up, .is-down),
+.game-move-chip,
+.game-probe-chip,
+.game-fw-tile-foot b {
+  color: var(--lab-ink);
+}
+.game-move-strip .game-move-strip-d.is-good,
+.game-move-strip .game-move-strip-d.is-bad {
+  color: var(--lab-ink);
+}
+.game-fw-valence {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1rem;
+}
+.game-fw-valence .game-valence {
+  margin-left: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+/* Channel bars: a label knocks the zero line out behind it, like type over a chart rule. */
+.game-fw-channel .game-fw-link > span:first-child {
+  position: relative;
+  z-index: 1;
+  justify-self: start;
+  max-width: 100%;
+  background: var(--lab-paper);
+  padding-right: 0.35rem;
+}
+
+/* Island: the goals' figures sit in one ruled strip along the scene's top edge; tags stay
+   on the island only where something is happening. */
+.game-scene-strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: 0.1rem;
+  margin: 0;
+  border-bottom: 1px solid var(--lab-ink);
+  background: color-mix(in srgb, var(--lab-paper) 94%, transparent);
+  padding: 0.35rem 0.85rem;
+  font-size: var(--t-sm);
+  line-height: 1.3;
+  color: var(--lab-ink);
+  pointer-events: none;
+}
+.game-scene-strip > span + span {
+  margin-left: 0.85rem;
+  border-left: 1px solid var(--lab-line-strong);
+  padding-left: 0.85rem;
+}
+.game-scene-strip b {
+  font-weight: 700;
+}
+.game-scene:has(.game-scene-strip) .game-scene-news {
+  top: 3rem;
+}
+@media (max-width: 640px) {
+  .game-scene-strip {
+    display: none;
+  }
+}
+.lab-banner-word {
+  font-weight: 400;
+  color: var(--lab-ink-2);
+}
+.lab-banner-next .game-glyph {
+  vertical-align: -0.05em;
+}
+/* The size of a lever's move, flashed above the tag for two seconds, then gone. */
+.lab-banner-delta {
+  position: absolute;
+  right: -1px;
+  bottom: calc(100% + 3px);
+  background: var(--lab-ink);
+  padding: 0.05rem 0.4rem;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  color: var(--lab-paper);
+  animation: lab-delta-fade 2.2s var(--ease) both;
+}
+@keyframes lab-delta-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  10%,
+  75% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+.is-reduced .lab-banner-delta {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lab-banner-delta {
+    display: none;
+  }
+}
+
+/* While any card or the framework is open, the island's tags, news and strip step back. */
+.lab.has-modal .lab-scene-label,
+.lab.has-modal .game-scene-news,
+.lab.has-modal .game-scene-strip {
+  visibility: hidden;
+}
+
+/* Channels: one palette token for "expectations, markets, the currency", one zero line
+   through every row at the same x with hairline ticks at +/-1, a wider track. */
+.game,
+.lab {
+  --dc-mixed: color-mix(in srgb, var(--lab-ink) 45%, var(--lab-paper));
+}
+.game-fw-palette .is-mixed,
+.game-why-bar.is-kind-mixed,
+.game-fw-channel.is-mixed .game-why-bar,
+.game-fw-channel.is-mixed .game-fw-axisbar-fill {
+  background: var(--dc-mixed);
+}
+@media (min-width: 761px) {
+  .game-fw-channel-scale,
+  .game-fw-channel {
+    grid-template-columns: minmax(9rem, 13rem) minmax(0, 1fr) minmax(19rem, 23rem);
+  }
+}
+.game-fw-channel-bars {
+  align-self: stretch;
+}
+.game-fw-channel-bars,
+.game-fw-channel-scale .game-fw-axis {
+  background-image: linear-gradient(var(--lab-ink), var(--lab-ink)), linear-gradient(var(--lab-line), var(--lab-line)), linear-gradient(var(--lab-line), var(--lab-line));
+  background-size: 1px 100%;
+  background-repeat: no-repeat;
+  background-origin: content-box;
+  background-clip: content-box;
+  background-position: 50% 0, calc(50% - var(--tick, 200%)) 0, calc(50% + var(--tick, 200%)) 0;
+}
+.game-fw-channel-scale .game-fw-axis {
+  background-size: 1px 5px;
+  background-position: 50% 100%, calc(50% - var(--tick, 200%)) 100%, calc(50% + var(--tick, 200%)) 100%;
+  padding-bottom: 6px;
+}
+.game-fw-axisbar {
+  background: none;
+}
+.game-fw-axis.is-row {
+  display: none;
+}
+@media (max-width: 760px) {
+  .game-fw-axis.is-row {
+    display: flex;
+    margin-top: 0.25rem;
+    background: none;
+    font-size: var(--t-xs);
+    color: var(--lab-ink-2);
+  }
+}
+
+/* Recap: the verdict leads under the headline; the bonus-star line follows. */
+.game-stamp-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+}
+
+/* Missions: the next playable mission leads as a double-width card. */
+@media (min-width: 640px) {
+  .game-mission-lead {
+    grid-column: span 2;
+  }
+}
+.game-mission-play {
+  align-self: flex-start;
+  margin-top: 0.6rem;
+  background: var(--lab-ink);
+  padding: 0.45rem 0.9rem;
+  font-weight: 700;
+  color: var(--lab-paper);
+}
+
+/* Briefing: tools as a ruled table. */
+.game-tools {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-xs);
+  line-height: 1.35;
+}
+.game-tools th,
+.game-tools td {
+  border-bottom: 1px solid var(--lab-line);
+  padding: 0.3rem 0.6rem 0.3rem 0;
+  text-align: left;
+  vertical-align: top;
+}
+.game-tools thead th {
+  border-bottom: 1px solid var(--lab-ink);
+  font-weight: 600;
+  color: var(--lab-ink-2);
+}
+.game-tools tbody th {
+  font-weight: 700;
+}
+.game-tools td:last-child,
+.game-tools th:last-child {
+  padding-right: 0;
+  white-space: nowrap;
+}
+.game-tools-more,
+.game-capital-note {
+  margin-top: 0.3rem;
+  font-size: var(--t-xs);
+  line-height: 1.4;
+  color: var(--lab-ink-2);
+}
+.game-capital-note strong {
+  color: var(--lab-ink);
+}
+.game-brief-more > summary {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.game-bullet.is-star {
+  padding-left: 0;
+}
+.game-bullet.is-star::before {
+  display: none;
+}
+
+/* The HUD wordmark: off by default; designs that want the product name in type show it. */
+.game-wordmark {
+  display: none;
+}
+.game-counter-name .is-short {
+  display: none;
+}
+
+/* Decisions so far: behind a disclosure. */
+.game-log > summary {
+  cursor: pointer;
+}
+.game-agenda-note {
+  display: block;
+}
+
+/* Decomposition key: groups on the left, how it is measured on the right. */
+@media (min-width: 1024px) {
+  .game-dc-key {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0 2rem;
+    align-items: start;
+  }
+  .game-dc-key > .game-dc-table {
+    max-width: none;
+  }
+  .game-dc-key > .game-dc-note {
+    margin-top: 0.5rem;
+    border-left: 1px solid var(--lab-line-strong);
+    padding-left: 2rem;
+  }
+}
+/* Drawn glyphs inside the Why tiles keep their type size (the tile's sparkline rule
+   would otherwise stretch them). */
+.game-fw-tile svg.game-glyph {
+  width: 0.8em;
+  height: 0.8em;
+}
+.game-fw-tile-sector {
+  align-items: baseline;
+  gap: 0.4rem;
+}
+.game-fw-tile-go {
+  color: var(--lab-ink);
+}
+.game-fw-tile-foot b {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25em;
+}
+
+/* Goal cards: the verdict leads, in the title row; the star and "Your move" sit under it. */
+.game-goal-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.1rem 0.6rem;
+}
+.game-goal-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0.3rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-xs);
+}
+.game-goal-sub .game-goal-move {
+  min-height: 1.35em;
+}
+
+/* Shock responses: numbered buttons with a key on the left and "Choose" on the right. */
+.game-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.game-choices .game-choice {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+}
+.game-choice .game-choice-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.game-choice .game-choice-key {
+  flex: none;
+  min-width: 1.6rem;
+  text-align: center;
+  font-weight: 700;
+}
+.game-choice .game-choice-go {
+  flex: none;
+  font-weight: 600;
+  color: var(--lab-ink);
+}
+.game-recap-chart {
+  display: block;
+}
+.game-recap-goal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+/* ---- Ledger council, round 4 ------------------------------------------------ */
+/* A fixed dock publishes its height as --sticky-h on the page: keyboard focus and
+   scroll-into-view stop clear of it. */
+html {
+  scroll-padding-bottom: var(--sticky-h, 0px);
 }

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Segmented, Slider, Toggle } from "../../components/ui";
 import { useLab } from "../../store";
-import { THEMES } from "../../themes";
+import { THEME_STORAGE_KEY, THEMES } from "../../themes";
 import { sound } from "../audio";
 import { TRACKS, useSettings } from "../settings";
 import { useGame } from "../store";
@@ -126,7 +126,8 @@ function DisplaySettings() {
               onClick={() => {
                 setTheme(t.id);
                 try {
-                  window.localStorage.setItem("palari.weo-lab.theme", t.id);
+                  if (t.id === THEMES[0].id) window.localStorage.removeItem(THEME_STORAGE_KEY);
+                  else window.localStorage.setItem(THEME_STORAGE_KEY, t.id);
                 } catch {
                   // ignore
                 }
@@ -177,12 +178,12 @@ function GameSettings() {
     <div className="flex flex-col gap-3">
       <Toggle label="Tips in the first missions" checked={s.tips} onChange={(v) => s.set({ tips: v })} hint="Short coaching notes on the levers panel." />
       <div className="lab-field">
-        <span className="block text-[0.78rem] font-medium">Progress</span>
+        <span className="block text-(length:--t-xs) font-semibold">Progress</span>
         <span className="game-hint">Stars and unlocked missions are stored in this browser only.</span>
         <div className="mt-2">
           {confirm ? (
             <span className="inline-flex flex-wrap items-center gap-2">
-              <span className="text-[0.74rem]">Erase all stars?</span>
+              <span className="text-(length:--t-xs)">Erase all stars?</span>
               <button
                 type="button"
                 className="lab-btn lab-btn-danger lab-btn-xs"
@@ -210,7 +211,7 @@ function GameSettings() {
 
 function About() {
   return (
-    <div className="flex flex-col gap-3 text-[0.78rem] leading-relaxed">
+    <div className="flex flex-col gap-3 text-(length:--t-xs) leading-relaxed">
       <p className="game-disclaimer">{DISCLAIMER}</p>
       <div>
         <h3 className="game-section">How it works</h3>

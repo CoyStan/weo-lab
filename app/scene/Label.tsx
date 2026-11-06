@@ -1,7 +1,10 @@
 "use client";
 
 import { Html } from "@react-three/drei";
+import Glyph from "../game/ui/Glyph";
 import { labelLayer } from "./labelLayer";
+import type { SceneCue } from "../store";
+export { PLACE } from "./places";
 
 export type IconName = "crown" | "scroll" | "bank" | "gauge" | "factory" | "anchor" | "coins" | "house" | "beacon" | "drop";
 
@@ -17,6 +20,14 @@ const ICONS: Record<IconName, React.ReactNode> = {
   house: <path d="M2.5 8 8 3l5.5 5M4 7v6.5h8V7M7 13.5v-3h2v3" />,
   beacon: <path d="M6 14l.8-8h2.4L10 14M5.5 6h5M8 3.5V6M3 4.5l2 1M13 4.5l-2 1" />,
   drop: <path d="M8 2.5S4 7.2 4 9.7a4 4 0 0 0 8 0C12 7.2 8 2.5 8 2.5Z" />,
+};
+
+/** Docked banners leave the island and pin to a corner of the canvas (phones). */
+export type LabelDock = "top-right" | "bottom-left";
+const DOCK_INSET = 10;
+const DOCK_AT: Record<LabelDock, (el: unknown, camera: unknown, size: { width: number; height: number }) => number[]> = {
+  "top-right": (_el, _camera, size) => [size.width - DOCK_INSET, DOCK_INSET],
+  "bottom-left": (_el, _camera, size) => [DOCK_INSET, size.height - DOCK_INSET],
 };
 
 /**
@@ -37,6 +48,13 @@ export default function Label({
   accent,
   icon,
   capital = false,
+  next,
+  delta,
+  dock,
+  status,
+  place,
+  cue,
+  shocked = false,
 }: {
   position: [number, number, number];
   title: string;
@@ -49,13 +67,28 @@ export default function Label({
   icon?: IconName;
   /** The capital's banner: larger, ink-filled. */
   capital?: boolean;
+  /** A decision taken this quarter that hasn't played out yet: "now 8.50% · next 10.50%". */
+  next?: string;
+  /** The size of the move, "+2.00": flashed beside the tag for about two seconds when it changes. */
+  delta?: string;
+  /** Pin the banner to a corner of the canvas instead of the building (phones). */
+  dock?: LabelDock;
+  /** The district's goal is in trouble: shown as the goal cards show it, a square and a word. */
+  status?: "at-risk" | "failed";
+  /** The district's place name on the map: "Campus", "Port". */
+  place?: string;
+  /** What moved most here last quarter, pinned through the recap. */
+  cue?: SceneCue;
+  /** A news card points here. */
+  shocked?: boolean;
 }) {
+  const plain = !next && !status;
   return (
-    <Html position={position} center zIndexRange={[8, 0]} style={{ pointerEvents: "none" }} portal={labelLayer as React.RefObject<HTMLElement>}>
+    <Html position={position} center={!dock} calculatePosition={dock ? DOCK_AT[dock] : undefined} zIndexRange={[8, 0]} style={{ pointerEvents: "none" }} portal={labelLayer as React.RefObject<HTMLElement>}>
       <div
         aria-hidden={hidden}
-        className={`lab-scene-label ${capital ? "is-capital" : ""} ${bad ? "is-bad" : ""} ${focus ? "is-focus" : ""}`}
-        style={{ transform: `rotate(${tilt * 0.4}deg)`, opacity: hidden ? 0 : 1, transition: "opacity 160ms ease", ["--label-accent" as string]: accent ?? "var(--lab-scenario)" }}
+        className={`lab-scene-label ${capital ? "is-capital" : ""} ${next ? "is-pending" : ""} ${bad ? "is-bad" : ""} ${focus ? "is-focus" : ""} ${status ? `has-status is-${status}` : ""} ${dock ? `is-docked is-docked-${dock}` : ""} ${cue && plain ? "has-cue" : ""} ${shocked ? "is-shocked" : ""}`}
+        style={{ transform: dock ? undefined : `rotate(${tilt * 0.4}deg)`, opacity: hidden ? 0 : 1, transition: "opacity 160ms ease", ["--label-accent" as string]: accent ?? "var(--lab-scenario)" }}
       >
         {icon ? (
           <span className="lab-banner-icon" aria-hidden="true">
@@ -65,9 +98,48 @@ export default function Label({
           </span>
         ) : null}
         <span className="lab-banner-text">
-          {title}
-          <strong>{value}</strong>
+          {/* The place name shows while the layer is naming districts (see labelLayer), or
+              with a cue or a news card; CSS decides, so naming costs no React work. */}
+          {place ? (
+            <>
+              <span className="lab-banner-place">{place}</span>
+              <span className="lab-banner-sep" aria-hidden="true"> · </span>
+            </>
+          ) : null}
+          {shocked && !next ? (
+            <span className="lab-banner-cue">
+              <strong>decide now</strong>
+            </span>
+          ) : cue && plain ? (
+            <span className="lab-banner-cue">
+              {cue.label} <Glyph name={cue.up ? "up" : "down"} /> <strong>{cue.size}</strong>
+            </span>
+          ) : (
+            <>
+          <span className="lab-banner-title">{title}</span>{" "}
+          {next ? (
+            <>
+              <span className="lab-banner-word">now</span>{" "}
+            </>
+          ) : null}
+          <strong key={value} className="lab-banner-value">
+            {value}
+          </strong>
+          {next ? (
+            <span className="lab-banner-next">
+              {" "}
+              <Glyph name="arrow" /> <span className="lab-banner-word">next</span> <strong>{next}</strong>
+            </span>
+          ) : null}
+            </>
+          )}
         </span>
+        {next && delta ? (
+          <span key={`${delta}:${next}`} className="lab-banner-delta">
+            {delta}
+          </span>
+        ) : null}
+        {status ? <span className={`lab-banner-status is-${status}`}>{status === "failed" ? "off track" : "at risk"}</span> : null}
       </div>
     </Html>
   );
