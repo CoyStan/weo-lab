@@ -199,7 +199,7 @@ export const MISSIONS: Mission[] = [
     kicker: "A peg, thin reserves and an IMF programme with conditions.",
     briefing: [
       "Dumara pegs its currency, and reserves cover just two months of imports. Left alone, they run out in 2028 and the peg breaks.",
-      "An IMF programme can lend reserves, but it only disburses while you tighten the budget by at least half a point of GDP a year. You can also devalue once, or float.",
+      "An IMF programme can lend reserves, but it only disburses while you tighten the budget by at least half a point of GDP a year. You can also hold interest rates higher to defend the peg, devalue once, or float.",
       "Rebuild reserves to three months of imports by the end of 2028 and keep spreads at or below 750 basis points.",
     ],
     lesson: "Programme financing buys time; the fiscal adjustment that unlocks it is what restores confidence.",
@@ -218,7 +218,8 @@ export const MISSIONS: Mission[] = [
       { metric: "reserves", op: "<", threshold: 0.8, message: "Reserves fell below a month of imports." },
     ],
     politics: { start: { votes: 5, trust: 2 }, elections: [8], threshold: 2, institutions: ["swap-line", "fiscal-rule", "tax-admin", "debt-office", "cb-independence", "safety-net"] },
-    setup: () => baselineConfig("dumara"),
+    // Behind the peg the rate follows the anchor; the player's rate is a floor they can raise to defend it.
+    setup: () => ({ ...baselineConfig("dumara"), decisions: [{ quarter: 0, changes: { manualRate: 9 } }] }),
   },
   {
     id: "sudden-stop",

@@ -34,18 +34,27 @@ export default function Play({ scene }: { scene: ReactNode }) {
   const setScreen = useGame((s) => s.setScreen);
   const restart = useGame((s) => s.restart);
   const rewind = useGame((s) => s.rewind);
+  const setFramework = useGame((s) => s.setFramework);
   const preset = getPreset(mission.presetId);
   const done = clock >= mission.quarters;
   const news = useMemo(() => events.filter((e) => e.quarter === clock && e.kind !== "decision"), [events, clock]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Enter" || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
-      if (t && (t.closest("button, a, input, select, textarea, summary") || t.isContentEditable)) return;
-      if (useGame.getState().modal) return;
+      if (t && (t.closest("input, select, textarea") || t.isContentEditable)) return;
+      const game = useGame.getState();
+      if ((e.key === "m" || e.key === "M") && !game.modal) {
+        e.preventDefault();
+        game.setFramework(!game.framework);
+        return;
+      }
+      if (e.key !== "Enter") return;
+      if (t && t.closest("button, a, summary")) return;
+      if (game.modal || game.framework) return;
       e.preventDefault();
-      useGame.getState().endQuarter();
+      game.endQuarter();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -74,6 +83,9 @@ export default function Play({ scene }: { scene: ReactNode }) {
         </div>
         <Capital />
         <div className="ml-auto flex items-center gap-1.5">
+          <button type="button" className="lab-btn lab-btn-soft lab-btn-sm game-fw-open" onClick={() => setFramework(true)} title="Every sector, every channel, and why things are or aren't moving (M)">
+            Macro framework <kbd className="game-fw-kbd">M</kbd>
+          </button>
           <SoundToggle />
           <button type="button" className="lab-btn lab-btn-ghost lab-btn-sm" onClick={rewind} disabled={clock === 0} title="Go back one quarter and decide again">Rewind</button>
           <button type="button" className="lab-btn lab-btn-ghost lab-btn-sm" onClick={restart}>Restart</button>

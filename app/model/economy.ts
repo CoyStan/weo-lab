@@ -46,6 +46,19 @@ export function yearLabels(): number[] {
 
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 
+/**
+ * Keeps the output gap in a plausible range without a hard wall. Inside
+ * −10…+6 it passes through unchanged; beyond, it bends smoothly toward −25 and
+ * +12. A hard clamp used to pin deep recessions at exactly −15, so for quarters
+ * at a time no policy could move growth at all. Here every push still counts,
+ * just less the deeper the slump.
+ */
+export function softBound(x: number): number {
+  if (x < -10) return -10 - 15 * Math.tanh((-10 - x) / 15);
+  if (x > 6) return 6 + 6 * Math.tanh((x - 6) / 6);
+  return x;
+}
+
 export const ZERO_DRIVERS: Drivers = {
   infl: { expectations: 0, demand: 0, currency: 0, oil: 0, shocks: 0, other: 0 },
   gap: { fading: 0, monetary: 0, fiscal: 0, external: 0, commodities: 0, currency: 0, confidence: 0, shocks: 0, other: 0 },
@@ -245,10 +258,8 @@ export function simulate(config: ScenarioConfig): SimResult {
     const inflationDrag = -0.03 * Math.max(0, prev.infl - 12);
 
     const monetaryImpulse = -(P.sigma / 4) * (realRatePrev - P.neutralRealRate);
-    const gap = clamp(
+    const gap = softBound(
       P.rhoGap * prev.gap + monetaryImpulse + fiscalImpulse + externalImpulse + oilImpulse + commodityImpulse + rerImpulse + riskImpulse + controlsCost + inflationDrag + imp.gapAdd,
-      -15,
-      10,
     );
     const gapParts = {
       fading: (P.rhoGap - 1) * prev.gap,
@@ -311,7 +322,11 @@ export function simulate(config: ScenarioConfig): SimResult {
     // Policy rate.
     let rate: number;
     if (regime === "peg") {
+      // Behind a peg the rate follows the anchor's plus the spread and any pressure.
+      // A central bank setting the rate by hand can hold it higher to defend the
+      // parity (it cannot go lower without losing reserves faster).
       rate = usRate + prev.spread / 100 + Math.max(0, pressure) * 0.5;
+      if (pol.rateMode === "manual") rate = Math.max(rate, pol.manualRate);
     } else if (pol.rateMode === "manual") {
       rate = pol.manualRate;
     } else {

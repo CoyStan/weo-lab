@@ -54,6 +54,7 @@ const STATUS_WORD: Record<ObjectiveStatus, string> = { met: "met", failed: "miss
 
 function RecapCard({ recap }: { recap: Recap }) {
   const close = useGame((s) => s.closeModal);
+  const setFramework = useGame((s) => s.setFramework);
   const missionId = useGame((s) => s.missionId);
   const mission = getMission(missionId ?? "")!;
   const primary = usePrimary();
@@ -131,7 +132,10 @@ function RecapCard({ recap }: { recap: Recap }) {
       <h3 className="mt-3 mb-1 text-[0.7rem] font-semibold text-[var(--lab-ink-2)]">Your advisors on the quarter ahead</h3>
       <AdviceList advice={recap.advice} compact />
 
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+        <button type="button" className="lab-btn lab-btn-ghost lab-btn-md" onClick={() => setFramework(true)} title="Every sector, every channel, and why things moved">
+          See every sector
+        </button>
         <button ref={primary} type="button" className="lab-btn lab-btn-primary lab-btn-md" onClick={close}>
           Plan {quarterLabel(recap.quarter + 1)}
         </button>

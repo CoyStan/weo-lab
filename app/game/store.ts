@@ -56,6 +56,9 @@ type GameState = {
   sandboxKeep: boolean;
   /** Island districts tied to the current mission's goals. */
   spotlight: FocusKey[];
+  /** The macro framework overlay: every sector and channel at once. */
+  framework: boolean;
+  setFramework: (open: boolean) => void;
 
   setScreen: (screen: Screen) => void;
   openSandbox: (keepScenario: boolean) => void;
@@ -114,6 +117,12 @@ export const useGame = create<GameState>((set, get) => ({
   announced: [],
   sandboxKeep: false,
   spotlight: [],
+  framework: false,
+
+  setFramework: (open) => {
+    if (open !== get().framework) sound.play(open ? "open" : "back");
+    set({ framework: open });
+  },
 
   recordStars: (id, stars) => {
     const prev = get().progress.stars[id] ?? 0;
@@ -128,7 +137,7 @@ export const useGame = create<GameState>((set, get) => ({
       useLab.setState({ labels: "all", spotlight: [] });
       sound.stopAmbient();
     }
-    set({ screen, modal: null, probe: null, sandboxKeep: false });
+    set({ screen, modal: null, probe: null, sandboxKeep: false, framework: false });
   },
 
   openSandbox: (keepScenario) => {
@@ -158,7 +167,7 @@ export const useGame = create<GameState>((set, get) => ({
     const spotlight: FocusKey[] = (["infl", "growth", "debt", "reserves", "unemp", "cred", "rate", "ca"] as const).filter((k) => watched.has(k));
     const mode = useSettings.getState().labels;
     useLab.setState({ clock: 0, playing: false, focus: null, storyId: null, past: [], future: [], labels: mode === "all" ? "all" : "focus", spotlight: mode === "hover" ? [] : spotlight });
-    set({ screen: "briefing", missionId: id, turns: [], modal: null, probe: null, announced: [], spotlight });
+    set({ screen: "briefing", missionId: id, turns: [], modal: null, probe: null, announced: [], spotlight, framework: false });
   },
 
   startEpisode: (id) => {
