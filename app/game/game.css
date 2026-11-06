@@ -1420,10 +1420,29 @@
   align-items: flex-start;
 }
 
+/* The framework frame: one fixed top offset and one fixed height, so its title and tab
+   strip never move when the tabs cross-fade; only the body scrolls. */
 .game-fw {
+  display: flex;
+  flex-direction: column;
   width: min(100%, 76rem);
-  margin: auto 0;
+  height: min(calc(100dvh - 3rem), 960px);
+  margin: 1.5rem 0 0;
   padding: 1.1rem 1.25rem 1.25rem;
+}
+
+.game-fw-tabs {
+  position: static;
+}
+
+.game-fw-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0 -0.5rem;
+  padding: 0 0.5rem 2rem;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent);
 }
 
 .game-fw-head {
@@ -2376,24 +2395,6 @@
 /* ---- Design council, round 2 --------------------------------------------- */
 
 /* Framework: a fixed frame; only the tab's content scrolls, so switching tabs doesn't jump. */
-.game-fw {
-  display: flex;
-  height: min(90dvh, 920px);
-  flex-direction: column;
-  margin: 3dvh 0 auto;
-}
-
-.game-fw-tabs {
-  position: static;
-}
-
-.game-fw-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  margin: 0 -0.5rem;
-  padding: 0 0.5rem 0.5rem;
-}
 
 @media (hover: none) {
   .game-fw-kbd,
@@ -2678,12 +2679,6 @@
   color: var(--lab-scenario);
 }
 
-/* The frame keeps its top edge; short tabs don't leave a wall of blank paper. */
-.game-fw {
-  height: auto;
-  min-height: min(70dvh, 620px);
-  max-height: min(92dvh, 940px);
-}
 
 /* Phones: the slider must be on the first screen of the lever panel. */
 @media (max-width: 760px) {
@@ -3111,10 +3106,6 @@
 }
 
 /* Round 4 follow-ups. */
-.game-fw-body {
-  padding-bottom: 2rem;
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent);
-}
 
 .game-fw-open-short {
   display: none;
@@ -3531,9 +3522,6 @@ html:not(.is-kbd) .game button:focus-visible {
 }
 
 /* Round 7 follow-ups. */
-.game-fw-body {
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent);
-}
 
 @media (max-width: 640px) {
   .game-dc-metrics {
@@ -4494,4 +4482,11 @@ html:not(.is-kbd) .game button:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
+}
+
+/* ---- Ledger council, round 4 ------------------------------------------------ */
+/* A fixed dock publishes its height as --sticky-h on the page: keyboard focus and
+   scroll-into-view stop clear of it. */
+html {
+  scroll-padding-bottom: var(--sticky-h, 0px);
 }

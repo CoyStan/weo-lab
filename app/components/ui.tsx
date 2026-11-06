@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
+import { useStripOverflow } from "./strip";
 
 export function Panel({ title, subtitle, children, className = "", action }: { title?: string; subtitle?: string; children: ReactNode; className?: string; action?: ReactNode }) {
   return (
@@ -103,8 +104,10 @@ export function Slider({
 }
 
 export function Segmented<T extends string>({ options, value, onChange, size = "sm", ariaLabel }: { options: { value: T; label: string; title?: string }[]; value: T; onChange: (v: T) => void; size?: "sm" | "md"; ariaLabel?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useStripOverflow(ref, value);
   return (
-    <div role="radiogroup" aria-label={ariaLabel} className={`lab-segmented ${size === "md" ? "lab-segmented-md" : ""}`}>
+    <div ref={ref} role="radiogroup" aria-label={ariaLabel} className={`lab-segmented ${size === "md" ? "lab-segmented-md" : ""}`}>
       {options.map((o) => (
         <button key={o.value} type="button" role="radio" aria-checked={value === o.value} title={o.title} onClick={() => onChange(o.value)} className={value === o.value ? "is-active" : ""}>
           {o.label}

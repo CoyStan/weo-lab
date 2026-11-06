@@ -83,8 +83,13 @@ function RecapCard({ recap }: { recap: Recap }) {
 
   return (
     <div className="game-card game-recap" role="dialog" aria-modal="true" aria-labelledby="recap-title">
+      {/* The sheet scrolls in its own body, so the actions bar below never sits over its text. */}
+      <div className="game-recap-body">
       <div className="game-paper">
-        <p className="game-masthead">{recap.headline.paper}</p>
+        <div className="game-masthead-row">
+          <p className="game-masthead">{recap.headline.paper}</p>
+          <EditionMark mission={mission} recap={recap} />
+        </div>
         <p className="game-dateline">
           <span>{quarterLabel(recap.quarter)} edition</span>
           <span>{mission.number ? `Mission ${mission.number} · ${mission.title}` : mission.title}</span>
@@ -143,13 +148,14 @@ function RecapCard({ recap }: { recap: Recap }) {
                 <span className="game-recap-when">{recap.from !== undefined && recap.quarter - recap.from > 1 ? "over the stretch" : "this quarter"}</span>
               </span>
               <span className="game-recap-chart">
-                <GoalChart metric={m} width={metrics.length > 1 ? 236 : 300} />
+                <GoalChart metric={m} />
               </span>
               <GoalLine mission={mission} metric={m} status={worstStatus(mission, recap, m)} />
             </div>
           );
         })}
       </div>
+      <CapitalStrip recap={recap} />
       <WatchLine mission={mission} recap={recap} />
 
       {changes.length ? (
@@ -173,7 +179,7 @@ function RecapCard({ recap }: { recap: Recap }) {
       {recap.crisis ? <p className="game-banner is-bad">Trust has collapsed. Markets will test you next quarter.</p> : null}
 
       <details className="game-recap-more" open={roomy || undefined}>
-      <summary>Votes, trust and your advisors</summary>
+      <summary>Why votes and trust moved, and your advisors</summary>
       <h3 className="mt-2 mb-1 text-(length:--t-xs) font-semibold text-[var(--lab-ink-2)]">Political capital</h3>
       <div className="flex flex-wrap items-start gap-x-5 gap-y-1">
         {(["votes", "trust"] as const).map((c) => {
@@ -196,6 +202,7 @@ function RecapCard({ recap }: { recap: Recap }) {
       <h3 className="mt-3 mb-1 text-(length:--t-xs) font-semibold text-[var(--lab-ink-2)]">Your advisors on the quarter ahead</h3>
       <AdviceList advice={recap.advice.map((a) => ({ ...a, text: firstSentence(a.text) }))} compact />
       </details>
+      </div>
 
       <div className="game-recap-actions mt-3 flex flex-wrap items-center justify-end gap-2">
         <button type="button" className="lab-btn lab-btn-ghost lab-btn-md" onClick={() => setFramework(true)} title="Every sector, every channel, and why things moved">
@@ -615,6 +622,46 @@ function Stamp({ mission, recap }: { mission: Mission; recap: Recap }) {
   const names = Array.from(new Set(risky.map((st) => GAME_METRICS[mission.objectives.find((o) => o.id === st.id)!.metric].label)));
   const text = !risky.length ? "All goals on track" : names.length === 1 ? `${names[0]} goal ${failed ? "missed" : "at risk"}` : `${risky.length} goals ${failed ? "in trouble" : "at risk"}`;
   return <span className={`game-stamp ${!risky.length ? "is-good" : failed ? "is-bad" : "is-warn"}`}>{text}</span>;
+}
+
+/**
+ * The edition mark beside the masthead: a ruled "ON TRACK" box when every goal holds, a
+ * hollow-square "AT RISK" (or "MISSED") one when a goal slips. Newsprint, not confetti.
+ */
+function EditionMark({ mission, recap }: { mission: Mission; recap: Recap }) {
+  const main = recap.statuses.filter((st) => !mission.objectives.find((o) => o.id === st.id)?.bonus);
+  if (!main.length) return null;
+  const failed = main.some((st) => st.after === "failed");
+  const risky = failed || main.some((st) => st.after === "at-risk");
+  return (
+    <span className={`game-edition-mark ${risky ? (failed ? "is-bad" : "is-warn") : "is-good"}`} aria-hidden="true">
+      <i />
+      {failed ? "MISSED" : risky ? "AT RISK" : "ON TRACK"}
+    </span>
+  );
+}
+
+/** Votes and trust, which the quarter just moved, as two ruled figures beside the goals. */
+function CapitalStrip({ recap }: { recap: Recap }) {
+  const stretch = recap.from !== undefined && recap.quarter - recap.from > 1;
+  return (
+    <dl className="game-recap-capital" aria-label={`Political capital ${stretch ? "over the stretch" : "this quarter"}`}>
+      {(["votes", "trust"] as const).map((c) => {
+        const now = recap.points[c];
+        const d = recap.points.entries.filter((e) => e.currency === c).reduce((a, e) => a + e.amount, 0);
+        return (
+          <div key={c}>
+            <dt>{c === "votes" ? "Votes" : "Trust"}</dt>
+            <dd className="tabular-nums">
+              {d ? <><span className="game-recap-capital-was">{now - d}</span> <Glyph name="arrow" /> </> : null}
+              <b>{now}</b>
+              {d ? <span className={`game-recap-capital-d ${d > 0 ? "is-up" : "is-down"}`}><Glyph name={d > 0 ? "up" : "down"} /> {Math.abs(d)}</span> : <span className="game-recap-capital-d">unchanged</span>}
+            </dd>
+          </div>
+        );
+      })}
+    </dl>
+  );
 }
 
 /** Next to the stamp: what's at stake for the stars, not a repeat of the verdict. */

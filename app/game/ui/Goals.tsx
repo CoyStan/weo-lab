@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getStartYear, quarterLabel } from "../../model/economy";
 import type { QuarterState } from "../../model/types";
 import { sound } from "../audio";
@@ -46,11 +46,12 @@ export default function Goals() {
           />
         );
       })}
-      {comparisonLabel ? (
-        <p className="game-goal-key">
-          <span><i className="is-comp" /> {comparisonLabel}</span>
-        </p>
-      ) : null}
+      <p className="game-goal-key game-spark-key" aria-hidden="true">
+        <span><i className="is-past" /> Outturn</span>
+        <span><i className="is-fc" /> Forecast</span>
+        <span><i className="is-ghost" /> Had you changed nothing</span>
+        {comparisonLabel ? <span><i className="is-comp" /> {comparisonLabel}</span> : null}
+      </p>
     </div>
   );
 }
@@ -92,27 +93,17 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
         <span className="game-goal-side">
           {main ? <span className="game-goal-target">{goalText(main, meta.digits)}</span> : null}
           <span className="game-goal-now">
-            <small>Now</small> <span className="tabular-nums"><TweenNum value={now} digits={meta.digits} /></span>
-            {unit === "%" ? "%" : `\u00a0${unit}`}
+            <small>Now</small>{" "}
+            <span className="tabular-nums">
+              <TweenNum value={now} digits={meta.digits} />
+              <span className="game-unit">{unit === "%" ? "%" : `\u00a0${unit}`}</span>
+            </span>
           </span>
         </span>
       </div>
 
-      <ul className="game-goal-sub">
-        {judged.length > 1
-          ? judged.map((o) => (
-              <li key={o.id} className="game-goal-part" title={o.label}>
-                <span className={`game-goal-star-state is-${statuses[o.id]}`}>{STATUS_TEXT[statuses[o.id]].toLowerCase()}</span> {o.label}
-              </li>
-            ))
-          : null}
-        {stars.map((o) => (
-          <li key={o.id} className={`game-goal-bonus is-${statuses[o.id]}`}>
-            <Glyph name="star" label="Extra star" /> Bonus: {o.label.charAt(0).toLowerCase() + o.label.slice(1)}:{" "}
-            <span className="game-goal-star-state">{STATUS_TEXT[statuses[o.id]].toLowerCase()}</span>
-          </li>
-        ))}
-        <li className="game-goal-move" aria-live="polite">
+      {/* "Your move" on its own ruled line under the forecast figure: what reacts as a lever moves. */}
+      <div className="game-goal-move" aria-live="polite">
           {probeDelta !== null ? (
             Math.abs(probeDelta) >= 0.05 ? (
               <span className={`game-probe-chip ${moveTone(objectives, probeDelta)}`} title="Effect of the lever under your pointer, by the end of the mission">
@@ -127,7 +118,21 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
           ) : clock < end && Math.abs(moveDelta) >= 0.05 ? (
             <MoveChip metric={metric} objectives={objectives} delta={moveDelta} end={end} />
           ) : null}
-        </li>
+      </div>
+      <ul className="game-goal-sub">
+        {judged.length > 1
+          ? judged.map((o) => (
+              <li key={o.id} className="game-goal-part" title={o.label}>
+                <span className={`game-goal-star-state is-${statuses[o.id]}`}>{STATUS_TEXT[statuses[o.id]].toLowerCase()}</span> {o.label}
+              </li>
+            ))
+          : null}
+        {stars.map((o) => (
+          <li key={o.id} className={`game-goal-bonus is-${statuses[o.id]}`}>
+            <Glyph name="star" label="Extra star" /> Bonus: {o.label.charAt(0).toLowerCase() + o.label.slice(1)}:{" "}
+            <span className="game-goal-star-state">{STATUS_TEXT[statuses[o.id]].toLowerCase()}</span>
+          </li>
+        ))}
       </ul>
 
       <OutlookChart metric={metric} objectives={objectives} actual={actual} forecast={forecast} ghost={ghost} clock={clock} end={end} comparison={comparison} />
@@ -185,14 +190,18 @@ export function MoveStrip() {
         const value = forecast[end][metric];
         return (
           <span key={metric} className="game-move-strip-item">
-            <b>{meta.label.replace("Public ", "").replace("Unemployment", "Jobless")}</b> <span className="tabular-nums"><TweenNum value={value} digits={meta.digits} /></span>
+            {/* The status word goes with the level; the helps/hurts word goes with the move. */}
+            <span className="game-move-strip-level">
+              <b>{meta.label.replace("Public ", "").replace("Unemployment", "Jobless")}</b> <span className="tabular-nums"><TweenNum value={value} digits={meta.digits} /></span>
+              {status ? <> · <span className={`game-status is-${status}`}>{STATUS_TEXT[status].toLowerCase()}</span></> : null}
+            </span>
             {Math.abs(d) >= 0.05 ? (
               <span className={`game-move-strip-d ${moveTone(objectives, d)}`}>
                 <Glyph name={d > 0 ? "up" : "down"} />
                 <TweenNum value={Math.abs(d)} digits={meta.digits} />
+                {deltaUnit(meta.unit)} <Valence tone={toneOf(objectives, d)} />
               </span>
             ) : null}
-            {status ? <span className={`game-status is-${status}`}>{STATUS_TEXT[status].toLowerCase()}</span> : null}
           </span>
         );
       })}
@@ -261,12 +270,6 @@ function WhyBars({ metric, state, prev }: { metric: MetricKey; state: QuarterSta
   );
 }
 
-const H = 84;
-const PAD = { l: 28, r: 94, t: 8, b: 20 };
-const FONT = 14;
-/** Words at the line ends, in place of a legend; "no change" is the framework's "had you changed nothing". */
-const GUTTER_GAP = 15;
-
 /** Two or three round ticks across [lo, hi] (4, 6, 8 rather than the series' own extremes). */
 function niceTicks(lo: number, hi: number): number[] {
   const span = hi - lo;
@@ -289,93 +292,205 @@ function dodge<T extends { y: number }>(items: T[], gap: number, lo: number, hi:
 }
 
 /** A goal's chart outside the goal column (the recap): reads the turn itself. */
-export function GoalChart({ metric, width = 300 }: { metric: MetricKey; width?: number }) {
+export function GoalChart({ metric, height = 104 }: { metric: MetricKey; height?: number }) {
   const { mission, actual, forecast, forecastStart, clock, comparison } = useTurn();
   const objectives = mission.objectives.filter((o) => o.metric === metric);
-  return <OutlookChart metric={metric} objectives={objectives} actual={actual} forecast={forecast} ghost={forecastStart} clock={clock} end={mission.quarters} comparison={comparison} width={width} />;
+  return <OutlookChart metric={metric} objectives={objectives} actual={actual} forecast={forecast} ghost={forecastStart} clock={clock} end={mission.quarters} comparison={comparison} height={height} />;
 }
 
-function OutlookChart({ metric, objectives, actual, forecast, ghost, clock, end, comparison, width: W = 300 }: { metric: MetricKey; objectives: Objective[]; actual: QuarterState[]; forecast: QuarterState[]; ghost: QuarterState[]; clock: number; end: number; comparison: QuarterState[] | null; width?: number }) {
+function OutlookChart({ metric, objectives, actual, forecast, ghost, clock, end, comparison, height = 120 }: { metric: MetricKey; objectives: Objective[]; actual: QuarterState[]; forecast: QuarterState[]; ghost: QuarterState[]; clock: number; end: number; comparison: QuarterState[] | null; height?: number }) {
   const meta = GAME_METRICS[metric];
-  const past = actual.slice(0, clock + 1).map((s) => s[metric]);
-  const fut = clock < end ? forecast.slice(clock, end + 1).map((s) => s[metric]) : [];
-  const gh = clock < end ? ghost.slice(clock, end + 1).map((s) => s[metric]) : [];
-  const ghostDiffers = gh.some((v, i) => Math.abs(v - fut[i]) > 0.01);
-  const comp = comparison ? comparison.slice(0, end + 1).map((s) => s[metric]) : [];
-  const values = [...past, ...fut, ...(ghostDiffers ? gh : []), ...comp, ...objectives.map((o) => o.threshold)];
+  return (
+    <Sparkline
+      label={meta.label}
+      digits={meta.digits}
+      past={actual.slice(0, clock + 1).map((s) => s[metric])}
+      fut={clock < end ? forecast.slice(clock, end + 1).map((s) => s[metric]) : []}
+      ghost={clock < end ? ghost.slice(clock, end + 1).map((s) => s[metric]) : []}
+      comp={comparison ? comparison.slice(0, end + 1).map((s) => s[metric]) : []}
+      goals={objectives}
+      clock={clock}
+      end={end}
+      height={height}
+    />
+  );
+}
+
+export type SparkGoal = { threshold: number; op: "<=" | ">="; bonus?: boolean };
+
+/** The chart box's width and its font size in CSS pixels, read after layout. */
+function useBox<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [box, setBox] = useState({ w: 0, fs: 15 });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      const w = Math.round(el.getBoundingClientRect().width);
+      const fs = parseFloat(getComputedStyle(el).fontSize) || 15;
+      setBox((b) => (b.w === w && b.fs === fs ? b : { w, fs }));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, box] as const;
+}
+
+/**
+ * One series chart for every screen (goal cards, the recap and the framework's Why tiles):
+ * drawn in CSS pixels at the full width of its column, so no label is ever scaled down; text
+ * is set at the box's font size (--t-sm). The outturn in ink, the forecast in blue, the
+ * no-change path dotted (named once by the panel's key), the goal as a solid ink rule
+ * labelled on the rule itself. Only the start value and the end value are labelled.
+ */
+export function Sparkline({ label, digits, past, fut, ghost = [], comp = [], goals = [], clock, end, height = 120 }: { label: string; digits: number; past: number[]; fut: number[]; ghost?: number[]; comp?: number[]; goals?: SparkGoal[]; clock: number; end: number; height?: number }) {
+  const [ref, { w: W, fs }] = useBox<HTMLSpanElement>();
+  const H = Math.max(80, height);
+  const ghostDiffers = ghost.length === fut.length && ghost.some((v, i) => Math.abs(v - fut[i]) > 0.01);
+  const judged = goals.filter((o) => !o.bonus);
+  const values = [...past, ...fut, ...(ghostDiffers ? ghost : []), ...comp, ...goals.map((o) => o.threshold)];
   let lo = Math.min(...values);
   let hi = Math.max(...values);
   if (hi - lo < 1) {
     lo -= 0.5;
     hi += 0.5;
   }
-  const pad = (hi - lo) * 0.1;
-  lo -= pad;
-  hi += pad;
+  const padV = (hi - lo) * 0.12;
+  lo -= padV;
+  hi += padV;
+  const ticks = niceTicks(lo, hi);
+  const tickDigits = ticks.some((t) => Math.abs(t - Math.round(t)) > 1e-6) ? 1 : 0;
+  const ch = fs * 0.6;
+  const last = fut.length ? fut[fut.length - 1] : past[past.length - 1];
+  const endText = fmtNum(last, digits);
+  const PAD = {
+    l: Math.ceil(Math.max(...ticks.map((t) => fmtNum(t, tickDigits).length)) * ch + 8),
+    r: Math.ceil(endText.length * ch + 14),
+    t: Math.ceil(fs * 0.5),
+    b: Math.ceil(fs + 8),
+  };
   const x = (t: number) => PAD.l + (t / end) * (W - PAD.l - PAD.r);
   const y = (v: number) => PAD.t + (1 - (v - lo) / (hi - lo)) * (H - PAD.t - PAD.b);
   const line = (vals: number[], from: number) => vals.map((v, i) => `${i === 0 ? "M" : "L"}${x(from + i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-  // A tick at the first quarter of each year.
   const years = Array.from({ length: Math.ceil(end / 4) }, (_, i) => 1 + i * 4).filter((t) => t < end);
-  const ticks = niceTicks(lo, hi);
-  const tickDigits = ticks.some((t) => Math.abs(t - Math.round(t)) > 1e-6) ? 1 : 0;
-  const last = fut.length ? fut[fut.length - 1] : past[past.length - 1];
-  const main = mainObjective(objectives);
-  const judged = objectives.filter((o) => !o.bonus);
-  // Words at the right-hand ends of the lines, dodged so they never collide.
-  const gutter = dodge(
-    [
-      ...judged.slice(0, 1).map((o) => ({ key: "goal", y: y(o.threshold) + 5, text: `goal ${o.op === "<=" ? "≤" : "≥"} ${fmtNum(o.threshold, meta.digits)}`, fill: "var(--lab-ink)", weight: 700 })),
-      ...(fut.length ? [{ key: "fc", y: y(last) + 5, text: fmtNum(last, meta.digits), sub: " forecast", fill: "var(--lab-scenario)", weight: 700 }] : []),
-      ...(ghostDiffers ? [{ key: "gh", y: y(gh[gh.length - 1]) + 5, text: "no change", fill: "var(--lab-ink-2)", weight: 400 }] : []),
-    ],
-    GUTTER_GAP,
-    PAD.t + 10,
-    H - PAD.b + 4,
-  );
   const lastPast = past[past.length - 1];
-  // "so far" above the past line's end, or under it when the forecast leaves upward.
-  const soFarBelow = fut.length > 1 && fut[1] > lastPast;
+  const main = judged[0];
+  const ariaLabel = `${label}: outturn so far and forecast, ending at ${endText}${main ? `; goal ${main.op === "<=" ? "≤" : "≥"} ${fmtNum(main.threshold, digits)}` : ""}`;
+  if (!W) return <span ref={ref} className="game-spark" style={{ height: H }} role="img" aria-label={ariaLabel} />;
+
+  // Collision pass: every label is a box that must clear the drawn series and the labels
+  // placed before it; each tries its candidate spots in order and takes the first clear one.
+  const series: { from: number; vals: number[] }[] = [{ from: 0, vals: past }, { from: clock, vals: fut }, ...(ghostDiffers ? [{ from: clock, vals: ghost }] : []), ...(comp.length ? [{ from: 0, vals: comp }] : [])];
+  const at = (sr: { from: number; vals: number[] }, t: number) => {
+    const k = t - sr.from;
+    if (k < 0 || k > sr.vals.length - 1) return null;
+    const a = Math.floor(k);
+    const b = Math.min(sr.vals.length - 1, a + 1);
+    return sr.vals[a] + (sr.vals[b] - sr.vals[a]) * (k - a);
+  };
+  type Box = { x: number; y: number; w: number };
+  const placed: Box[] = [];
+  // Horizontal rules a label must not sit on: gridlines, the baseline and the goal rules.
+  const rules = [...ticks.map(y), H - PAD.b, ...goals.map((o) => y(o.threshold))];
+  const hits = (b: Box, ownRule?: number) => {
+    const top = b.y - fs * 0.8 - 2;
+    const bottom = b.y + fs * 0.25 + 2;
+    if (top < 0 || bottom > H - PAD.b + 1) return 99;
+    let n = 0;
+    for (const r of rules) if (r !== ownRule && r > top + 1 && r < bottom - 1) n += 2;
+    for (let px = b.x - 2; px <= b.x + b.w + 2; px += 3) {
+      const t = ((px - PAD.l) / (W - PAD.l - PAD.r)) * end;
+      for (const sr of series) {
+        const v = at(sr, t);
+        if (v !== null && y(v) > top && y(v) < bottom) n++;
+      }
+    }
+    for (const p of placed) if (b.x < p.x + p.w + 4 && p.x < b.x + b.w + 4 && Math.abs(b.y - p.y) < fs * 1.1) n += 10;
+    return n;
+  };
+  const place = (cands: Box[], ownRule?: number) => {
+    let best = cands[0];
+    let score = Infinity;
+    for (const c of cands) {
+      const h = hits(c, ownRule);
+      if (h < score) {
+        best = c;
+        score = h;
+      }
+      if (h === 0) break;
+    }
+    placed.push(best);
+    return best;
+  };
+  // The start value (ink), at the first point: above it or below it.
+  const startText = fmtNum(past[0], digits);
+  const startW = startText.length * ch;
+  const y0 = y(past[0]);
+  // Never on the dot's own baseline, where the dot would read as a minus sign.
+  const start = place(
+    [-7, -7 - fs * 0.5, fs * 0.8 + 6, fs * 1.3 + 6].flatMap((dy) => [
+      { x: x(0) + 2, y: y0 + dy, w: startW },
+      { x: x(0) + 2 + fs, y: y0 + dy, w: startW },
+    ]),
+  );
+  // The forecast's end value (blue), right of its dot, clear of the start label by 1.1em.
+  const ends = dodge([{ key: "end", y: y(last) + fs * 0.35, text: endText, fill: fut.length ? "var(--lab-scenario)" : "var(--lab-ink)" }], fs * 1.1, PAD.t + fs * 0.8, H - PAD.b);
+  // The goal, on its own rule and left-aligned: above it or under it, at the left, then
+  // the middle, then the right of the plot, wherever no line or label crosses it.
+  const goalWords = main ? `goal ${main.op === "<=" ? "≤" : "≥"} ${fmtNum(main.threshold, digits)}` : "";
+  const goalW = goalWords.length * ch;
+  const yT = main ? y(main.threshold) : 0;
+  const plotW = W - PAD.l - PAD.r;
+  const goal = main
+    ? place(
+        [PAD.l + 4, PAD.l + plotW * 0.4, PAD.l + plotW - goalW - 4, PAD.l + plotW * 0.2, PAD.l + plotW * 0.6]
+          .filter((gx) => gx + goalW <= W - PAD.r + 2)
+          .flatMap((gx) => [
+            { x: gx, y: yT - 4, w: goalW },
+            { x: gx, y: yT + fs * 0.8 + 3, w: goalW },
+          ]),
+        yT,
+      )
+    : null;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="game-outlook mt-1.5 block w-full" role="img" aria-label={`${meta.label}: outturn so far and forecast to ${quarterLabel(end)}, ending at ${fmtNum(last, meta.digits)}${main ? `; ${goalText(main, meta.digits)}` : ""}`}>
-      {ticks.map((t) => (
-        <g key={t}>
-          <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} stroke="var(--lab-line)" strokeWidth={1} />
-          <text x={PAD.l - 5} y={y(t) + 5} fontSize={FONT - 1} textAnchor="end" fill="var(--lab-ink-2)">{fmtNum(t, tickDigits)}</text>
+    <span ref={ref} className="game-spark">
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ width: W, height: H, margin: 0 }} className="game-outlook" role="img" aria-label={ariaLabel}>
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} stroke="var(--lab-line)" strokeWidth={1} />
+            <text x={PAD.l - 6} y={y(t) + fs * 0.35} fontSize={fs} textAnchor="end" fill="var(--lab-ink-2)">{fmtNum(t, tickDigits)}</text>
+          </g>
+        ))}
+        <line x1={PAD.l} x2={W - PAD.r} y1={H - PAD.b} y2={H - PAD.b} stroke="var(--lab-ink)" strokeWidth={1} />
+        {years.map((t) => (
+          <g key={t}>
+            <line x1={x(t)} x2={x(t)} y1={H - PAD.b} y2={H - PAD.b + 4} stroke="var(--lab-ink)" />
+            <text x={x(t) + 3} y={H - 3} fontSize={fs} fill="var(--lab-ink-2)">
+              {getStartYear() + (t - 1) / 4}
+            </text>
+          </g>
+        ))}
+        {goals.map((o, i) => {
+          const yT = y(o.threshold);
+          // The goal: a solid ink hairline across the plot; a bonus target is dotted.
+          return <line key={i} x1={PAD.l} x2={W - PAD.r} y1={yT} y2={yT} stroke="var(--lab-ink)" strokeOpacity={o.bonus ? 0.45 : 1} strokeWidth={o.bonus ? 1 : 1.25} strokeDasharray={o.bonus ? "2 3" : undefined} />;
+        })}
+        {comp.length ? <path d={line(comp, 0)} fill="none" stroke="var(--lab-ink)" strokeOpacity={0.3} strokeWidth={2} strokeLinejoin="round" /> : null}
+        {ghostDiffers ? <path d={line(ghost, clock)} fill="none" stroke="var(--lab-ink-2)" strokeWidth={1.5} strokeDasharray="1.5 3.5" strokeLinecap="round" /> : null}
+        {fut.length ? <path d={line(fut, clock)} fill="none" stroke="var(--lab-scenario)" strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" className="game-forecast-line" /> : null}
+        <path d={line(past, 0)} fill="none" stroke="var(--lab-ink)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        <g fontSize={fs} stroke="var(--lab-paper)" strokeWidth={5} strokeLinejoin="round" paintOrder="stroke">
+          <text x={start.x} y={start.y} fontWeight={600} fill="var(--lab-ink)">{startText}</text>
+          {goal ? <text x={goal.x} y={goal.y} fontWeight={700} fill="var(--lab-ink)">{goalWords}</text> : null}
         </g>
-      ))}
-      {objectives.map((o) => {
-        const yT = y(o.threshold);
-        // The goal: a solid ink rule across the chart, labelled in the gutter; a bonus target is dotted.
-        return <line key={o.id} x1={PAD.l} x2={W - PAD.r + 2} y1={yT} y2={yT} stroke="var(--lab-ink)" strokeOpacity={o.bonus ? 0.45 : 1} strokeWidth={o.bonus ? 1 : 1.5} strokeDasharray={o.bonus ? "2 3" : undefined} />;
-      })}
-      <line x1={PAD.l} x2={W - PAD.r} y1={H - PAD.b} y2={H - PAD.b} stroke="var(--lab-ink)" strokeWidth={1} />
-      {years.map((t) => (
-        <g key={t}>
-          <line x1={x(t)} x2={x(t)} y1={H - PAD.b} y2={H - PAD.b + 4} stroke="var(--lab-ink)" />
-          <text x={x(t) + 3} y={H - 4} fontSize={FONT - 1} fill="var(--lab-ink-2)">
-            {getStartYear() + (t - 1) / 4}
-          </text>
-        </g>
-      ))}
-      {comp.length ? <path d={line(comp, 0)} fill="none" stroke="var(--lab-ink)" strokeOpacity={0.3} strokeWidth={2} strokeLinejoin="round" /> : null}
-      {ghostDiffers ? <path d={line(gh, clock)} fill="none" stroke="var(--lab-ink-2)" strokeWidth={1.25} strokeDasharray="1.5 3" strokeLinecap="round" /> : null}
-      {fut.length ? <path d={line(fut, clock)} fill="none" stroke="var(--lab-scenario)" strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" className="game-forecast-line" /> : null}
-      <path d={line(past, 0)} fill="none" stroke="var(--lab-ink)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={x(clock)} cy={y(lastPast)} r={3.5} fill="var(--lab-ink)" stroke="var(--lab-paper)" strokeWidth={1.5} />
-      {clock >= 2 ? (
-        <text x={clock / end < 0.3 ? x(clock) + 6 : clock >= end ? x(clock) - 6 : x(clock)} y={soFarBelow ? Math.min(H - PAD.b - 3, y(lastPast) + 15) : Math.max(PAD.t + 9, y(lastPast) - 7)} fontSize={FONT - 1} textAnchor={clock / end < 0.3 ? "start" : clock >= end ? "end" : "middle"} fill="var(--lab-ink)" stroke="var(--lab-paper)" strokeWidth={3} paintOrder="stroke">
-          so far
-        </text>
-      ) : null}
-      {fut.length ? <circle cx={x(end)} cy={y(last)} r={4} fill="var(--lab-scenario)" stroke="var(--lab-paper)" strokeWidth={1.5} /> : null}
-      {gutter.map((g) => (
-        <text key={g.key} x={W - PAD.r + 8} y={g.y} fontSize={FONT} fontWeight={g.weight} textAnchor="start" fill={g.fill}>
-          {g.text}
-          {"sub" in g && g.sub ? <tspan fontWeight={400}>{g.sub}</tspan> : null}
-        </text>
-      ))}
-    </svg>
+        <circle cx={x(0)} cy={y0} r={3} fill="var(--lab-ink)" />
+        <circle cx={x(clock)} cy={y(lastPast)} r={3.5} fill="var(--lab-ink)" stroke="var(--lab-paper)" strokeWidth={1.5} />
+        {fut.length ? <circle cx={x(end)} cy={y(last)} r={4} fill="var(--lab-scenario)" stroke="var(--lab-paper)" strokeWidth={1.5} /> : null}
+        {ends.map((e) => (
+          <text key={e.key} x={x(end) + 8} y={e.y} fontSize={fs} fontWeight={700} fill={e.fill}>{e.text}</text>
+        ))}
+      </svg>
+    </span>
   );
 }

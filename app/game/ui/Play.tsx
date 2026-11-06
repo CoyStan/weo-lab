@@ -13,6 +13,7 @@ import Glyph from "./Glyph";
 import Capital from "./Capital";
 import Reforms from "./Reforms";
 import { Segmented } from "../../components/ui";
+import { useStickyH } from "../../components/strip";
 import { useTurn } from "../useTurn";
 import { canAdopt } from "../politics";
 import Advisors from "./Advisors";
@@ -65,23 +66,9 @@ export default function Play({ scene }: { scene: ReactNode }) {
   const preset = getPreset(mission.presetId);
   const done = clock >= mission.quarters;
   const news = useMemo(() => events.filter((e) => e.quarter === clock && e.kind !== "decision"), [events, clock]);
-  // Phones: the End bar is fixed to the bottom; its height becomes --game-footer-h, so the
-  // scroll area can end clear of it (see game.css).
+  // Phones: the End bar is a fixed dock; its height becomes --sticky-h on the page, so the
+  // scroll area ends clear of it and focused levers are never hidden under it (game.css).
   const footRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = footRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const root = document.documentElement;
-    const ro = new ResizeObserver(() => {
-      const fixed = getComputedStyle(el).position === "fixed";
-      root.style.setProperty("--game-footer-h", fixed ? `${Math.ceil(el.getBoundingClientRect().height)}px` : "0px");
-    });
-    ro.observe(el);
-    return () => {
-      ro.disconnect();
-      root.style.removeProperty("--game-footer-h");
-    };
-  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -115,6 +102,30 @@ export default function Play({ scene }: { scene: ReactNode }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Wide screens: the commit sits in the lever rail, right under the levers it commits;
+  // narrower ones dock it to the bottom of the screen.
+  const wide = useMedia("(min-width: 1180px)");
+  useStickyH(footRef, wide);
+  const commit = (
+      <div className={`game-end ${wide ? "is-rail" : ""}`} ref={footRef}>
+        <div className="game-agenda-bar">
+          <Agenda />
+        </div>
+        <MoveStrip />
+        <span className={`game-end-note ${modal || run ? "is-waiting" : ""}`}>
+          {modal ? `Waiting: close the ${modal.kind === "recap" ? "recap" : modal.kind === "shock" ? "news card" : "debrief"} first.` : run ? "Waiting: quarters are playing." : changed ? "You changed policy this quarter." : "No changes: policy carries on as it is."}
+        </span>
+        <button type="button" className="game-end-btn" onClick={endQuarter} disabled={Boolean(modal) || done || Boolean(run)}>
+          End {quarterLabel(clock + 1)}
+          <kbd>Enter</kbd>
+        </button>
+        <button type="button" className="game-skip-btn" onClick={skipAhead} disabled={Boolean(modal) || done || Boolean(run)} title="Play quarter after quarter until something needs a decision (F)">
+          Skip quiet quarters <Glyph name="skip" />
+          <kbd>F</kbd>
+        </button>
+      </div>
+  );
 
   return (
     <div className="game-play">
@@ -182,16 +193,9 @@ export default function Play({ scene }: { scene: ReactNode }) {
           <div className="game-agenda-top">
             <Agenda />
           </div>
-          {panel === "levers" ? (
-            <>
-              <Levers />
-              <DecisionLog />
-              <Hint text={mission.hint} />
-              <FreePlayLink />
-            </>
-          ) : (
-            <Reforms />
-          )}
+          {panel === "levers" ? <Levers /> : <Reforms />}
+          {wide ? commit : null}
+          {panel === "levers" && !wide ? <DecisionLog /> : null}
         </aside>
 
         <section className="game-stage" aria-label="Island">
@@ -210,29 +214,14 @@ export default function Play({ scene }: { scene: ReactNode }) {
           </div>
           <div className="game-stage-foot">
             <Advisors />
-            <div className="game-end" ref={footRef}>
-              <div className="game-agenda-bar">
-                <Agenda />
-              </div>
-              <MoveStrip />
-              <span className={`game-end-note ${modal || run ? "is-waiting" : ""}`}>
-                {modal ? `Waiting: close the ${modal.kind === "recap" ? "recap" : modal.kind === "shock" ? "news card" : "debrief"} first.` : run ? "Waiting: quarters are playing." : changed ? "You changed policy this quarter." : "No changes: policy carries on as it is."}
-              </span>
-              <button type="button" className="game-end-btn" onClick={endQuarter} disabled={Boolean(modal) || done || Boolean(run)}>
-                End {quarterLabel(clock + 1)}
-                <kbd>Enter</kbd>
-              </button>
-              <button type="button" className="game-skip-btn" onClick={skipAhead} disabled={Boolean(modal) || done || Boolean(run)} title="Play quarter after quarter until something needs a decision (F)">
-                Skip quiet quarters <Glyph name="skip" />
-                <kbd>F</kbd>
-              </button>
-            </div>
+            {wide ? null : commit}
           </div>
         </section>
 
         <aside className="game-col game-col-goals" aria-label="Goals">
           <h2 className="game-col-title">Goals</h2>
           <Goals />
+          {wide ? <DecisionLog /> : null}
         </aside>
       </main>
     </div>
@@ -292,7 +281,8 @@ function useSceneCues() {
       .filter((x) => Math.abs(x.d) >= 0.1)
       .sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
     const cue: Partial<Record<FocusKey, SceneCue>> = {};
-    for (const { m, d } of moves.slice(0, 1)) {
+    // A callout on every district that moved (the two biggest moves), not just the first.
+    for (const { m, d } of moves.slice(0, 2)) {
       const meta = GAME_METRICS[m];
       cue[m as FocusKey] = { label: meta.label.toLowerCase(), up: d > 0, size: `${fmtNum(Math.abs(d), meta.digits)}${deltaUnit(meta.unit)}` };
     }
@@ -302,7 +292,9 @@ function useSceneCues() {
   useEffect(() => {
     if (hadModal.current && !modal) useLab.setState({ sceneCue: {} });
     hadModal.current = Boolean(modal);
+    useLab.setState({ sceneCalm: modal?.kind === "recap" });
   }, [modal]);
+  useEffect(() => () => useLab.setState({ sceneCalm: false }), []);
 }
 
 /**
@@ -328,7 +320,7 @@ function SceneStrip() {
         const unit = unitShort(meta.unit);
         return (
           <span key={k}>
-            {meta.label} <b className="tabular-nums">{fmtNum(now[k], k === "rate" ? 2 : meta.digits)}{unit === "%" ? "%" : unit}</b>
+            {meta.label} <b className="tabular-nums">{k === "rate" ? String(+now[k].toFixed(2)) : fmtNum(now[k], meta.digits)}{unit === "%" ? "%" : unit}</b>
           </span>
         );
       })}
@@ -361,7 +353,7 @@ function DecisionLog() {
   const config = useLab((s) => s.config);
   const clock = useLab((s) => s.clock);
   // Wide screens have the room: the record starts open in the lever column.
-  const wide = useWide();
+  const wide = useMedia("(min-width: 1180px) and (min-height: 760px)");
   const start = turns[0];
   if (!start) return null;
   const inherited = new Set(start.decisions.map((d) => JSON.stringify(d)));
@@ -394,11 +386,17 @@ function DecisionLog() {
   );
 }
 
-/** True on screens wide enough for the three-column table (read once, after mount). */
-function useWide(query = "(min-width: 1180px) and (min-height: 760px)") {
-  const [wide, setWide] = useState(false);
-  useEffect(() => setWide(window.matchMedia(query).matches), [query]);
-  return wide;
+/** A media query, kept live (false on the server and in the first render). */
+function useMedia(query: string) {
+  const [match, setMatch] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const on = () => setMatch(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, [query]);
+  return match;
 }
 
 /** Everything that isn't the turn: the framework (phones), sound, settings, missions, restart. */
@@ -410,6 +408,7 @@ function HudMenu({ clock }: { clock: number }) {
   const muted = useSettings((s) => s.muted);
   const setSettings = useSettings((s) => s.set);
   const setSettingsOpen = useSettings((s) => s.setOpen);
+  const openSandbox = useGame((s) => s.openSandbox);
   const ref = useRef<HTMLDetailsElement>(null);
   const close = () => ref.current?.removeAttribute("open");
   return (
@@ -433,6 +432,8 @@ function HudMenu({ clock }: { clock: number }) {
         >
           Sound: {muted ? "off" : "on"}
         </button>
+        <MenuHint close={close} />
+        <button type="button" role="menuitem" onClick={() => { close(); openSandbox(true); }}>Open in free play</button>
         <button type="button" role="menuitem" onClick={() => { close(); setSettingsOpen(true); }}>Settings</button>
         <button type="button" role="menuitem" onClick={() => setScreen("missions")}>All missions</button>
         <button type="button" role="menuitem" onClick={restart}>Restart this mission</button>
@@ -507,13 +508,15 @@ function RunTicker() {
   );
 }
 
-function Hint({ text }: { text: string }) {
+/** "Need a hint?" lives in the menu: one press shows the mission's hint in place. */
+function MenuHint({ close }: { close: () => void }) {
+  const { mission } = useTurn();
   const [open, setOpen] = useState(false);
   return (
-    <div className="game-hint-box">
+    <>
       <button
         type="button"
-        className="game-why"
+        role="menuitem"
         aria-expanded={open}
         onClick={() => {
           if (!open) sound.play("pluck");
@@ -522,16 +525,11 @@ function Hint({ text }: { text: string }) {
       >
         {open ? "Hide the hint" : "Need a hint?"}
       </button>
-      {open ? <p>{text}</p> : null}
-    </div>
-  );
-}
-
-function FreePlayLink() {
-  const openSandbox = useGame((s) => s.openSandbox);
-  return (
-    <button type="button" className="game-freeplay" onClick={() => openSandbox(true)}>
-      Open this scenario in free play to see every indicator, chart and lever.
-    </button>
+      {open ? (
+        <p className="game-menu-hint" role="note" onClick={close}>
+          {mission.hint}
+        </p>
+      ) : null}
+    </>
   );
 }

@@ -142,7 +142,10 @@ function WeatherBridge({ reducedMotion }: { reducedMotion: boolean }) {
   const presetId = useLab((s) => s.config.presetId);
   const spreadBase = getPreset(presetId).params.spreadBase;
   const badShock = current.activeShocks.some((k) => SHOCKS[k].severity === "bad");
-  const storm = badShock ? 1 : clamp((current.spread - spreadBase) / 900, 0, 0.6);
+  // While the recap is open the sky clears to a light haze, so the payoff reads in full colour.
+  const calm = useLab((s) => s.sceneCalm);
+  const raw = badShock ? 1 : clamp((current.spread - spreadBase) / 900, 0, 0.6);
+  const storm = calm ? Math.min(raw, 0.15) : raw;
   return (
     <>
       <Weather storm={storm} reducedMotion={reducedMotion} />

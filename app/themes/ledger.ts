@@ -1144,12 +1144,6 @@ const theme: LabTheme = {
 .lab[data-theme="ledger"] .game-fw-head h2 {
   font-size: var(--t-lg);
 }
-.lab[data-theme="ledger"] .game-fw-tabs {
-  background: var(--lab-paper);
-  gap: 0;
-  margin-top: 0.8rem;
-  border-bottom: 1px solid var(--lab-ink);
-}
 .lab[data-theme="ledger"] .game-fw-tabs button {
   border: 0;
   border-left: 1px solid var(--lab-line-strong);
@@ -1244,14 +1238,6 @@ const theme: LabTheme = {
   background: transparent;
   color: var(--lab-focus);
 }
-/* Second-level navigation everywhere: underline text tabs. */
-.lab[data-theme="ledger"] .game-fw-jump {
-  flex-wrap: nowrap;
-  gap: 0;
-  overflow-x: auto;
-  border-bottom: 1px solid var(--lab-line-strong);
-  scrollbar-width: none;
-}
 .lab[data-theme="ledger"] .game-fw-jump button {
   flex: none;
   border: 0;
@@ -1320,17 +1306,6 @@ const theme: LabTheme = {
   border: 0;
   border-top: 1px solid var(--lab-ink);
   padding: 0.6rem 0 0;
-}
-/* The indicator strip: one scrollable row of underline tabs, fading at the edge. */
-.lab[data-theme="ledger"] .game-dc-metrics {
-  flex-wrap: nowrap;
-  gap: 0;
-  overflow-x: auto;
-  border-bottom: 1px solid var(--lab-line-strong);
-  scrollbar-width: none;
-  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 2.5rem), transparent);
-  mask-image: linear-gradient(90deg, #000 calc(100% - 2.5rem), transparent);
-  padding-right: 2rem;
 }
 .lab[data-theme="ledger"] .game-dc-metrics button {
   flex: none;
@@ -1410,7 +1385,7 @@ const theme: LabTheme = {
   font-size: var(--t-sm);
   line-height: 1.2;
   box-shadow: none !important;
-  translate: 0 var(--dodge, 0px);
+  translate: var(--nudge, 0px) var(--dodge, 0px);
   transition: translate var(--dur) var(--ease), opacity 160ms ease;
 }
 .lab[data-theme="ledger"].is-reduced .lab-scene-label {
@@ -1431,7 +1406,7 @@ const theme: LabTheme = {
   width: 1px;
   height: calc(14px - var(--dodge, 0px));
   border: 0;
-  transform: translateX(-50%);
+  transform: translateX(calc(-50% - var(--nudge, 0px)));
   background: var(--lab-ink);
 }
 .lab[data-theme="ledger"] .lab-scene-label .lab-banner-icon {
@@ -1734,14 +1709,6 @@ const theme: LabTheme = {
   .lab[data-theme="ledger"] .game-missions {
     padding: 0.9rem 0.9rem 1.1rem;
   }
-  .lab[data-theme="ledger"] .game-missions-head .lab-segmented {
-    max-width: 100%;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .lab[data-theme="ledger"] .game-missions-head .lab-segmented button {
-    flex: none;
-  }
 }
 /* Title screen, phones: the name on two lines at most; the primary button full width and
    the two secondary ones sharing a row. */
@@ -1912,17 +1879,16 @@ const theme: LabTheme = {
 .lab[data-theme="ledger"] .game-card {
   border-bottom: 3px double var(--lab-ink);
 }
+/* The framework frame hangs from a fixed top offset at one fixed height (game.css): its
+   title and tabs hold still while the panes cross-fade; only the body scrolls. */
 .lab[data-theme="ledger"] .game-fw-backdrop {
-  align-items: center;
-  padding: 1rem;
+  align-items: flex-start;
+  padding: 0 1rem;
 }
 .lab[data-theme="ledger"] .game-fw {
-  margin: auto 0;
-  max-height: calc(100dvh - 2rem);
-}
-.lab[data-theme="ledger"] .game-fw-body {
-  -webkit-mask-image: none;
-  mask-image: none;
+  margin: 1.5rem 0 0;
+  height: min(calc(100dvh - 3rem), 960px);
+  max-height: none;
 }
 @media (min-width: 1100px) {
   .lab[data-theme="ledger"] .game-modal-backdrop.is-recap {
@@ -1931,14 +1897,21 @@ const theme: LabTheme = {
     padding: 0;
   }
   .lab[data-theme="ledger"] .game-modal-backdrop.is-recap > .game-recap {
-    width: 560px;
+    width: var(--recap-w);
     max-width: 100%;
     height: 100dvh;
     margin: 0;
-    overflow-y: auto;
+    overflow: hidden;
     border: 0;
     border-left: 3px double var(--lab-ink);
-    padding: 1.2rem 1.6rem 1.4rem;
+    padding: 0;
+  }
+  .lab[data-theme="ledger"] .game-recap > .game-recap-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 1.2rem 1.6rem 1rem;
   }
 }
 /* The verdict leads, in bold ink with its square; the bonus-star line sits under it. */
@@ -2009,21 +1982,35 @@ const theme: LabTheme = {
     max-height: 72dvh;
   }
   .lab[data-theme="ledger"] .game-modal-backdrop > .game-card.game-fw {
-    height: 92dvh;
+    height: 100dvh;
     min-height: 0;
     overflow: hidden;
   }
-  .lab[data-theme="ledger"] .game-recap > .flex:last-child,
   .lab[data-theme="ledger"] .game-fw-head {
     position: sticky;
     z-index: 2;
     background: var(--lab-paper);
   }
-  .lab[data-theme="ledger"] .game-recap > .flex:last-child {
-    bottom: calc(-1rem - env(safe-area-inset-bottom));
-    margin-inline: -1rem;
-    margin-bottom: calc(-1rem - env(safe-area-inset-bottom));
+  /* The recap sheet: its body scrolls, its actions bar sits below the body on a solid
+     paper ground with its own top rule, so no text passes under it. */
+  .lab[data-theme="ledger"] .game-modal-backdrop.is-recap > .game-card.game-recap {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+  }
+  .lab[data-theme="ledger"] .game-recap > .game-recap-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 1rem 1rem 0.75rem;
+  }
+  .lab[data-theme="ledger"] .game-recap > .game-recap-actions {
+    flex: none;
+    margin: 0;
     border-top: 1px solid var(--lab-ink);
+    background: var(--lab-paper);
     padding: 0.6rem 1rem calc(0.6rem + env(safe-area-inset-bottom));
   }
   .lab[data-theme="ledger"] .game-fw-head {
@@ -2034,7 +2021,7 @@ const theme: LabTheme = {
 /* Phones: the scroll area ends clear of the fixed goals strip and End bar. */
 @media (max-width: 1179px) {
   .lab[data-theme="ledger"] .game-play {
-    padding-bottom: calc(var(--game-footer-h, 9rem) + env(safe-area-inset-bottom) + 16px);
+    padding-bottom: calc(var(--sticky-h, 9rem) + env(safe-area-inset-bottom) + 1rem);
   }
 }
 
@@ -2046,39 +2033,6 @@ const theme: LabTheme = {
   border-radius: 0;
 }
 
-/* Overflowing tab strips: wrap on desktop; on phones scroll with snap and a paper edge. */
-@media (min-width: 641px) {
-  .lab[data-theme="ledger"] .game-dc-metrics,
-  .lab[data-theme="ledger"] .game-fw-jump {
-    flex-wrap: wrap;
-    overflow: visible;
-    -webkit-mask-image: none;
-    mask-image: none;
-    padding-right: 0;
-  }
-}
-@media (max-width: 640px) {
-  .lab[data-theme="ledger"] .game-dc-metrics,
-  .lab[data-theme="ledger"] .game-fw-jump,
-  .lab[data-theme="ledger"] .game-missions-head .lab-segmented {
-    scroll-snap-type: x proximity;
-    -webkit-mask-image: linear-gradient(to right, #000 85%, transparent);
-    mask-image: linear-gradient(to right, #000 85%, transparent);
-    padding-right: 2rem;
-  }
-  .lab[data-theme="ledger"] .game-dc-metrics > *,
-  .lab[data-theme="ledger"] .game-fw-jump > *,
-  .lab[data-theme="ledger"] .game-missions-head .lab-segmented > * {
-    scroll-snap-align: start;
-  }
-}
-/* Sector tabs: real underline tabs that stay in view while the accounts scroll. */
-.lab[data-theme="ledger"] .game-fw-jump {
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  background: var(--lab-paper);
-}
 
 /* Framework tabs: a small ink numeral on the title's baseline, no boxed badge. */
 .lab[data-theme="ledger"] .game-fw-tab-n {
@@ -2434,38 +2388,6 @@ const theme: LabTheme = {
   }
 }
 
-/* One pattern for every tab row that can overflow: one line, scroll with snap, no bar,
-   and a paper fade at the right edge so a cut tab reads as "more this way". */
-.lab[data-theme="ledger"] .game-missions-head .lab-segmented,
-.lab[data-theme="ledger"] .game-fw-tabs,
-.lab[data-theme="ledger"] .game-dc-metrics,
-.lab[data-theme="ledger"] .game-fw-jump {
-  display: flex;
-  flex-wrap: nowrap;
-  max-width: 100%;
-  overflow-x: auto;
-  white-space: nowrap;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
-  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
-  padding-right: 32px;
-}
-.lab[data-theme="ledger"] .game-missions-head .lab-segmented::-webkit-scrollbar,
-.lab[data-theme="ledger"] .game-fw-tabs::-webkit-scrollbar,
-.lab[data-theme="ledger"] .game-dc-metrics::-webkit-scrollbar,
-.lab[data-theme="ledger"] .game-fw-jump::-webkit-scrollbar {
-  display: none;
-}
-.lab[data-theme="ledger"] .game-missions-head .lab-segmented > *,
-.lab[data-theme="ledger"] .game-fw-tabs > *,
-.lab[data-theme="ledger"] .game-dc-metrics > *,
-.lab[data-theme="ledger"] .game-fw-jump > * {
-  flex: none;
-  scroll-snap-align: start;
-  white-space: nowrap;
-}
-
 /* Shock card: four numbered decisions, not a printed list. Each is a full-width ink-ruled
    button with its key on the left and "Choose" on the right, which fills on hover/focus. */
 .lab[data-theme="ledger"] .game-choices {
@@ -2676,9 +2598,8 @@ const theme: LabTheme = {
     flex-direction: column;
   }
   .lab[data-theme="ledger"] .game-recap .game-recap-actions {
-    position: sticky;
-    bottom: -1.4rem;
-    margin: auto -1.6rem -1.4rem;
+    flex: none;
+    margin: 0;
     border-top: 1px solid var(--lab-ink);
     background: var(--lab-paper);
     padding: 0.8rem 1.6rem 1.2rem;
@@ -2820,12 +2741,6 @@ const theme: LabTheme = {
 }
 
 /* Why tiles: charts tall enough to read, with an end dot and the 2027Q4 value. */
-.lab[data-theme="ledger"] .game-fw-tile svg.game-fw-spark {
-  width: 100%;
-  height: auto;
-  max-height: 120px;
-  margin: 0.35rem 0 0.2rem;
-}
 .lab[data-theme="ledger"] .game-fw-tile-ends {
   font-size: var(--t-xs);
   color: var(--lab-ink-2);
@@ -2836,7 +2751,7 @@ const theme: LabTheme = {
    and the turn's buttons step out until the group plans the next quarter. */
 @media (min-width: 1180px) {
   .lab[data-theme="ledger"]:has(.game-modal-backdrop.is-recap) .game-play {
-    margin-right: 560px;
+    margin-right: var(--recap-w);
   }
   .lab[data-theme="ledger"]:has(.game-modal-backdrop.is-recap) .game-grid {
     grid-template-columns: 18rem minmax(0, 1fr);
@@ -2853,6 +2768,675 @@ const theme: LabTheme = {
 .lab[data-theme="ledger"] .game-fw-legend i.is-forecast {
   border-top: 2.5px solid var(--lab-scenario);
 }
+/* ---- Ledger council, round 4 ------------------------------------------------ */
+
+/* One type scale with a big-screen step: from 1280px every step grows, so a shared screen
+   read from a sofa never sets secondary text under 16px. Chart axes use --t-xs too: nothing
+   is set smaller than --t-xs anywhere. */
+.lab[data-theme="ledger"] {
+  --t-axis: var(--t-xs);
+  --recap-w: clamp(560px, 48vw, 920px);
+}
+@media (min-width: 1280px) {
+  .lab[data-theme="ledger"] {
+    --t-xs: 1rem;
+    --t-sm: 1.0625rem;
+    --t-md: 1.1875rem;
+    --t-lg: 1.5rem;
+  }
+}
+
+/* Tab strips: one pattern. The rule is drawn by an unmasked wrapper, so it always runs the
+   full width; a strip scrolls, snaps and fades its right edge only while its tabs do not
+   fit ([data-overflow="true"], set by useStripOverflow). Every tab stretches to the rule. */
+.lab[data-theme="ledger"] .game-strip {
+  position: relative;
+  max-width: 100%;
+  border-bottom: 1px solid var(--lab-line-strong);
+  background: var(--lab-paper);
+}
+.lab[data-theme="ledger"] .game-fw-tabs-strip {
+  margin-top: 0.8rem;
+  border-bottom-color: var(--lab-ink);
+}
+.lab[data-theme="ledger"] .game-fw-jump-strip {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+.lab[data-theme="ledger"] .game-strip > .game-fw-tabs,
+.lab[data-theme="ledger"] .game-strip > .game-dc-metrics,
+.lab[data-theme="ledger"] .game-strip > .game-fw-jump,
+.lab[data-theme="ledger"] .game-missions-head .lab-segmented {
+  position: static;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0;
+  max-width: 100%;
+  margin: 0;
+  overflow: visible;
+  border-bottom: 0;
+  background: transparent;
+  padding: 0;
+  white-space: nowrap;
+  scrollbar-width: none;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.lab[data-theme="ledger"] .game-missions-head .lab-segmented {
+  border: 1px solid var(--lab-ink);
+}
+.lab[data-theme="ledger"] .game-strip > .game-fw-tabs > *,
+.lab[data-theme="ledger"] .game-strip > .game-dc-metrics > *,
+.lab[data-theme="ledger"] .game-strip > .game-fw-jump > *,
+.lab[data-theme="ledger"] .game-missions-head .lab-segmented > * {
+  flex: none;
+  align-self: stretch;
+  white-space: nowrap;
+}
+.lab[data-theme="ledger"] .game-strip > .game-fw-tabs[data-overflow="true"],
+.lab[data-theme="ledger"] .game-strip > .game-dc-metrics[data-overflow="true"],
+.lab[data-theme="ledger"] .game-strip > .game-fw-jump[data-overflow="true"],
+.lab[data-theme="ledger"] .game-missions-head .lab-segmented[data-overflow="true"] {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 2rem;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+  padding-right: 2.5rem;
+}
+.lab[data-theme="ledger"] .game-strip > [data-overflow="true"]::-webkit-scrollbar,
+.lab[data-theme="ledger"] .game-missions-head .lab-segmented::-webkit-scrollbar {
+  display: none;
+}
+.lab[data-theme="ledger"] [data-overflow="true"] > * {
+  scroll-snap-align: start;
+}
+/* Framework tabs: the same padding in every state, so the black slab reaches the rule and
+   holds its subtitle; a divider before every tab but the first, whatever its state. */
+.lab[data-theme="ledger"] .game-fw-tabs button,
+.lab[data-theme="ledger"] .game-fw-tabs button:hover,
+.lab[data-theme="ledger"] .game-fw-tabs button.is-on {
+  display: flex;
+  align-items: flex-start;
+  border: 0;
+  border-left: 1px solid var(--lab-line-strong);
+  padding: 0.55rem 0.8rem 0.6rem;
+  text-align: left;
+}
+.lab[data-theme="ledger"] .game-fw-tabs button:first-child {
+  border-left: 0;
+}
+.lab[data-theme="ledger"] .game-fw-tabs button.is-on + button {
+  border-left-color: var(--lab-ink);
+}
+.lab[data-theme="ledger"] .game-fw-tabs strong {
+  display: block;
+  line-height: 1.2;
+}
+.lab[data-theme="ledger"] .game-fw-tabs small {
+  display: block;
+  margin-top: 0.1rem;
+  line-height: 1.25;
+}
+.lab[data-theme="ledger"] .game-fw-tab-short {
+  display: none;
+}
+/* Phones: short labels, no subtitles; the four tabs share the width without scrolling. */
+@media (max-width: 600px) {
+  .lab[data-theme="ledger"] .game-fw-tabs button,
+  .lab[data-theme="ledger"] .game-fw-tabs button:hover,
+  .lab[data-theme="ledger"] .game-fw-tabs button.is-on {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: 0.5rem 0.35rem;
+    text-align: center;
+  }
+  .lab[data-theme="ledger"] .game-fw-tabs small,
+  .lab[data-theme="ledger"] .game-fw-tab-long {
+    display: none;
+  }
+  .lab[data-theme="ledger"] .game-fw-tab-short {
+    display: inline;
+  }
+  .lab[data-theme="ledger"] .game-fw-tabs strong {
+    font-size: var(--t-sm);
+  }
+  .lab[data-theme="ledger"] .game-fw-tab-n {
+    margin-right: 0.3em;
+  }
+}
+/* Wide screens: the eleven indicators wrap to two rows instead of scrolling. */
+@media (min-width: 900px) {
+  .lab[data-theme="ledger"] .game-strip > .game-dc-metrics {
+    flex-wrap: wrap;
+  }
+}
+/* Missions sheet on a phone: the four modes as a two-by-two grid, nothing cut. */
+@media (max-width: 480px) {
+  .lab[data-theme="ledger"] .game-missions-head .lab-segmented {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+  .lab[data-theme="ledger"] .game-missions-head .lab-segmented > * + * {
+    border-left: 1px solid var(--lab-ink);
+  }
+  .lab[data-theme="ledger"] .game-missions-head .lab-segmented > :nth-child(3) {
+    border-left: 0;
+  }
+  .lab[data-theme="ledger"] .game-missions-head .lab-segmented > :nth-child(n + 3) {
+    border-top: 1px solid var(--lab-ink);
+  }
+}
+
+/* Recap: the Ledger nameplate, set apart from every other heading: the heaviest weight at
+   the largest size, between a thick rule and a thin one, with the quarter's edition mark. */
+.lab[data-theme="ledger"] .game-masthead-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  border-top: 4px solid var(--lab-ink);
+  border-bottom: 1px solid var(--lab-ink);
+  padding: 0.35rem 0 0.4rem;
+}
+.lab[data-theme="ledger"] .game-recap .game-masthead-row .game-masthead {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  font-size: clamp(1.9rem, 3vw, var(--t-3xl));
+  font-weight: var(--w-bold);
+  line-height: 1;
+  letter-spacing: -0.03em !important;
+  text-align: left;
+  white-space: nowrap;
+}
+.lab[data-theme="ledger"] .game-edition-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.45em;
+  border: 3px double var(--lab-ink);
+  padding: 0.3rem 0.55rem;
+  font-size: var(--t-sm);
+  font-weight: var(--w-bold);
+  line-height: 1;
+  color: var(--lab-ink);
+  transform: rotate(-2deg);
+  animation: game-stamp-in 420ms cubic-bezier(0.2, 1.4, 0.4, 1) 250ms both;
+}
+.lab[data-theme="ledger"] .game-edition-mark i {
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  background: var(--lab-good-mark);
+}
+.lab[data-theme="ledger"] .game-edition-mark.is-warn i {
+  border: 2px solid var(--lab-warn-mark);
+  background: transparent;
+}
+.lab[data-theme="ledger"] .game-edition-mark.is-bad i {
+  border: 2px solid var(--lab-alert);
+  background: transparent;
+}
+@keyframes game-stamp-in {
+  from {
+    opacity: 0;
+    transform: rotate(-2deg) scale(1.6);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-2deg) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lab[data-theme="ledger"] .game-edition-mark {
+    animation: none;
+  }
+}
+.lab[data-theme="ledger"] .game-recap .game-dateline {
+  border-bottom: 0;
+}
+
+/* Votes and trust beside the goals: two ruled figures, before and after. */
+.lab[data-theme="ledger"] .game-recap-capital {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 0.8rem 0 0;
+  border-top: 1px solid var(--lab-ink);
+  border-bottom: 1px solid var(--lab-ink);
+}
+.lab[data-theme="ledger"] .game-recap-capital > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.45rem 0.8rem 0.45rem 0;
+}
+.lab[data-theme="ledger"] .game-recap-capital > div + div {
+  border-left: 1px solid var(--lab-line-strong);
+  padding-left: 0.8rem;
+}
+.lab[data-theme="ledger"] .game-recap-capital dt {
+  font-size: var(--t-sm);
+  font-weight: var(--w-bold);
+}
+.lab[data-theme="ledger"] .game-recap-capital dd {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: var(--t-sm);
+}
+.lab[data-theme="ledger"] .game-recap-capital dd b {
+  font-size: var(--t-lg);
+  font-weight: var(--w-bold);
+}
+.lab[data-theme="ledger"] .game-recap-capital-was {
+  color: var(--lab-ink-2);
+}
+.lab[data-theme="ledger"] .game-recap-capital-d {
+  margin-left: 0.2rem;
+  font-weight: var(--w-semi);
+  color: var(--lab-ink-2);
+}
+.lab[data-theme="ledger"] .game-recap-capital-d.is-up,
+.lab[data-theme="ledger"] .game-recap-capital-d.is-down {
+  color: var(--lab-ink);
+}
+
+/* While the recap is open the levers step back (dimmed, not live) and the advisers give
+   their seat to the paper, which carries their notes; the island stays in full colour. */
+.lab[data-theme="ledger"]:has(.game-modal-backdrop.is-recap) .game-col-levers {
+  opacity: 0.4;
+  filter: grayscale(1);
+  pointer-events: none;
+  user-select: none;
+}
+.lab[data-theme="ledger"]:has(.game-modal-backdrop.is-recap) .game-stage-foot .game-advisors {
+  visibility: hidden;
+}
+@media (min-width: 1100px) {
+  .lab[data-theme="ledger"] .game-modal-backdrop.is-recap {
+    background: transparent;
+  }
+  .lab[data-theme="ledger"]:has(.game-modal-backdrop.is-recap) .game-stage-foot {
+    display: none;
+  }
+}
+/* A recap body that scrolls fades into paper above the actions rule, and ends clear of it. */
+.lab[data-theme="ledger"] .game-recap > .game-recap-body {
+  padding-bottom: 1.6rem;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 1.4rem), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 1.4rem), transparent);
+}
+@media (max-width: 640px) {
+  .lab[data-theme="ledger"] .game-masthead-row {
+    flex-wrap: wrap;
+    gap: 0.35rem 0.8rem;
+  }
+  .lab[data-theme="ledger"] .game-recap .game-masthead-row .game-masthead {
+    flex-basis: 100%;
+    font-size: clamp(1.6rem, 8vw, 2.4rem);
+  }
+  .lab[data-theme="ledger"] .game-edition-mark {
+    font-size: var(--t-xs);
+  }
+}
+
+/* Sparklines: drawn in CSS pixels at the column's width; their text takes --t-sm. */
+.lab[data-theme="ledger"] .game-spark {
+  display: block;
+  width: 100%;
+  margin-top: 0.45rem;
+  font-size: var(--t-sm);
+  line-height: 0;
+}
+.lab[data-theme="ledger"] .game-spark > svg {
+  display: block;
+  overflow: visible;
+}
+.lab[data-theme="ledger"] .game-spark text {
+  font-family: var(--lab-font-ui);
+}
+.lab[data-theme="ledger"] .game-goal-key i.is-past {
+  border-top: 2px solid var(--lab-ink);
+}
+.lab[data-theme="ledger"] .game-goal-key i.is-fc {
+  border-top: 3px solid var(--lab-scenario);
+}
+.lab[data-theme="ledger"] .game-goal-key i.is-ghost {
+  border-top: 2px dotted var(--lab-ink-2);
+}
+/* Why tiles: the whole card is the link; its title underlines on hover and focus. */
+.lab[data-theme="ledger"] .game-fw-tile:hover .game-fw-tile-label,
+.lab[data-theme="ledger"] .game-fw-tile:focus-visible .game-fw-tile-label {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+.lab[data-theme="ledger"] .game-fw-tile-ends {
+  display: block;
+  white-space: normal;
+  font-size: var(--t-xs);
+  color: var(--lab-ink);
+}
+
+/* "Your move": its own ruled line under the forecast figure, set large and bold, so the
+   thing that reacts to the slider reads from across the room. */
+.lab[data-theme="ledger"] .game-goal > .game-goal-move {
+  display: flex;
+  align-items: baseline;
+  min-height: 2.2rem;
+  margin: 0.35rem 0 0.2rem;
+  border-top: 1px solid var(--lab-line-strong);
+  border-bottom: 1px solid var(--lab-line-strong);
+  padding: 0.25rem 0;
+}
+.lab[data-theme="ledger"] .game-goal > .game-goal-move:empty {
+  display: none;
+}
+.lab[data-theme="ledger"] .game-goal > .game-goal-move .game-move-chip,
+.lab[data-theme="ledger"] .game-goal > .game-goal-move .game-probe-chip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.35rem;
+  font-size: var(--t-lg);
+  font-weight: var(--w-bold);
+  line-height: 1.2;
+}
+.lab[data-theme="ledger"] .game-goal > .game-goal-move small {
+  margin-right: 0.2rem;
+  font-size: var(--t-sm);
+  font-weight: var(--w-regular);
+  color: var(--lab-ink);
+}
+.lab[data-theme="ledger"] .game-goal > .game-goal-move .game-valence {
+  margin-left: 0.25rem;
+  font-size: var(--t-sm);
+}
+
+/* Phone dock: one row per goal, the level with its status word, then the move with its
+   helps/hurts word, at --t-md. */
+@media (max-width: 1179px) {
+  .lab[data-theme="ledger"] .game-move-strip {
+    flex-direction: column;
+    gap: 0.15rem;
+    font-size: var(--t-md);
+  }
+  .lab[data-theme="ledger"] .game-move-strip-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0 0.6rem;
+  }
+  .lab[data-theme="ledger"] .game-move-strip-level .game-status {
+    font-size: var(--t-sm);
+  }
+  .lab[data-theme="ledger"] .game-move-strip .game-move-strip-d {
+    gap: 0.2rem;
+    color: var(--lab-ink);
+  }
+  .lab[data-theme="ledger"] .game-move-strip .game-move-strip-d .game-valence {
+    margin-left: 0.15rem;
+    font-size: var(--t-sm);
+  }
+}
+
+/* Phones: the framework is a full-height sheet over the HUD; a one-line title beside
+   Close, the tab strip under it, and the body scrolling below both. */
+@media (max-width: 640px) {
+  .lab[data-theme="ledger"] .game-modal-backdrop > .game-card.game-fw {
+    inset: 0;
+    max-height: none;
+    border-top: 0;
+    padding: 0.6rem 1rem 0;
+  }
+  .lab[data-theme="ledger"] .game-fw-head {
+    align-items: center;
+    border-bottom: 3px double var(--lab-ink);
+    padding-bottom: 0.5rem;
+  }
+  .lab[data-theme="ledger"] .game-fw-head .game-eyebrow {
+    font-size: var(--t-lg);
+    font-weight: var(--w-bold);
+    line-height: 1.2;
+    color: var(--lab-ink);
+  }
+  .lab[data-theme="ledger"] .game-fw-head h2,
+  .lab[data-theme="ledger"] .game-fw-head > div > p:not(.game-eyebrow) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .lab[data-theme="ledger"] .game-fw-tabs-strip {
+    margin-top: 0.5rem;
+  }
+  .lab[data-theme="ledger"] .game-fw-place {
+    display: none;
+  }
+}
+
+/* Wide screens: the commit sits in the lever rail directly under the levers: End is the
+   one black slab, Skip a hairline under it. */
+.lab[data-theme="ledger"] .game-end.is-rail {
+  position: static;
+  min-width: 0;
+  margin-top: 0.9rem;
+  border: 0;
+  border-top: 3px double var(--lab-ink);
+  background: transparent;
+  padding: 0.7rem 0 0;
+}
+.lab[data-theme="ledger"] .game-end.is-rail .game-end-note {
+  text-align: left;
+}
+.lab[data-theme="ledger"] .game-end.is-rail .game-end-btn {
+  width: 100%;
+}
+.lab[data-theme="ledger"] .game-end.is-rail .game-skip-btn {
+  width: 100%;
+}
+/* The decisions log closes the Goals column on wide screens. */
+.lab[data-theme="ledger"] .game-col-goals > .game-log {
+  margin-top: 0.9rem;
+  border-top: 3px double var(--lab-ink);
+}
+.lab[data-theme="ledger"] .game-menu-hint {
+  max-width: 22rem;
+  border-top: 1px solid var(--lab-line);
+  padding: 0.5rem 0.75rem 0.6rem;
+  font-size: var(--t-sm);
+  line-height: 1.4;
+  color: var(--lab-ink);
+}
+
+/* The freed row under the island: a full-width advisor strip, one line per advisor; the
+   stance shows (square and word) only when it isn't "Steady"; no role line. */
+@media (min-width: 1180px) {
+  .lab[data-theme="ledger"] .game-stage-foot {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lab[data-theme="ledger"] .game-stage-foot .game-advisors {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .lab[data-theme="ledger"] .game-stage-foot .game-advice {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.35rem 0;
+  }
+  .lab[data-theme="ledger"] .game-stage-foot .game-advice:last-child {
+    border-bottom: 1px solid var(--lab-line-strong);
+  }
+  .lab[data-theme="ledger"] .game-stage-foot .game-portrait {
+    width: 32px;
+    height: 32px;
+  }
+  .lab[data-theme="ledger"] .game-stage-foot .game-advice > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 0.6rem;
+  }
+  .lab[data-theme="ledger"] .game-stage-foot .game-advice > div > div:first-child {
+    width: auto;
+    flex: none;
+    align-items: baseline;
+  }
+  .lab[data-theme="ledger"] .game-stage-foot .game-advice > div > div:first-child > span:first-child > span {
+    display: none;
+  }
+  .lab[data-theme="ledger"] .game-stage-foot .game-stance.is-calm {
+    display: none;
+  }
+  .lab[data-theme="ledger"] .game-stage-foot .game-stance::before {
+    content: "";
+    display: inline-block !important;
+    width: 0.6em;
+    height: 0.6em;
+    margin-right: 0.3em;
+    border: 1.5px solid var(--lab-ink);
+    vertical-align: 0.02em;
+  }
+  .lab[data-theme="ledger"] .game-stage-foot .game-stance.is-worried::before {
+    background: var(--lab-ink);
+  }
+  .lab[data-theme="ledger"] .game-stage-foot .game-advice-text {
+    flex: 1 1 20rem;
+    margin: 0;
+  }
+}
+
+/* Phones: one Why tile per row, so each chart is drawn at the full width with its labels
+   at full size. */
+@media (max-width: 480px) {
+  .lab[data-theme="ledger"] .game-fw-section .game-fw-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* The phone dock: content scrolling under it fades into paper above its rule, so no line
+   of text ever meets the rule head-on. */
+@media (max-width: 1179px) {
+  .lab[data-theme="ledger"] .game-end:not(.is-rail)::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(100% + 3px);
+    height: 1.5rem;
+    background: linear-gradient(to bottom, color-mix(in srgb, var(--lab-bg) 0%, transparent), var(--lab-bg));
+    pointer-events: none;
+  }
+}
+
+/* Key chips appear only once someone has pressed a key: a TV screen shows none. */
+.lab[data-theme="ledger"]:not(.has-kbd) kbd:not(.game-choice-key) {
+  display: none !important;
+}
+
+/* Shock card: each option a full-width button; its number a keycap (a heavier bottom
+   edge); on phones a compact outlined "Choose" stays at the right of the title line. */
+.lab[data-theme="ledger"] .game-choice .game-choice-key {
+  border: 1px solid var(--lab-ink);
+  border-bottom-width: 3px;
+  padding-top: 1px;
+}
+@media (max-width: 640px) {
+  .lab[data-theme="ledger"] .game-choice,
+  .lab[data-theme="ledger"] .game-choice.is-plain {
+    position: relative;
+  }
+  .lab[data-theme="ledger"] .game-choice .game-choice-go {
+    position: absolute;
+    top: 0.55rem;
+    right: 0.6rem;
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    font-size: var(--t-xs);
+  }
+  .lab[data-theme="ledger"] .game-choice .game-choice-body > :first-child {
+    padding-right: 4.6rem;
+  }
+}
+/* While the card is open: one even paper dim over the columns and the HUD, the island only
+   lightly washed so the pending district's pulse still shows; its tags and news step out,
+   and End and Skip wait out of sight until the card closes. */
+.lab[data-theme="ledger"]:has(.game-modal-backdrop.is-shock) .game-col,
+.lab[data-theme="ledger"]:has(.game-modal-backdrop.is-shock) .game-hud,
+.lab[data-theme="ledger"]:has(.game-modal-backdrop.is-shock) .game-stage-foot {
+  opacity: 0.3;
+  filter: grayscale(1);
+}
+.lab[data-theme="ledger"]:has(.game-modal-backdrop.is-shock) .game-scene-news,
+.lab[data-theme="ledger"]:has(.game-modal-backdrop.is-shock) .lab-scene-label,
+.lab[data-theme="ledger"]:has(.game-modal-backdrop.is-shock) .game-scene-strip {
+  visibility: hidden !important;
+}
+.lab[data-theme="ledger"]:has(.game-modal-backdrop.is-shock) .game-end {
+  visibility: hidden;
+}
+
+/* Units: one treatment everywhere, as on the recap: tight after the figure, a step smaller. */
+.lab[data-theme="ledger"] .game-unit {
+  margin-left: 0.08em;
+  font-size: 0.82em;
+  font-weight: var(--w-semi);
+}
+.lab[data-theme="ledger"] .game-goal-figures > .game-goal-fc {
+  grid-template-columns: auto 1fr;
+  column-gap: 0;
+}
+.lab[data-theme="ledger"] .game-goal-figures > .game-goal-fc .game-goal-unit {
+  justify-self: start;
+  margin-left: 0.08em;
+}
+
+/* Channels: one shared scale; no frame, only the zero line (FT style); tick labels inset. */
+.lab[data-theme="ledger"] .game-fw-channel-bars {
+  background-image: linear-gradient(var(--lab-ink), var(--lab-ink));
+  background-size: 1px 100%;
+  background-position: 50% 0;
+}
+.lab[data-theme="ledger"] .game-fw-axis.is-row {
+  justify-content: space-between;
+  border-top: 0;
+  padding: 0.15rem 0.35rem 0;
+}
+/* Phones: the framework's one-line title is its eyebrow, shown even where the other
+   header lines step out. */
+@media (max-width: 640px) {
+  .lab[data-theme="ledger"] .game-fw-head > div > p.game-eyebrow {
+    display: block;
+  }
+}
+
+/* Decomposition key: the quarter shown and the end of the forecast, side by side, so the
+   table answers the chart's whole path. */
+.lab[data-theme="ledger"] .game-dc-table thead th {
+  border-bottom: 1px solid var(--lab-ink);
+  padding: 0 0 0.25rem 0.75rem;
+  font-size: var(--t-xs);
+  font-weight: var(--w-semi);
+  text-align: right;
+  white-space: nowrap;
+  color: var(--lab-ink);
+}
+.lab[data-theme="ledger"] .game-dc-table td + td {
+  padding-left: 0.75rem;
+}
+
 `,
   // The island keeps its full colours: the page frames the map, it does not recolour it.
   scene: {},

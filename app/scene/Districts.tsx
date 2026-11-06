@@ -14,6 +14,9 @@ import { WORLD } from "./world";
 import { clamp, useSmooth } from "./useSmooth";
 import { commitInstances, gableRoof, mixHex, placeInstance, primeInstances, prismGeometry, scatterOrder, TMP_COLOR, useGeometry } from "./shapes";
 
+/** Rates as the lever shows them: up to two decimals, no trailing zeros (10.5, 10.25). */
+const rateText = (v: number) => String(+v.toFixed(2));
+
 const NAVY = SC.accent;
 const TEAL = SC.good;
 const CORAL = SC.bad;
@@ -400,11 +403,11 @@ function CentralBank({ reducedMotion }: { reducedMotion: boolean }) {
     beacon.current.emissive.copy(SCRATCH);
   });
   const stanceWord = stance > 0.33 ? "tight" : stance < -0.33 ? "loose" : "neutral";
-  const next = policy.rateMode === "manual" && current.regime !== "peg" && Math.abs(policy.manualRate - current.rate) > 0.01 ? `${fmt(policy.manualRate, 2)}%` : undefined;
+  const next = policy.rateMode === "manual" && current.regime !== "peg" && Math.abs(policy.manualRate - current.rate) > 0.01 ? `${rateText(policy.manualRate)}%` : undefined;
   // A pending decision rides high and to the right of the dome so it never covers the
   // top of the debt tower next door; on a phone it pins to the canvas corner instead.
   return (
-    <District focusKey="rate" pad={2.35} position={DISTRICT_POS.rate!} labelY={6.1} labelX={-1.5} pendingLabel={[9.6, 3.0]} dockPending dockValue={`${fmt(current.rate, 2)}%`} title="Policy rate" value={next ? `${fmt(current.rate, 2)}%` : `${fmt(current.rate, 2)}% · ${stanceWord}`} next={next} delta={next ? fmt(policy.manualRate - current.rate, 2, true) : undefined} tilt={0.8} reducedMotion={reducedMotion}>
+    <District focusKey="rate" pad={2.35} position={DISTRICT_POS.rate!} labelY={6.1} labelX={-1.5} pendingLabel={[9.6, 3.0]} dockPending dockValue={`${rateText(current.rate)}%`} title="Policy rate" value={next ? `${rateText(current.rate)}%` : `${rateText(current.rate)}% · ${stanceWord}`} next={next} delta={next ? `${policy.manualRate - current.rate > 0 ? "+" : ""}${rateText(policy.manualRate - current.rate)}` : undefined} tilt={0.8} reducedMotion={reducedMotion}>
       <mesh position-y={0.15} receiveShadow castShadow>
         <cylinderGeometry args={[2.0, 2.1, 0.3, 8]} />
         <meshStandardMaterial color={P.stone} roughness={1} flatShading={P.flat} />

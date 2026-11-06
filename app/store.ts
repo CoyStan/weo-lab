@@ -44,6 +44,8 @@ type LabState = {
   sceneCue: Partial<Record<FocusKey, SceneCue>>;
   /** The district a news card points at: it pulses harder while the card is open. */
   shockFocus: FocusKey | null;
+  /** The quarter's recap is open: the weather clears so the payoff reads in full colour. */
+  sceneCalm: boolean;
   /** Reduced motion chosen in settings, on top of the system preference. */
   reduceMotion: boolean;
   /** Bumped to ask the 3D camera to fly home. */
@@ -155,6 +157,7 @@ export const useLab = create<LabState>((set, get) => ({
   districtStatus: {},
   sceneCue: {},
   shockFocus: null,
+  sceneCalm: false,
   reduceMotion: false,
   cameraHome: 0,
   storyId: null,

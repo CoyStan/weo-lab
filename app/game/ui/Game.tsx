@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import "../../weo-lab.css";
 import "../game.css";
 import { useLab } from "../../store";
@@ -42,6 +42,16 @@ export default function Game() {
   const loadSettings = useSettings((s) => s.load);
 
   useEffect(() => loadSettings(), [loadSettings]);
+  // Key chips (M, Esc, Enter, F) stay hidden on a shared screen until someone uses a keyboard.
+  const [hasKbd, setHasKbd] = useState(false);
+  useEffect(() => {
+    if (hasKbd) return;
+    const key = (e: KeyboardEvent) => {
+      if (!["Shift", "Control", "Alt", "Meta"].includes(e.key)) setHasKbd(true);
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [hasKbd]);
   // Focus rings only after the keyboard is used, so autofocused buttons don't wear one at rest.
   useEffect(() => {
     const root = document.documentElement;
@@ -108,7 +118,7 @@ export default function Game() {
   if (screen === "sandbox") return <WeoLab key="sandbox" restoreSaved={!sandboxKeep} />;
 
   return (
-    <div className={`lab game ${reducedMotion ? "is-reduced" : ""} ${hasModal ? "has-modal" : ""} min-h-dvh bg-[var(--lab-bg)] text-[var(--lab-ink)]`} data-theme={theme.id} style={{ ...(theme.vars as React.CSSProperties), colorScheme: theme.scheme }}>
+    <div className={`lab game ${reducedMotion ? "is-reduced" : ""} ${hasModal ? "has-modal" : ""} ${hasKbd ? "has-kbd" : ""} min-h-dvh bg-[var(--lab-bg)] text-[var(--lab-ink)]`} data-theme={theme.id} style={{ ...(theme.vars as React.CSSProperties), colorScheme: theme.scheme }}>
       {theme.css ? <style>{theme.css}</style> : null}
       {screen === "play" ? (
         <Play scene={<IslandScene />} />

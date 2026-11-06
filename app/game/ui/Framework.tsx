@@ -9,15 +9,17 @@ import { forecastFor, useGame, type FrameworkTab } from "../store";
 import { useTurn } from "../useTurn";
 import { splitLead } from "./Advisors";
 import Decomp from "./Decomp";
+import { Sparkline } from "./Goals";
 import Glyph from "./Glyph";
 import { Valence, type Tone } from "./Valence";
 import { useReducedMotion } from "./useTween";
+import { useStripOverflow } from "../../components/strip";
 
-const TABS: { id: FrameworkTab; label: string; sub: string }[] = [
-  { id: "why", label: "Why", sub: "Is it moving, or not?" },
-  { id: "path", label: "Shocks vs policy", sub: "What caused the path" },
-  { id: "channels", label: "Channels", sub: "How levers reach the economy" },
-  { id: "accounts", label: "Sector accounts", sub: "Every indicator, every sector" },
+const TABS: { id: FrameworkTab; label: string; short: string; sub: string }[] = [
+  { id: "why", label: "Why", short: "Why", sub: "Is it moving, or not?" },
+  { id: "path", label: "Shocks vs policy", short: "Shocks", sub: "What caused the path" },
+  { id: "channels", label: "Channels", short: "Channels", sub: "How levers reach the economy" },
+  { id: "accounts", label: "Sector accounts", short: "Sectors", sub: "Every indicator, every sector" },
 ];
 
 /** One headline indicator per sector for the overview. */
@@ -65,6 +67,8 @@ function FrameworkPanel() {
   const tab = useGame((s) => s.frameworkTab);
   const setTab = useGame((s) => s.setFrameworkTab);
   const reduced = useReducedMotion();
+  const tabsRef = useRef<HTMLElement>(null);
+  useStripOverflow(tabsRef, tab);
 
   useEffect(() => {
     closeRef.current?.focus({ preventScroll: true });
@@ -85,7 +89,7 @@ function FrameworkPanel() {
       <div className="game-card game-fw" role="dialog" aria-modal="true" aria-labelledby="fw-title">
         <header className="game-fw-head">
           <div className="min-w-0">
-            <p className="game-eyebrow !mb-0">Macro framework · {preset.name}</p>
+            <p className="game-eyebrow !mb-0">Macro framework<span className="game-fw-place"> · {preset.name}</span></p>
             <h2 id="fw-title" className="font-display text-(length:--t-lg) font-semibold leading-tight">How the whole economy fits together</h2>
             <p className="mt-1 text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">
               {clock > 0 ? (
@@ -100,16 +104,22 @@ function FrameworkPanel() {
           </button>
         </header>
 
-        <nav className="game-fw-tabs" role="tablist" aria-label="Macro framework views">
-          {TABS.map((t, i) => (
-            <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? "is-on" : ""} onClick={() => setTab(t.id)}>
-              <span>
-                <strong><span className="game-fw-tab-n" aria-hidden="true">{i + 1}</span>{t.label}</strong>
-                <small>{t.sub}</small>
-              </span>
-            </button>
-          ))}
-        </nav>
+        <div className="game-strip game-fw-tabs-strip">
+          <nav ref={tabsRef} className="game-fw-tabs" role="tablist" aria-label="Macro framework views">
+            {TABS.map((t, i) => (
+              <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} aria-label={`${i + 1} ${t.label}`} className={tab === t.id ? "is-on" : ""} onClick={() => setTab(t.id)}>
+                <span>
+                  <strong>
+                    <span className="game-fw-tab-n" aria-hidden="true">{i + 1}</span>
+                    <span className="game-fw-tab-long">{t.label}</span>
+                    <span className="game-fw-tab-short" aria-hidden="true">{t.short}</span>
+                  </strong>
+                  <small>{t.sub}</small>
+                </span>
+              </button>
+            ))}
+          </nav>
+        </div>
 
         <div className="game-fw-body">
         {/* Keyed by tab, so each switch remounts the pane and it fades in. */}
@@ -129,16 +139,25 @@ function FrameworkPanel() {
                   <button key={key} type="button" className="game-fw-tile" onClick={() => { setTab("accounts"); window.setTimeout(() => document.getElementById(`fw-sector-${sector}`)?.scrollIntoView({ block: "start" }), 50); }} title="Open this sector's accounts">
                     <span className="game-fw-tile-sector">
                       {SECTORS.find((x) => x.id === sector)!.title}
-                      <Glyph name="arrow" className="game-fw-tile-go" />
                     </span>
                     <span className="game-fw-tile-label">{row.label}</span>
                     <span className="game-fw-tile-value">
                       {shown[key].toFixed(row.digits)}
                       <small>{unitTail(row.unit)}</small>
                     </span>
-                    <Spark rowKey={key} actual={actual} forecast={forecast} untouched={touched ? untouched : null} clock={clock} end={end} digits={row.digits} />
+                    <Sparkline
+                      label={row.label}
+                      digits={row.digits}
+                      past={actual.slice(0, clock + 1).map((st) => st[key])}
+                      fut={forecast.slice(clock, end + 1).map((st) => st[key])}
+                      ghost={touched ? untouched.slice(clock, end + 1).map((st) => st[key]) : []}
+                      goals={mission.objectives.filter((o) => o.metric === key)}
+                      clock={clock}
+                      end={end}
+                      height={104}
+                    />
                     <span className="game-fw-tile-ends">
-                      <span>{actual[0].label} {actual[0][key].toFixed(row.digits)}</span> <Glyph name="arrow" /> <span>{forecast[end].label} <b>{forecast[end][key].toFixed(row.digits)}</b></span>
+                      {actual[0][key].toFixed(row.digits)} in {actual[0].label}, <b>{forecast[end][key].toFixed(row.digits)}</b> by {forecast[end].label}
                     </span>
                     {touched && Math.abs(effect) >= 0.05 ? (
                       <span className="game-fw-tile-foot">
@@ -181,10 +200,10 @@ function FrameworkPanel() {
               <div className="game-fw-channel-scale">
                 <span>Channel</span>
                 <span>How it travels</span>
-                <span>What flowed (each on its own scale)</span>
+                <span>What flowed (one scale for every channel)</span>
               </div>
               {chans.map((c) => (
-                <ChannelCard key={c.id} channel={c} />
+                <ChannelCard key={c.id} channel={c} max={chanMax} />
               ))}
             </div>
           </section>
@@ -204,13 +223,7 @@ function FrameworkPanel() {
                 <span>no square: neither</span>
               </span>
             </div>
-            <nav className="game-fw-jump" aria-label="Jump to a sector">
-              {SECTORS.map((sec) => (
-                <button key={sec.id} type="button" onClick={() => document.getElementById(`fw-sector-${sec.id}`)?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" })}>
-                  {sec.title}
-                </button>
-              ))}
-            </nav>
+            <JumpStrip reduced={reduced} />
             <p className="game-fw-narrow-note">Rotate or widen the screen to see each indicator&rsquo;s trend and its change on the quarter.</p>
             <div className="game-fw-sectors">
               {SECTORS.map((s) => (
@@ -262,12 +275,10 @@ function PaletteKey() {
   );
 }
 
-function ChannelCard({ channel: c }: { channel: Channel }) {
+function ChannelCard({ channel: c, max }: { channel: Channel; max: number }) {
   const flowing = c.links.filter((l) => Math.abs(l.value) >= 0.005);
-  // Each channel on its own scale: ±1 when every push is under 1, else the next whole number,
-  // so a -0.06 is read as a bar, not a sliver beside the shock's +1.98.
-  const biggest = Math.max(0, ...flowing.map((l) => Math.abs(l.value)));
-  const max = biggest < 1 ? 1 : Math.ceil(biggest);
+  // Every channel on one shared scale (each row is pp of the same kind of target), so a +0.42
+  // and a +1.98 look as different as they are; near-zero bars keep a 2px tick.
   // With no structural change, a budget bar can only be the cycle moving revenues: say so.
   const status = c.id === "budget" && c.status === "idle" && flowing.length ? "Passive (automatic stabilisers)" : STATUS_WORD[c.status];
   return (
@@ -308,8 +319,8 @@ function ChannelCard({ channel: c }: { channel: Channel }) {
 
 /** A bar on the channels' shared axis: zero in the middle, the value printed at the bar's end. */
 function AxisBar({ value, max }: { value: number; max: number }) {
-  // Non-zero bars are at least 3px wide, so a small push is a bar, not a sliver.
-  const w = `max(3px, ${Math.min(50, (Math.abs(value) / max) * 50).toFixed(2)}%)`;
+  // Non-zero bars are at least 2px wide, a tick beside their value, never a sliver.
+  const w = `max(2px, ${Math.min(50, (Math.abs(value) / max) * 50).toFixed(2)}%)`;
   return (
     <span className="game-fw-axisbar">
       <span className={`game-fw-axisbar-fill ${value > 0 ? "is-pos" : "is-neg"}`} style={{ width: w, [value > 0 ? "left" : "right"]: "50%" }} aria-hidden="true" />
@@ -324,9 +335,9 @@ function AxisBar({ value, max }: { value: number; max: number }) {
 function ChannelAxis({ max, row = false }: { max: number; row?: boolean }) {
   return (
     <div className={`game-fw-axis ${row ? "is-row" : ""}`} aria-hidden="true">
-      <span>−{max.toFixed(0)}</span>
+      <span>−{String(+max.toFixed(1))}</span>
       <span>0</span>
-      <span>+{max.toFixed(0)}</span>
+      <span>+{String(+max.toFixed(1))}</span>
     </div>
   );
 }
@@ -506,6 +517,23 @@ function SectorDrivers({ id, shown, prev }: { id: Sector["id"]; shown: QuarterSt
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/** The sector tabs: they jump down the accounts and stay in view while they scroll. */
+function JumpStrip({ reduced }: { reduced: boolean }) {
+  const ref = useRef<HTMLElement>(null);
+  useStripOverflow(ref);
+  return (
+    <div className="game-strip game-fw-jump-strip">
+      <nav ref={ref} className="game-fw-jump" aria-label="Jump to a sector">
+        {SECTORS.map((sec) => (
+          <button key={sec.id} type="button" onClick={() => document.getElementById(`fw-sector-${sec.id}`)?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" })}>
+            {sec.title}
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }

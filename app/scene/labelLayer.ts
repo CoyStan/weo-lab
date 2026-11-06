@@ -16,6 +16,9 @@ const boxB = new Float32Array(MAX);
 const order: number[] = [];
 const els: HTMLElement[] = [];
 const shown = new Float32Array(MAX);
+const nudge = new Float32Array(MAX);
+/** Tags keep this far inside the island's frame. */
+const EDGE = 6;
 
 /**
  * Vertical collision resolution for the district tags. drei places each tag over its
@@ -32,19 +35,26 @@ export function startLabelDodge(root: HTMLElement): () => void {
     if (++frame % 4) return;
     const list = root.querySelectorAll<HTMLElement>(".lab-scene-label");
     const naming = root.classList.contains("is-naming");
+    const frameBox = root.getBoundingClientRect();
     let n = 0;
     for (let i = 0; i < list.length && n < MAX; i++) {
       const el = list[i];
       const anchor = el.parentElement;
       if (!anchor || el.classList.contains("is-docked") || (!naming && el.getAttribute("aria-hidden") === "true") || el.offsetParent === null) {
         if (el.style.getPropertyValue("--dodge")) el.style.removeProperty("--dodge");
+        if (el.style.getPropertyValue("--nudge")) el.style.removeProperty("--nudge");
         continue;
       }
-      // The parent is drei's centring box: where the tag sits before any dodge.
+      // The parent is drei's centring box: where the tag sits before any dodge. A tag that
+      // would run off the island's frame (a narrow stage beside the recap) slides back in.
       const r = anchor.getBoundingClientRect();
+      let dx = 0;
+      if (r.right > frameBox.right - EDGE) dx = frameBox.right - EDGE - r.right;
+      if (r.left + dx < frameBox.left + EDGE) dx = frameBox.left + EDGE - r.left;
       els[n] = el;
-      boxL[n] = r.left;
-      boxR[n] = r.right;
+      nudge[n] = Math.round(dx);
+      boxL[n] = r.left + dx;
+      boxR[n] = r.right + dx;
       boxT[n] = r.top;
       boxB[n] = r.bottom;
       n++;
@@ -74,6 +84,11 @@ export function startLabelDodge(root: HTMLElement): () => void {
       shown[i] = top;
       const dodge = Math.round(top - boxT[i]);
       const next = dodge ? `${dodge}px` : "";
+      const nx = nudge[i] ? `${nudge[i]}px` : "";
+      if (els[i].style.getPropertyValue("--nudge") !== nx) {
+        if (nx) els[i].style.setProperty("--nudge", nx);
+        else els[i].style.removeProperty("--nudge");
+      }
       if (els[i].style.getPropertyValue("--dodge") !== next) {
         if (next) els[i].style.setProperty("--dodge", next);
         else els[i].style.removeProperty("--dodge");
