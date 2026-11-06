@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getPreset } from "../../model/presets";
 import type { QuarterState } from "../../model/types";
 import { explain } from "../explain";
@@ -8,6 +8,7 @@ import { channels, deltaTail, diagnose, policyTouched, SECTORS, unitTail, untouc
 import { forecastFor, useGame, type FrameworkTab } from "../store";
 import { useTurn } from "../useTurn";
 import Decomp from "./Decomp";
+import Glyph from "./Glyph";
 import { useReducedMotion } from "./useTween";
 
 const TABS: { id: FrameworkTab; label: string; sub: string }[] = [
@@ -50,6 +51,8 @@ function FrameworkPanel() {
   const untouched = useMemo(() => (touched ? forecastFor(untouchedConfig(config, start), clock) : forecast), [touched, config, start, clock, forecast]);
   const input: FrameworkInput = { config, actual, forecast, untouched, clock, end, policy, policyStart, changedSinceStart: touched };
   const chans = channels(input);
+  // One scale for every channel's bars, rounded up to a readable end value.
+  const chanMax = Math.max(0.5, Math.ceil(Math.max(...chans.flatMap((c) => c.links.map((l) => Math.abs(l.value)))) * 2) / 2);
   const notes = diagnose(input);
   const preset = getPreset(config.presetId);
   const shown = clock > 0 ? actual[clock] : forecast[1];
@@ -109,18 +112,6 @@ function FrameworkPanel() {
         <div key={tab} className="game-fw-pane">
         {tab === "why" ? (
           <section className="game-fw-section" aria-label="Why is it moving, or not?">
-            {notes.length ? (
-              <ul className="game-fw-notes">
-                {notes.map((n) => (
-                  <li key={n.id} className={`game-fw-note is-${n.tone}`}>
-                    <strong>{n.title}</strong>
-                    <span>{n.text}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="game-fw-sub">Nothing unusual: the economy is responding the way the channels suggest.</p>
-            )}
             <div className="game-fw-legend mt-3" aria-hidden="true">
               <span><i className="is-actual" /> Outturn</span>
               <span><i className="is-forecast" /> Forecast with your policies</span>
@@ -142,14 +133,28 @@ function FrameworkPanel() {
                       <small>{unitTail(row.unit)}</small>
                     </span>
                     <Spark rowKey={key} actual={actual} forecast={forecast} untouched={touched ? untouched : null} clock={clock} end={end} />
-                    <span className="game-fw-tile-foot">
-                      {forecast[end].label}: {forecast[end][key].toFixed(row.digits)}
-                      {touched && Math.abs(effect) >= 0.05 ? <b className={row.good ? (Math.sign(effect) === row.good ? "is-good" : "is-bad") : ""}> · yours {effect > 0 ? "+" : ""}{effect.toFixed(row.digits)}</b> : null}
+                    <span className="game-fw-tile-ends">
+                      <span>{actual[0].label} {actual[0][key].toFixed(row.digits)}</span>
+                      <span>{forecast[end].label} <b>{forecast[end][key].toFixed(row.digits)}</b></span>
                     </span>
+                    {touched && Math.abs(effect) >= 0.05 ? (
+                      <span className="game-fw-tile-foot">
+                        <b className={row.good ? (Math.sign(effect) === row.good ? "is-good" : "is-bad") : ""}>Your policies {effect > 0 ? "+" : ""}{effect.toFixed(row.digits)}</b>
+                      </span>
+                    ) : null}
                   </button>
                 );
               })}
             </div>
+            {notes.length ? (
+              <ul className="game-fw-notes">
+                {notes.map((n) => (
+                  <WhyNote key={n.id} tone={n.tone} title={n.title} text={n.text} />
+                ))}
+              </ul>
+            ) : (
+              <p className="game-fw-sub">Nothing unusual: the economy is responding the way the channels suggest.</p>
+            )}
             <div className="game-fw-next">
               <span>Dig deeper:</span>
               <button type="button" onClick={() => setTab("path")}>2 · What caused the path</button>
@@ -170,8 +175,13 @@ function FrameworkPanel() {
             <PaletteKey />
             <p className="game-fw-sub">Each channel is a chain from a lever or a shock to the economy. Bars show what flowed through it in {shown.label}: demand in pp of the output gap, inflation in pp, debt in pp of GDP.</p>
             <div className="game-fw-channels">
+              <div className="game-fw-channel-scale">
+                <span>Channel</span>
+                <span>How it travels</span>
+                <ChannelAxis max={chanMax} />
+              </div>
               {chans.map((c) => (
-                <ChannelCard key={c.id} channel={c} />
+                <ChannelCard key={c.id} channel={c} max={chanMax} />
               ))}
             </div>
           </section>
@@ -193,6 +203,7 @@ function FrameworkPanel() {
                 </button>
               ))}
             </nav>
+            <p className="game-fw-narrow-note">Rotate or widen the screen to see each indicator&rsquo;s trend and its change on the quarter.</p>
             <div className="game-fw-sectors">
               {SECTORS.map((s) => (
                 <SectorCard key={s.id} sector={s} actual={actual} forecast={forecast} untouched={untouched} clock={clock} end={end} touched={touched} shown={shown} />
@@ -213,6 +224,23 @@ function FrameworkPanel() {
   );
 }
 
+/** A Why note: the first sentence large, the rest clamped to two lines behind "More". */
+function WhyNote({ tone, title, text }: { tone: string; title: string; text: string }) {
+  const [open, setOpen] = useState(false);
+  const long = text.length > 140;
+  return (
+    <li className={`game-fw-note is-${tone}`}>
+      <strong>{title}</strong>
+      <span className={long && !open ? "game-fw-note-text is-clamped" : "game-fw-note-text"}>{text}</span>
+      {long ? (
+        <button type="button" className="game-why" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          {open ? "Less" : "More"}
+        </button>
+      ) : null}
+    </li>
+  );
+}
+
 function PaletteKey() {
   return (
     <p className="game-fw-palette" aria-label="Colour key">
@@ -223,33 +251,66 @@ function PaletteKey() {
   );
 }
 
-function ChannelCard({ channel: c }: { channel: Channel }) {
-  const max = Math.max(0.25, ...c.links.map((l) => Math.abs(l.value)));
+function ChannelCard({ channel: c, max }: { channel: Channel; max: number }) {
+  const flowing = c.links.filter((l) => Math.abs(l.value) >= 0.005);
+  // With no structural change, a budget bar can only be the cycle moving revenues: say so.
+  const status = c.id === "budget" && c.status === "idle" && flowing.length ? "Passive (automatic stabilisers)" : STATUS_WORD[c.status];
   return (
     <article className={`game-fw-channel is-${c.status} ${c.id === "world" ? "is-env" : c.id === "confidence" || c.id === "currency" || c.status === "idle" || c.status === "blocked" ? "is-mixed" : "is-policy"}`}>
-      <header className="flex items-start justify-between gap-2">
+      <header className="game-fw-channel-head">
         <h4 className="text-(length:--t-sm) font-semibold leading-tight">{c.title}</h4>
-        <span className={`game-fw-pill is-${c.status}`}>{STATUS_WORD[c.status]}</span>
+        <span className={`game-fw-pill is-${c.status}`}>{status}</span>
       </header>
-      <ol className="game-fw-chain" aria-label="Transmission chain">
-        {c.chain.map((step, i) => (
-          <li key={step}>
-            {step}
-            {i < c.chain.length - 1 ? <span aria-hidden="true"> →</span> : null}
-          </li>
-        ))}
-      </ol>
-      <p className="game-fw-note-clamp text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]" title={c.note}>{c.note}</p>
-      <ul className="mt-1.5 flex flex-col gap-1">
-        {c.links.map((l) => (
-          <li key={l.label} className="game-fw-link">
-            <span className="truncate" title={l.label}>{l.label}</span>
-            <Bar value={l.value} max={max} />
-            <span className="text-right font-mono tabular-nums">{signed(l.value, 2)}</span>
-          </li>
-        ))}
-      </ul>
+      <div className="game-fw-channel-body">
+        <ol className="game-fw-chain" aria-label="Transmission chain">
+          {c.chain.map((step, i) => (
+            <li key={step}>
+              {step}
+              {i < c.chain.length - 1 ? <Glyph name="chevron" className="game-fw-chev" /> : null}
+            </li>
+          ))}
+        </ol>
+        <p className="game-fw-channel-note">{c.note}</p>
+      </div>
+      <div className="game-fw-channel-bars">
+        {flowing.length ? (
+          <ul className="flex flex-col gap-1">
+            {flowing.map((l) => (
+              <li key={l.label} className="game-fw-link">
+                <span title={l.label}>{l.label}</span>
+                <AxisBar value={l.value} max={max} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="game-fw-channel-none">Nothing flowed this quarter.</p>
+        )}
+      </div>
     </article>
+  );
+}
+
+/** A bar on the channels' shared axis: zero in the middle, the value printed at the bar's end. */
+function AxisBar({ value, max }: { value: number; max: number }) {
+  const w = Math.min(50, (Math.abs(value) / max) * 50);
+  return (
+    <span className="game-fw-axisbar">
+      <span className={`game-fw-axisbar-fill ${value > 0 ? "is-pos" : "is-neg"}`} style={{ width: `${w}%`, [value > 0 ? "left" : "right"]: "50%" }} aria-hidden="true" />
+      <span className={`game-fw-axisbar-val ${value > 0 ? "is-pos" : "is-neg"}`} style={value > 0 ? { left: `calc(50% + ${w}% + 4px)` } : { right: `calc(50% + ${w}% + 4px)` }}>
+        {signed(value, 2)}
+      </span>
+    </span>
+  );
+}
+
+/** The shared scale under every channel's bars. */
+function ChannelAxis({ max }: { max: number }) {
+  return (
+    <div className="game-fw-axis" aria-hidden="true">
+      <span>−{max.toFixed(1)}</span>
+      <span>0</span>
+      <span>+{max.toFixed(1)}</span>
+    </div>
   );
 }
 
@@ -359,7 +420,7 @@ function Spark({ rowKey, actual, forecast, untouched, clock, end }: { rowKey: Ro
   const line = (vals: number[], from: number) => vals.map((v, i) => `${i === 0 ? "M" : "L"}${x(from + i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
   return (
     <svg viewBox={`0 0 ${SW} ${SH}`} width={SW} height={SH} className="block" aria-hidden="true">
-      <line x1={0} x2={SW} y1={y(past[0])} y2={y(past[0])} stroke="var(--lab-line)" strokeDasharray="2 2" />
+      <line x1={0} x2={SW} y1={y(past[0])} y2={y(past[0])} stroke="var(--lab-ink)" strokeOpacity={0.35} />
       {differs ? <path d={line(un, 0)} fill="none" stroke="var(--lab-ink-2)" strokeOpacity={0.6} strokeWidth={1.4} strokeDasharray="1.2 2.4" strokeLinecap="round" /> : null}
       {fut.length > 1 ? <path d={line(fut, clock)} fill="none" stroke="var(--lab-scenario)" strokeWidth={1.6} strokeDasharray="4 2.5" /> : null}
       <path d={line(past, 0)} fill="none" stroke="var(--lab-ink)" strokeWidth={1.7} strokeLinejoin="round" />

@@ -15,7 +15,14 @@ import Water from "./Water";
 import { clamp, useReducedMotionFlag } from "./useSmooth";
 import Weather from "./Weather";
 import { applyScenePalette, P } from "./palette";
-import { labelLayer } from "./labelLayer";
+import { labelLayer, startLabelDodge } from "./labelLayer";
+
+/** A stable ref callback: registers the banner layer and runs its collision pass while mounted. */
+function attachLabelLayer(el: HTMLDivElement | null) {
+  labelLayer.current = el;
+  if (!el) return;
+  return startLabelDodge(el);
+}
 import { getTheme } from "../themes";
 
 class SceneErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -163,9 +170,7 @@ export default function IslandScene() {
       </Canvas>
       {/* Overlays (district banners) render here; see labelLayer.ts. */}
       <div
-        ref={(el) => {
-          labelLayer.current = el;
-        }}
+        ref={attachLabelLayer}
         className="pointer-events-none absolute inset-0 overflow-hidden"
       />
     </SceneErrorBoundary>

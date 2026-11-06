@@ -47,6 +47,7 @@ export default function Label({
   capital = false,
   next,
   dock,
+  status,
 }: {
   position: [number, number, number];
   title: string;
@@ -63,12 +64,14 @@ export default function Label({
   next?: string;
   /** Pin the banner to a corner of the canvas instead of the building (phones). */
   dock?: LabelDock;
+  /** The district's goal is in trouble: shown as the goal cards show it, a square and a word. */
+  status?: "at-risk" | "failed";
 }) {
   return (
     <Html position={position} center={!dock} calculatePosition={dock ? DOCK_AT[dock] : undefined} zIndexRange={[8, 0]} style={{ pointerEvents: "none" }} portal={labelLayer as React.RefObject<HTMLElement>}>
       <div
         aria-hidden={hidden}
-        className={`lab-scene-label ${capital ? "is-capital" : ""} ${next ? "is-pending" : ""} ${bad ? "is-bad" : ""} ${focus ? "is-focus" : ""} ${dock ? `is-docked is-docked-${dock}` : ""}`}
+        className={`lab-scene-label ${capital ? "is-capital" : ""} ${next ? "is-pending" : ""} ${bad ? "is-bad" : ""} ${focus ? "is-focus" : ""} ${status ? `has-status is-${status}` : ""} ${dock ? `is-docked is-docked-${dock}` : ""}`}
         style={{ transform: dock ? undefined : `rotate(${tilt * 0.4}deg)`, opacity: hidden ? 0 : 1, transition: "opacity 160ms ease", ["--label-accent" as string]: accent ?? "var(--lab-scenario)" }}
       >
         {icon ? (
@@ -79,12 +82,13 @@ export default function Label({
           </span>
         ) : null}
         <span className="lab-banner-text">
-          {title}
+          <span className="lab-banner-title">{title}</span>{" "}
           <strong key={value} className="lab-banner-value">
             {value}
             {next ? <em className="lab-banner-next"> → {next}</em> : null}
           </strong>
         </span>
+        {status ? <span className={`lab-banner-status is-${status}`}>{status === "failed" ? "off track" : "at risk"}</span> : null}
       </div>
     </Html>
   );

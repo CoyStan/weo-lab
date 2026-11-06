@@ -3665,3 +3665,436 @@ html:not(.is-kbd) .game button:focus-visible {
 .lab-scene-label.is-docked .lab-banner-icon {
   display: inline-grid;
 }
+
+/* ---- Design council, Ledger round 1 ---------------------------------------- */
+
+/* Goal cards: the judged forecast as the hero figure, the goal and "now" beside it,
+   then what your move does, directly under the figure. */
+.game-goal-figures {
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.2rem 1rem;
+  margin-top: 0.15rem;
+}
+.game-goal-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding-bottom: 0.2rem;
+}
+.game-goal-now {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+.game-goal-now small {
+  flex-basis: auto;
+}
+.game-goal-move {
+  min-height: 1.6rem;
+  margin-top: 0.3rem;
+}
+.game-move-chip,
+.game-probe-chip {
+  position: static;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+.game-goal-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-top: 0.35rem;
+}
+.game-goal-lines li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+.game-goal-lines .game-status {
+  align-self: flex-start;
+}
+.game-goal-stars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-top: 0.3rem;
+}
+.game-goal-stars li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+.game-goal-key {
+  margin-top: 0.25rem;
+}
+
+/* Phones: the goals sit below the levers, so a strip above the End button shows
+   what the lever does to each judged forecast. */
+.game-move-strip {
+  display: none;
+}
+@media (max-width: 1179px) {
+  .game-move-strip {
+    display: flex;
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    gap: 0.15rem 1rem;
+    border-bottom: 1px solid var(--lab-line);
+    padding: 0.1rem 0 0.35rem;
+    font-size: var(--t-sm);
+    line-height: 1.25;
+  }
+  .game-move-strip-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    white-space: nowrap;
+  }
+  .game-move-strip-item .tabular-nums {
+    font-weight: 700;
+  }
+  .game-move-strip-d {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.1rem;
+    font-weight: 700;
+  }
+  .game-move-strip-d.is-good {
+    color: var(--lab-good);
+  }
+  .game-move-strip-d.is-bad {
+    color: var(--lab-bad);
+  }
+  .game-move-strip .game-status {
+    min-width: 0;
+    font-size: var(--t-xs);
+  }
+}
+
+/* Recap: figures as columns, a dateline and a dek under the headline. */
+.game-recap-stats {
+  display: grid;
+  gap: 0.4rem;
+  grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
+}
+.game-recap-stats.is-1 {
+  --cols: 1;
+}
+.game-recap-stats.is-3 {
+  --cols: 3;
+}
+.game-recap-stats.is-4 {
+  --cols: 4;
+}
+.game-dateline {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+.game-dek {
+  margin-top: 0.35rem;
+  font-size: var(--t-sm);
+  color: var(--lab-ink-2);
+}
+.game-recap-more > summary {
+  cursor: pointer;
+}
+
+/* Lever steppers: − and + either side of the track. */
+.lab-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.lab-step {
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--lab-line-strong);
+  border-radius: var(--lab-radius-control);
+  font-weight: 700;
+}
+
+/* Decisions so far: quarter | decision. */
+.game-log-table {
+  width: 100%;
+  font-size: var(--t-sm);
+}
+.game-log-table th,
+.game-log-table td {
+  padding: 0.2rem 0.4rem 0.2rem 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.game-progress-head {
+  display: flex;
+  gap: 0.35rem;
+  font-size: var(--t-xs);
+}
+
+/* Channels: full-width rows (channel and state | how it travels | what flowed), one shared
+   bar axis for all of them, the value printed at each bar's end. */
+.game-fw-channels {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.game-fw-channel-scale,
+.game-fw-channel {
+  display: grid;
+  grid-template-columns: minmax(9rem, 13rem) minmax(0, 1fr) minmax(15rem, 20rem);
+  align-items: start;
+  gap: 0.4rem 1.25rem;
+}
+.game-fw-channel-scale {
+  border-bottom: 1px solid var(--lab-ink);
+  padding-bottom: 0.25rem;
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+.game-fw-channel {
+  flex-direction: row;
+  border: 0;
+  border-bottom: 1px solid var(--lab-line);
+  border-radius: 0;
+  background: transparent;
+  padding: 0.65rem 0;
+}
+.game-fw-channel.is-blocked,
+.game-fw-channel.is-idle {
+  background: transparent;
+}
+.game-fw-channel > .game-fw-channel-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+}
+.game-fw-chain {
+  font-weight: 400;
+}
+.game-fw-chain li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: normal;
+}
+.game-fw-chev {
+  color: var(--lab-ink-2);
+}
+.game-fw-channel-note {
+  margin-top: 0.3rem;
+  font-size: var(--t-xs);
+  line-height: 1.45;
+  color: var(--lab-ink-2);
+}
+.game-fw-channel .game-fw-link {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-areas: none;
+  gap: 0.1rem;
+}
+.game-fw-channel .game-fw-link > :nth-child(1),
+.game-fw-channel .game-fw-link > :nth-child(2) {
+  grid-area: auto;
+}
+.game-fw-axis {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+}
+.game-fw-axisbar {
+  position: relative;
+  display: block;
+  height: 12px;
+  background: linear-gradient(var(--lab-ink), var(--lab-ink)) 50% 0 / 1px 100% no-repeat;
+}
+.game-fw-axisbar-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--lab-ink);
+}
+.game-fw-channel.is-policy .game-fw-axisbar-fill {
+  background: var(--dc-1);
+}
+.game-fw-channel.is-env .game-fw-axisbar-fill {
+  background: var(--dc-4);
+}
+.game-fw-axisbar-val {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: var(--t-xs);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.game-fw-channel-none {
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+@media (max-width: 760px) {
+  .game-fw-channel-scale,
+  .game-fw-channel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .game-fw-channel-scale > span:not(.game-fw-axis) {
+    display: none;
+  }
+  .game-fw-channel-bars {
+    padding-inline: 2.75rem;
+  }
+  .game-fw-channel-scale .game-fw-axis {
+    margin-inline: 2.75rem;
+  }
+}
+@media (min-width: 761px) {
+  .game-fw-channel-bars,
+  .game-fw-channel-scale .game-fw-axis {
+    padding-inline: 2.75rem;
+  }
+}
+
+/* Why tab: the numbers first, then notes whose detail clamps to two lines behind "More". */
+.game-fw-note-text.is-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.game-fw-note .game-why {
+  align-self: flex-start;
+}
+.game-fw-section .game-fw-overview {
+  margin-bottom: 0.9rem;
+}
+.game-fw-tile-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.game-fw-tile-ends b {
+  color: var(--lab-ink);
+}
+
+/* Goal hero: label over figure and unit, side by side with the goal readout. */
+.game-goal-figures > .game-goal-fc {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  column-gap: 0.2rem;
+}
+.game-goal-figures > .game-goal-fc small {
+  grid-column: 1 / -1;
+}
+.game-goal-star-state {
+  white-space: nowrap;
+}
+.game-mission-stars {
+  display: inline-flex;
+  gap: 0.15rem;
+}
+.game-advice-text.is-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Decomposition key: one compact table under the chart (swatch, name, value), total ruled. */
+.game-dc-table {
+  width: 100%;
+  max-width: 34rem;
+  margin-top: 0.5rem;
+  border-collapse: collapse;
+  font-size: var(--t-sm);
+}
+.game-dc-table th,
+.game-dc-table td {
+  padding: 0.18rem 0;
+  text-align: left;
+  font-weight: 400;
+}
+.game-dc-table td {
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.game-dc-table .game-dc-group-row th {
+  padding-top: 0.5rem;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--lab-ink-2);
+}
+.game-dc-table tbody tr:not(.game-dc-group-row):not(.game-dc-total-row) {
+  border-bottom: 1px solid var(--lab-line);
+}
+.game-dc-table button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: left;
+}
+.game-dc-table button i {
+  flex: none;
+  width: 0.8rem;
+  height: 0.8rem;
+}
+.game-dc-table button i.is-hatch {
+  background: repeating-linear-gradient(45deg, var(--dc-momentum) 0 1.5px, color-mix(in srgb, var(--dc-momentum) 22%, var(--lab-paper)) 1.5px 5px);
+}
+.game-dc-table tr.is-off {
+  opacity: 0.5;
+}
+.game-dc-table tr.is-off .game-dc-label {
+  text-decoration: line-through;
+}
+.game-dc-total-row th,
+.game-dc-total-row td {
+  border-top: 2px solid var(--lab-ink);
+  padding-top: 0.35rem;
+  font-weight: 700;
+}
+.game-dc-total-row td {
+  font-size: var(--t-md);
+}
+.game-dc-empty {
+  font-size: var(--t-xs);
+  font-weight: 400 !important;
+  text-align: left !important;
+  white-space: normal !important;
+  color: var(--lab-ink-2);
+}
+.game-fw-channels {
+  align-items: stretch;
+}
+.game-goal-stars li {
+  display: block;
+}
+.game-goal-stars li > * + * {
+  margin-left: 0.3rem;
+}
+.game-fw-narrow-note {
+  display: none;
+}
+@media (max-width: 760px) {
+  .game-fw-narrow-note {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-size: var(--t-xs);
+    color: var(--lab-ink-2);
+  }
+}

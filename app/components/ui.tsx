@@ -39,12 +39,15 @@ export function Slider({
   hint,
   disabled,
   reference,
+  stepper = false,
 }: {
   label: string;
   value: number;
   min: number;
   max: number;
   step: number;
+  /** Flank the track with − and + buttons, one step each (the game's levers). */
+  stepper?: boolean;
   onChange: (v: number) => void;
   format?: (v: number) => string;
   hint?: string;
@@ -55,29 +58,47 @@ export function Slider({
   const shown = format ? format(value) : String(value);
   const pct = ((value - min) / (max - min)) * 100;
   const refPct = reference === undefined ? null : ((reference - min) / (max - min)) * 100;
+  // With steppers the root is a div: buttons inside a <label> would catch clicks on its text.
+  const Root = stepper ? "div" : "label";
+  const nudge = (dir: number) => onChange(Math.min(max, Math.max(min, +(value + dir * step).toFixed(6))));
+  const input = (
+    <span className="relative mt-1 block min-w-0 flex-1">
+      {refPct !== null ? <span aria-hidden="true" className="lab-ref-tick" style={{ left: `calc(${Math.max(0, Math.min(100, refPct))}% - 1px)` }} /> : null}
+      <input
+        type="range"
+        className="lab-range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{ ["--pct" as string]: `${pct}%` }}
+        aria-label={label}
+      />
+    </span>
+  );
   return (
-    <label className={`lab-field ${disabled ? "opacity-50" : ""}`}>
+    <Root className={`lab-field ${disabled ? "opacity-50" : ""}`}>
       <span className="flex items-baseline justify-between gap-2">
         <span className="lab-slider-label text-(length:--t-xs) font-semibold text-[var(--lab-ink)]">{label}</span>
         <span className="lab-slider-value font-mono text-(length:--t-xs) tabular-nums text-[var(--lab-ink)]">{shown}</span>
       </span>
-      <span className="relative mt-1 block">
-        {refPct !== null ? <span aria-hidden="true" className="lab-ref-tick" style={{ left: `calc(${Math.max(0, Math.min(100, refPct))}% - 1px)` }} /> : null}
-        <input
-          type="range"
-          className="lab-range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          disabled={disabled}
-          onChange={(e) => onChange(Number(e.target.value))}
-          style={{ ["--pct" as string]: `${pct}%` }}
-          aria-label={label}
-        />
-      </span>
+      {stepper ? (
+        <span className="lab-slider-row">
+          <button type="button" className="lab-step" disabled={disabled || value <= min} onClick={() => nudge(-1)} aria-label={`Lower ${label.toLowerCase()} one step`}>
+            −
+          </button>
+          {input}
+          <button type="button" className="lab-step" disabled={disabled || value >= max} onClick={() => nudge(1)} aria-label={`Raise ${label.toLowerCase()} one step`}>
+            +
+          </button>
+        </span>
+      ) : (
+        input
+      )}
       {hint ? <span className="mt-0.5 block text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">{hint}</span> : null}
-    </label>
+    </Root>
   );
 }
 

@@ -35,6 +35,8 @@ type LabState = {
   labels: "all" | "focus";
   /** Districts whose labels stay visible in "focus" mode (the campaign's watched goals). */
   spotlight: FocusKey[];
+  /** Districts whose goal is at risk or missed (the campaign sets it), shown on their island tags. */
+  districtStatus: Partial<Record<FocusKey, "at-risk" | "failed">>;
   /** Reduced motion chosen in settings, on top of the system preference. */
   reduceMotion: boolean;
   /** Bumped to ask the 3D camera to fly home. */
@@ -143,6 +145,7 @@ export const useLab = create<LabState>((set, get) => ({
   showFan: false,
   labels: "all",
   spotlight: [],
+  districtStatus: {},
   reduceMotion: false,
   cameraHome: 0,
   storyId: null,

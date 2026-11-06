@@ -6,7 +6,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import type { ConstraintVar } from "../model/types";
 import * as THREE from "three";
 import { fmt } from "../components/format";
-import { regimeName } from "../model/economy";
 import { getPreset, WEO_REFERENCE } from "../model/presets";
 import { selectCurrent, selectPolicyNow, useLab, type FocusKey } from "../store";
 import Label, { type IconName } from "./Label";
@@ -144,11 +143,12 @@ function District({ focusKey, position, labelY, labelX = 0, pendingLabel, dockPe
   const spotlit = useLab((s) => s.spotlight.includes(focusKey));
   const breachedNow = useBreachedNow();
   const breached = (BREACH_MAP[focusKey] ?? []).some((v) => breachedNow.has(v));
+  const goalStatus = useLab((s) => s.districtStatus[focusKey]);
   const [hover, setHover] = useState(false);
   const group = useRef<THREE.Group>(null);
   const focused = focus === focusKey;
   const active = hover || focused;
-  const showLabel = labels === "all" || active || breached || spotlit;
+  const showLabel = labels === "all" || active || breached || spotlit || Boolean(goalStatus);
   const narrow = useNarrowCanvas();
   const dock = next && dockPending && narrow ? "top-right" : undefined;
   // A pending banner can ride somewhere else so it clears its neighbours; once the camera
@@ -233,7 +233,7 @@ function District({ focusKey, position, labelY, labelX = 0, pendingLabel, dockPe
         <ringGeometry args={[2.1, 2.45, 48]} />
         <meshBasicMaterial color={color} transparent opacity={0} depthWrite={false} />
       </mesh>
-      <Label position={labelPos} title={breached ? `${title} · constraint breached` : title} value={dock && dockValue ? dockValue : value} next={next} bad={bad || breached} focus={active || Boolean(next)} tilt={tilt} hidden={!showLabel && !next} accent={color} icon={style.icon} dock={dock} />
+      <Label position={labelPos} title={breached ? `${title} · constraint breached` : title} value={dock && dockValue ? dockValue : value} next={next} bad={bad || breached} focus={active || Boolean(next)} tilt={tilt} hidden={!showLabel && !next} accent={color} icon={style.icon} dock={dock} status={goalStatus} />
     </group>
   );
 }
@@ -308,7 +308,7 @@ function DebtTower({ reducedMotion }: { reducedMotion: boolean }) {
   const labelY = TOWER_BASE + floors * SLAB_PITCH + 1.5 + spire;
   const bad = current.debt > threshold + 20;
   return (
-    <District focusKey="debt" pad={1.9} position={DISTRICT_POS.debt!} labelY={labelY} labelX={-1.2} title="Treasury" value={`Debt ${fmt(current.debt, 0)}% GDP`} bad={bad} tilt={-1.2} reducedMotion={reducedMotion}>
+    <District focusKey="debt" pad={1.9} position={DISTRICT_POS.debt!} labelY={labelY} labelX={-1.2} title="Public debt" value={`${fmt(current.debt, 0)}% of GDP`} bad={bad} tilt={-1.2} reducedMotion={reducedMotion}>
       {/* Podium with a colonnade front */}
       <mesh position-y={0.08} receiveShadow>
         <boxGeometry args={[2.7, 0.16, 2.7]} />
@@ -394,7 +394,7 @@ function CentralBank({ reducedMotion }: { reducedMotion: boolean }) {
   // A pending decision rides high and to the right of the dome so it never covers the
   // top of the debt tower next door; on a phone it pins to the canvas corner instead.
   return (
-    <District focusKey="rate" pad={2.35} position={DISTRICT_POS.rate!} labelY={6.1} labelX={-1.5} pendingLabel={[9.6, 3.0]} dockPending dockValue={`${fmt(current.rate, 2)}%`} title={`Central bank · ${stanceWord}`} value={`${fmt(current.rate, 2)}% · ${regimeName(current.regime)}`} next={next} tilt={0.8} reducedMotion={reducedMotion}>
+    <District focusKey="rate" pad={2.35} position={DISTRICT_POS.rate!} labelY={6.1} labelX={-1.5} pendingLabel={[9.6, 3.0]} dockPending dockValue={`${fmt(current.rate, 2)}%`} title="Policy rate" value={`${fmt(current.rate, 2)}% · ${stanceWord}`} next={next} tilt={0.8} reducedMotion={reducedMotion}>
       <mesh position-y={0.15} receiveShadow castShadow>
         <cylinderGeometry args={[2.0, 2.1, 0.3, 8]} />
         <meshStandardMaterial color={P.stone} roughness={1} flatShading={P.flat} />
@@ -483,7 +483,7 @@ function Thermometer({ reducedMotion }: { reducedMotion: boolean }) {
   });
   const targetY = 0.55 + tube * clamp(policy.inflationTarget / scaleMax, 0, 1);
   return (
-    <District focusKey="infl" pad={1.0} position={DISTRICT_POS.infl!} labelY={0.6} labelX={3.1} title="Campus · inflation" value={`${fmt(current.infl, 1)}% (target ${fmt(policy.inflationTarget, 1)})`} bad={Math.abs(dev) > 3} tilt={1.5} reducedMotion={reducedMotion}>
+    <District focusKey="infl" pad={1.0} position={DISTRICT_POS.infl!} labelY={0.6} labelX={3.1} title="Inflation" value={`${fmt(current.infl, 1)}% · target ${fmt(policy.inflationTarget, 1)}`} bad={Math.abs(dev) > 3} tilt={1.5} reducedMotion={reducedMotion}>
       {/* Lecture hall behind the thermometer */}
       <group position={[0, 0, -0.85]}>
         <mesh position-y={0.36} castShadow receiveShadow>
@@ -678,7 +678,7 @@ function Factories({ reducedMotion }: { reducedMotion: boolean }) {
   });
 
   return (
-    <District focusKey="growth" pad={2.6} position={DISTRICT_POS.growth!} labelY={height + 3.0} labelX={1.4} title="Industry" value={`Growth ${fmt(current.growth, 1)}%`} bad={current.growth < 0} tilt={-0.6} reducedMotion={reducedMotion}>
+    <District focusKey="growth" pad={2.6} position={DISTRICT_POS.growth!} labelY={height + 3.0} labelX={1.4} title="Growth" value={`${fmt(current.growth, 1)}%`} bad={current.growth < 0} tilt={-0.6} reducedMotion={reducedMotion}>
       {/* Yard */}
       <mesh position={[0, 0.03, 0.1]} receiveShadow>
         <boxGeometry args={[4.9, 0.06, 2.3]} />
@@ -853,7 +853,7 @@ function Port({ reducedMotion }: { reducedMotion: boolean }) {
   });
 
   return (
-    <District focusKey="ca" position={DISTRICT_POS.ca!} labelY={3.3} title="Harbour · current acct" value={`${fmt(current.ca, 1, true)}% GDP`} bad={current.ca < -6} tilt={1} reducedMotion={reducedMotion}>
+    <District focusKey="ca" position={DISTRICT_POS.ca!} labelY={3.3} title="Current account" value={`${fmt(current.ca, 1, true)}% of GDP`} bad={current.ca < -6} tilt={1} reducedMotion={reducedMotion}>
       <mesh position={[1.2, 0.15, 0.4]} receiveShadow castShadow>
         <boxGeometry args={[5.2, 0.3, 2.6]} />
         <meshStandardMaterial color={P.dock} roughness={1} flatShading={P.flat} />
@@ -979,7 +979,7 @@ function Vault({ reducedMotion }: { reducedMotion: boolean }) {
   });
   const lowMark = 0.25 + GAUGE_H * (3 / GAUGE_MONTHS);
   return (
-    <District focusKey="reserves" pad={2.1} position={DISTRICT_POS.reserves!} labelY={3.1} title="Reserve vault" value={`${fmt(current.reserves, 1)} mo. imports`} bad={current.reserves < 2} tilt={-1.5} reducedMotion={reducedMotion}>
+    <District focusKey="reserves" pad={2.1} position={DISTRICT_POS.reserves!} labelY={3.1} title="Reserves" value={`${fmt(current.reserves, 1)} mo. imports`} bad={current.reserves < 2} tilt={-1.5} reducedMotion={reducedMotion}>
       <mesh position-y={0.06} receiveShadow>
         <boxGeometry args={[2.9, 0.12, 2.5]} />
         <meshStandardMaterial color={P.stone} roughness={1} flatShading={P.flat} />
@@ -1107,7 +1107,7 @@ function Housing({ reducedMotion }: { reducedMotion: boolean }) {
     commitInstances(w);
   });
   return (
-    <District focusKey="unemp" pad={2.2} position={DISTRICT_POS.unemp!} labelY={2.1} title="Neighbourhood" value={`Jobless ${fmt(current.unemp, 1)}%`} bad={current.unemp > 12} tilt={0.6} reducedMotion={reducedMotion}>
+    <District focusKey="unemp" pad={2.2} position={DISTRICT_POS.unemp!} labelY={2.1} title="Unemployment" value={`${fmt(current.unemp, 1)}%`} bad={current.unemp > 12} tilt={0.6} reducedMotion={reducedMotion}>
       <instancedMesh ref={bodies} args={[undefined, undefined, HOUSES]} castShadow receiveShadow frustumCulled={false}>
         <boxGeometry args={[0.62, 1, 0.62]} />
         <meshStandardMaterial roughness={0.95} flatShading />
@@ -1139,7 +1139,7 @@ function Lighthouse({ reducedMotion }: { reducedMotion: boolean }) {
     if (lamp.current) lamp.current.intensity = 1 + 7 * c;
   });
   return (
-    <District focusKey="cred" pad={1.25} position={DISTRICT_POS.cred!} labelY={4.4} title="Lighthouse" value={`Credibility ${fmt(current.cred, 0)}`} bad={current.cred < 30} tilt={-0.8} reducedMotion={reducedMotion}>
+    <District focusKey="cred" pad={1.25} position={DISTRICT_POS.cred!} labelY={4.4} title="Credibility" value={`${fmt(current.cred, 0)} / 100`} bad={current.cred < 30} tilt={-0.8} reducedMotion={reducedMotion}>
       <mesh position-y={0.15} receiveShadow>
         <cylinderGeometry args={[0.9, 1.0, 0.3, 8]} />
         <meshStandardMaterial color={P.stone} roughness={1} flatShading={P.flat} />
@@ -1186,7 +1186,7 @@ function Tanker({ reducedMotion }: { reducedMotion: boolean }) {
     group.current.rotation.z = Math.sin(t * 0.6) * 0.02;
   });
   return (
-    <District focusKey="oil" position={DISTRICT_POS.oil!} labelY={2.2} title="Tanker · oil" value={`$${fmt(current.oil, 0)}${Math.abs(dev) > 0.05 ? ` (${fmt(dev * 100, 0, true)}%)` : ""}`} bad={dev > 0.3} tilt={1.2} reducedMotion={reducedMotion}>
+    <District focusKey="oil" position={DISTRICT_POS.oil!} labelY={2.2} title="Oil" value={`$${fmt(current.oil, 0)}${Math.abs(dev) > 0.05 ? ` (${fmt(dev * 100, 0, true)}%)` : ""}`} bad={dev > 0.3} tilt={1.2} reducedMotion={reducedMotion}>
       <group ref={group} rotation-y={-0.3}>
         <mesh castShadow>
           <boxGeometry args={[4.2, 0.7, 1.3]} />
@@ -1213,7 +1213,7 @@ function CityBanner() {
   const gdp = useLab((s) => Math.round(s.result.path[Math.min(s.clock, s.result.path.length - 1)].gdpLevel));
   const narrow = useNarrowCanvas();
   const { x, z } = WORLD.sites.center;
-  return <Label position={[x - 0.8, TOP + 1.5, z]} title="Capital · GDP index" value={`${getPreset(presetId).name} · ${gdp}`} accent={P.border} icon="crown" capital dock={narrow ? "bottom-left" : undefined} />;
+  return <Label position={[x - 0.8, TOP + 1.5, z]} title={getPreset(presetId).name} value={`GDP index ${gdp}`} accent={P.border} icon="crown" capital dock={narrow ? "bottom-left" : undefined} />;
 }
 
 export default function Districts({ reducedMotion }: { reducedMotion: boolean }) {

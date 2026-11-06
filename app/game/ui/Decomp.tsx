@@ -114,20 +114,20 @@ export default function Decomp() {
       <div className="game-dc-chart" ref={boxRef} onPointerLeave={() => setHover(null)}>
         <svg viewBox={`0 0 ${W} ${H}`} className="block w-full" role="img" aria-label={`${meta.label}: contributions to the change since the start, by quarter`}>
           <defs>
-            <pattern id="dc-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-              <rect width="6" height="6" fill="color-mix(in srgb, var(--lab-ink) 10%, var(--lab-paper))" />
-              <line x1="0" y1="0" x2="0" y2="6" stroke="var(--dc-momentum)" strokeWidth="3" />
+            <pattern id="dc-hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <rect width="7" height="7" fill="color-mix(in srgb, var(--dc-momentum) 22%, var(--lab-paper))" />
+              <line x1="0" y1="0" x2="0" y2="7" stroke="var(--dc-momentum)" strokeWidth="1.5" />
             </pattern>
           </defs>
-          {clock < end ? <rect x={x(clock + 1) - band * 0.2} y={PAD.t} width={x(end) + band - x(clock + 1) + band * 0.2} height={H - PAD.t - PAD.b} fill="color-mix(in srgb, var(--lab-ink) 4%, transparent)" /> : null}
+          {clock < end ? <line x1={x(clock + 1)} x2={x(clock + 1)} y1={PAD.t - 4} y2={H - PAD.b} stroke="var(--lab-ink)" strokeDasharray="4 3" /> : null}
           {ticks.map((v, i) => (
             <g key={v}>
               <line x1={PAD.l} x2={W - PAD.r} y1={y(v)} y2={y(v)} stroke={v === 0 ? "var(--lab-ink)" : "var(--lab-line)"} strokeOpacity={v === 0 ? 0.55 : 1} />
-              <text x={PAD.l - 6} y={y(v) + 4} fontSize={12} textAnchor="end" fill="var(--lab-ink-2)">
+              <text x={PAD.l - 6} y={y(v) + 4} fontSize={13} textAnchor="end" fill="var(--lab-ink-2)">
                 {fmt(v, tickDigits(ticks))}
               </text>
               {i === ticks.length - 1 ? (
-                <text x={4} y={PAD.t - 12} fontSize={12} fill="var(--lab-ink-2)">
+                <text x={4} y={PAD.t - 12} fontSize={13} fill="var(--lab-ink-2)">
                   {meta.unit} vs start
                 </text>
               ) : null}
@@ -138,19 +138,19 @@ export default function Decomp() {
           ))}
           {band >= 26
             ? Array.from({ length: end }, (_, i) => i + 1).map((t) => (
-                <text key={`ql-${t}`} x={x(t) + band / 2} y={H - PAD.b + 16} fontSize={11} textAnchor="middle" fill="var(--lab-ink-2)">
+                <text key={`ql-${t}`} x={x(t) + band / 2} y={H - PAD.b + 16} fontSize={13} textAnchor="middle" fill="var(--lab-ink-2)">
                   {d.path[t].label.slice(4)}
                 </text>
               ))
             : null}
           {years.map((t) => (
-            <text key={t} x={x(t) + band / 2} y={H - 2} fontSize={12} fontWeight={600} textAnchor={band >= 26 ? "middle" : "start"} fill="var(--lab-ink-2)">
+            <text key={t} x={x(t) + band / 2} y={H - 2} fontSize={13} fontWeight={600} textAnchor={band >= 26 ? "middle" : "start"} fill="var(--lab-ink-2)">
               {d.path[t].label.slice(0, 4)}
             </text>
           ))}
           {clock < end ? (
-            <text x={x(clock + 1) + 4} y={PAD.t + 12} fontSize={12} fontWeight={600} fill="var(--lab-ink-2)">
-              Forecast →
+            <text x={x(clock + 1) + 5} y={PAD.t + 8} fontSize={13} fontWeight={600} fill="var(--lab-ink)">
+              Forecast
             </text>
           ) : null}
           {Array.from({ length: end }, (_, i) => i + 1).map((t) => {
@@ -192,17 +192,20 @@ export default function Decomp() {
         <p className="game-dc-axis">Change since the start, {meta.unit}. Line = total change; bars = what caused it. Point at (or tap) a quarter for its numbers.</p>
       </div>
 
-      <div className="game-dc-legend">
-        <LegendGroup title="Where it was heading" items={[momentum]} metric={metric} at={at} digits={meta.digits} hidden={hidden} toggle={toggle} />
-        {env.length ? <LegendGroup title="What hit the economy" items={env} metric={metric} at={at} digits={meta.digits} hidden={hidden} toggle={toggle} /> : null}
-        <LegendGroup title="Your instruments" items={pol} metric={metric} at={at} digits={meta.digits} hidden={hidden} toggle={toggle} empty="You haven't moved a lever yet: nothing to attribute to policy." />
-        <div className="game-dc-total">
-          <span>Total change by {d.path[at].label}</span>
-          <strong className="tabular-nums">
-            {fmt(total(at), meta.digits)} {meta.unit}
-          </strong>
-        </div>
-      </div>
+      <table className="game-dc-table">
+        <caption className="sr-only">What caused the change by {d.path[at].label}</caption>
+        <tbody>
+          <LegendRows title="Where it was heading" items={[momentum]} metric={metric} at={at} digits={meta.digits} hidden={hidden} toggle={toggle} />
+          {env.length ? <LegendRows title="What hit the economy" items={env} metric={metric} at={at} digits={meta.digits} hidden={hidden} toggle={toggle} /> : null}
+          <LegendRows title="Your instruments" items={pol} metric={metric} at={at} digits={meta.digits} hidden={hidden} toggle={toggle} empty="You haven't moved a lever yet: nothing to attribute to policy." />
+          <tr className="game-dc-total-row">
+            <th scope="row">Total change by {d.path[at].label}</th>
+            <td className="tabular-nums">
+              {fmt(total(at), meta.digits)} {meta.unit}
+            </td>
+          </tr>
+        </tbody>
+      </table>
       <p className="game-dc-note">
         How it is measured: shocks are switched on one by one under the policy you inherited; then your instruments are switched on with the shocks in place, so each instrument shows how much it offset or added to them. Click a legend item to hide it from the chart.
       </p>
@@ -210,33 +213,33 @@ export default function Decomp() {
   );
 }
 
-function LegendGroup({ title, items, metric, at, digits, hidden, toggle, empty }: { title: string; items: Component[]; metric: DecompMetric; at: number; digits: number; hidden: Set<string>; toggle: (id: string) => void; empty?: string }) {
-  const max = Math.max(0.01, ...items.map((c) => Math.abs(c.values[metric][at])));
+function LegendRows({ title, items, metric, at, digits, hidden, toggle, empty }: { title: string; items: Component[]; metric: DecompMetric; at: number; digits: number; hidden: Set<string>; toggle: (id: string) => void; empty?: string }) {
   return (
-    <div className="game-dc-group">
-      <h5>{title}</h5>
+    <>
+      <tr className="game-dc-group-row">
+        <th scope="rowgroup" colSpan={2}>{title}</th>
+      </tr>
       {items.length ? (
-        <ul>
-          {items.map((c) => {
-            const v = c.values[metric][at];
-            return (
-              <li key={c.id}>
-                <button type="button" className={hidden.has(c.id) ? "is-off" : ""} onClick={() => toggle(c.id)} aria-pressed={!hidden.has(c.id)} title={hidden.has(c.id) ? "Show in the chart" : "Hide from the chart"}>
+        items.map((c) => {
+          const v = c.values[metric][at];
+          return (
+            <tr key={c.id} className={hidden.has(c.id) ? "is-off" : ""}>
+              <th scope="row">
+                <button type="button" onClick={() => toggle(c.id)} aria-pressed={!hidden.has(c.id)} title={hidden.has(c.id) ? "Show in the chart" : "Hide from the chart"}>
                   <i className={c.kind === "momentum" ? "is-hatch" : ""} style={c.kind === "momentum" ? undefined : { background: SLOT[c.slot] }} aria-hidden="true" />
                   <span className="game-dc-label">{c.label}</span>
-                  <span className="game-dc-mini" aria-hidden="true">
-                    <span style={{ width: `${(Math.abs(v) / max) * 100}%`, background: SLOT[c.slot], marginLeft: v < 0 ? "auto" : undefined }} />
-                  </span>
-                  <span className="tabular-nums">{fmt(v, digits)}</span>
                 </button>
-              </li>
-            );
-          })}
-        </ul>
+              </th>
+              <td className="tabular-nums">{fmt(v, digits)}</td>
+            </tr>
+          );
+        })
       ) : (
-        <p>{empty}</p>
+        <tr>
+          <td colSpan={2} className="game-dc-empty">{empty}</td>
+        </tr>
       )}
-    </div>
+    </>
   );
 }
 

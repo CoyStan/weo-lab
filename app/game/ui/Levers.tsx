@@ -40,9 +40,11 @@ export default function Levers() {
 
   return (
     <div className="flex flex-col gap-1">
-      <p className="game-turn-note">
-        Decisions for <strong>{deciding}</strong>. They stay in force until you change them.
-      </p>
+      {clock === 0 ? (
+        <p className="game-turn-note">
+          Decisions for <strong>{deciding}</strong>. They stay in force until you change them.
+        </p>
+      ) : null}
 
       {unlocked.has("rate") || unlocked.has("rule") ? (
         <LeverGroup title="Interest rate">
@@ -63,6 +65,7 @@ export default function Levers() {
           {pegged && unlocked.has("rate") ? (
             <Lever id="rate" lever="rate" moved={moved(["manualRate", "rateMode"])} metrics={metrics}>
               <Slider
+                stepper
                 label="Defend the peg: rate floor"
                 value={policy.rateMode === "manual" ? policy.manualRate : 0}
                 min={0}
@@ -79,12 +82,12 @@ export default function Levers() {
           ) : null}
           {!pegged && policy.rateMode === "manual" && unlocked.has("rate") ? (
             <Lever id="rate" lever="rate" moved={moved(["manualRate"])} metrics={metrics}>
-              <Slider label="Policy rate" value={policy.manualRate} min={0} max={20} step={0.25} format={(v) => `${trim(v)}%`} onChange={(v) => decide({ manualRate: v })} hint="Higher rates cool demand and, a few quarters later, inflation." />
+              <Slider stepper label="Policy rate" value={policy.manualRate} min={0} max={20} step={0.25} format={(v) => `${trim(v)}%`} onChange={(v) => decide({ manualRate: v })} hint="Higher rates cool demand and, a few quarters later, inflation." />
             </Lever>
           ) : null}
           {!pegged && policy.rateMode === "rule" && unlocked.has("rule") ? (
             <Lever id="rule" lever="rule" moved={moved(["ruleStrength"])} metrics={metrics}>
-              <Slider label="How hard the rule reacts" value={policy.ruleStrength} min={0.5} max={2.5} step={0.1} format={(v) => `×${v.toFixed(1)}`} onChange={(v) => decide({ ruleStrength: v })} hint="Points of rate per point of excess inflation. Above ×1, real rates rise when inflation does." />
+              <Slider stepper label="How hard the rule reacts" value={policy.ruleStrength} min={0.5} max={2.5} step={0.1} format={(v) => `×${v.toFixed(1)}`} onChange={(v) => decide({ ruleStrength: v })} hint="Points of rate per point of excess inflation. Above ×1, real rates rise when inflation does." />
             </Lever>
           ) : null}
         </LeverGroup>
@@ -94,17 +97,17 @@ export default function Levers() {
         <LeverGroup title="Budget">
           {unlocked.has("fiscal") ? (
             <Lever id="fiscal" lever="fiscal" moved={moved(["fiscalAdjustment"])} metrics={metrics}>
-              <Slider label="Tightening per year" value={policy.fiscalAdjustment} min={-2} max={3} step={0.25} format={(v) => (v === 0 ? "none" : `${v > 0 ? "+" : ""}${trim(v)} pp of GDP`)} onChange={(v) => decide({ fiscalAdjustment: v })} hint="Raises the budget balance a little each quarter. Negative values loosen. It keeps going until you set it back to zero." />
+              <Slider stepper label="Tightening per year" value={policy.fiscalAdjustment} min={-2} max={3} step={0.25} format={(v) => (v === 0 ? "none" : `${v > 0 ? "+" : ""}${trim(v)} pp of GDP`)} onChange={(v) => decide({ fiscalAdjustment: v })} hint="Raises the budget balance a little each quarter. Negative values loosen. It keeps going until you set it back to zero." />
             </Lever>
           ) : null}
           {unlocked.has("mix") ? (
             <Lever id="mix" lever="mix" moved={moved(["adjustmentMix"])} metrics={metrics}>
-              <Slider label="Through cuts or taxes" value={policy.adjustmentMix} min={0} max={100} step={10} format={(v) => (v === 50 ? "half and half" : v < 50 ? `${100 - v}% cuts` : `${v}% taxes`)} onChange={(v) => decide({ adjustmentMix: v })} hint="Spending cuts hit growth harder than tax rises." />
+              <Slider stepper label="Through cuts or taxes" value={policy.adjustmentMix} min={0} max={100} step={10} format={(v) => (v === 50 ? "half and half" : v < 50 ? `${100 - v}% cuts` : `${v}% taxes`)} onChange={(v) => decide({ adjustmentMix: v })} hint="Spending cuts hit growth harder than tax rises." />
             </Lever>
           ) : null}
           {unlocked.has("investment") ? (
             <Lever id="investment" lever="investment" moved={moved(["publicInvestment"])} metrics={metrics}>
-              <Slider label="Public investment" value={policy.publicInvestment} min={1} max={8} step={0.25} format={(v) => `${trim(v)}% of GDP`} onChange={(v) => decide({ publicInvestment: v })} hint="Costs the budget now; raises growth capacity later." />
+              <Slider stepper label="Public investment" value={policy.publicInvestment} min={1} max={8} step={0.25} format={(v) => `${trim(v)}% of GDP`} onChange={(v) => decide({ publicInvestment: v })} hint="Costs the budget now; raises growth capacity later." />
             </Lever>
           ) : null}
         </LeverGroup>
@@ -130,7 +133,7 @@ export default function Levers() {
           ) : null}
           {unlocked.has("intervention") && policy.fxRegime === "managed" ? (
             <Lever id="intervention" lever="intervention" moved={moved(["fxIntervention"])} metrics={metrics}>
-              <Slider label="Intervention" value={policy.fxIntervention} min={0} max={100} step={5} format={(v) => `${v}% of pressure`} onChange={(v) => decide({ fxIntervention: v })} hint="How much currency pressure the central bank absorbs with reserves." />
+              <Slider stepper label="Intervention" value={policy.fxIntervention} min={0} max={100} step={5} format={(v) => `${v}% of pressure`} onChange={(v) => decide({ fxIntervention: v })} hint="How much currency pressure the central bank absorbs with reserves." />
             </Lever>
           ) : null}
           {unlocked.has("controls") ? (
@@ -187,6 +190,7 @@ export default function Levers() {
           {unlocked.has("imf") ? (
             <Lever id="imf" lever="imf" moved={moved(["imfProgram"])} metrics={metrics}>
               <Slider
+                stepper
                 label="IMF programme"
                 value={policy.imfProgram}
                 min={0}
@@ -206,7 +210,7 @@ export default function Levers() {
           ) : null}
           {unlocked.has("reforms") ? (
             <Lever id="reforms" lever="reforms" moved={moved(["laborReform", "productivityReform", "tradeOpenness"])} metrics={metrics}>
-              <Slider label="Structural reforms" value={policy.productivityReform} min={0} max={3} step={1} format={(v) => (v === 0 ? "none" : `level ${v}`)} onChange={(v) => decide({ laborReform: v, productivityReform: v, tradeOpenness: v })} hint="Raise growth capacity and lower unemployment, slowly, over about two years." />
+              <Slider stepper label="Structural reforms" value={policy.productivityReform} min={0} max={3} step={1} format={(v) => (v === 0 ? "none" : `level ${v}`)} onChange={(v) => decide({ laborReform: v, productivityReform: v, tradeOpenness: v })} hint="Raise growth capacity and lower unemployment, slowly, over about two years." />
             </Lever>
           ) : null}
         </LeverGroup>
@@ -240,7 +244,6 @@ function Lever({ id, lever, moved, metrics, children }: { id: string; lever: Lev
   const off = () => setProbe(null);
   return (
     <div className={`game-lever ${moved ? "is-moved" : ""}`} data-lever={id} onPointerEnter={on} onPointerLeave={off} onFocus={on} onBlur={off}>
-      {moved ? <span className="game-moved-dot" title="Changed this quarter" /> : null}
       {children}
       {active ? <ProbeLine metrics={metrics} /> : null}
     </div>

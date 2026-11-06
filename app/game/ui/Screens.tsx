@@ -13,6 +13,7 @@ import { INSTITUTIONS } from "../politics";
 import { CostChips, TrustIcon, VotesIcon } from "./Capital";
 import { missionUnlocked, useGame } from "../store";
 import SoundToggle from "./SoundToggle";
+import Glyph from "./Glyph";
 import { BADGES } from "../../contagion/flavour";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -45,7 +46,7 @@ export function TitleScreen() {
         <p className="game-eyebrow">A policy game for economists, and for anyone curious</p>
         <h1 className="game-title">WEO Scenario Lab</h1>
         <p className="game-subtitle">Run an economy one quarter at a time. Set rates, budgets and exchange rates, hear out your advisors, and see what your choices do before you commit.</p>
-        <div className="mt-6 flex flex-wrap items-center gap-2.5">
+        <div className="game-title-actions mt-6 flex flex-wrap items-center gap-2.5">
           <button type="button" className="lab-btn lab-btn-primary lab-btn-md game-cta" onClick={() => startMission(next.id)} autoFocus>
             {won === 0 ? "Start the campaign" : `Continue: ${next.title}`}
           </button>
@@ -81,8 +82,8 @@ export function MissionSelect() {
   return (
     <div className="game-overlay is-scroll">
       <div className="game-missions">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h1 className="font-display text-(length:--t-lg) font-semibold leading-none">Play</h1>
+        <div className="game-missions-head mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h1 className="game-missions-title font-display text-(length:--t-lg) font-semibold leading-none">Play</h1>
           <Segmented<Tab>
             ariaLabel="Mode"
             size="md"
@@ -215,7 +216,7 @@ function Stars({ n }: { n: number }) {
   return (
     <span className="game-mission-stars" aria-label={`${n} of 3 stars`}>
       {[1, 2, 3].map((k) => (
-        <span key={k} className={k <= n ? "is-on" : ""}>★</span>
+        <span key={k} className={k <= n ? "is-on" : ""}><Glyph name={k <= n ? "star" : "star-outline"} /></span>
       ))}
     </span>
   );
@@ -232,7 +233,7 @@ export function Briefing() {
   const bonus = mission.objectives.filter((o) => o.bonus);
 
   return (
-    <div className="game-overlay is-scroll">
+    <div className="game-overlay is-scroll is-briefing">
       <div className="game-card game-briefing" role="dialog" aria-labelledby="briefing-title">
         <p className="game-eyebrow">{mission.number ? `Mission ${mission.number} of ${MISSIONS.length} · ${preset.name}, ${preset.archetype.toLowerCase()}` : mission.comparison?.story ? `History · ${mission.kicker}` : `World today · ${preset.name}`}</p>
         <h1 id="briefing-title" className="game-title is-small">{mission.title}</h1>

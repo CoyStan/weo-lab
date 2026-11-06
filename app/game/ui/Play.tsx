@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { describeChanges, quarterLabel } from "../../model/economy";
 import { SHOCKS } from "../../model/shocks";
 import { getPreset } from "../../model/presets";
@@ -8,7 +8,7 @@ import { MISSIONS } from "../missions";
 import { sound } from "../audio";
 import { useSettings } from "../settings";
 import { useGame } from "../store";
-import SoundToggle from "./SoundToggle";
+import { MoveStrip } from "./Goals";
 import Capital from "./Capital";
 import Reforms from "./Reforms";
 import { Segmented } from "../../components/ui";
@@ -18,7 +18,7 @@ import Advisors from "./Advisors";
 import Goals from "./Goals";
 import Levers from "./Levers";
 import { attention } from "../pacing";
-import { useLab } from "../../store";
+import { useLab, type FocusKey } from "../../store";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -37,10 +37,23 @@ export default function Play({ scene }: { scene: ReactNode }) {
     : 0;
   const tense = mission.objectives.some((o) => !o.bonus && (statuses[o.id] === "at-risk" || statuses[o.id] === "failed"));
   useEffect(() => sound.setTense(tense), [tense]);
+  // The island tags carry each goal's trouble too, so the map and the goal cards read as one system.
+  const troubleKey = mission.objectives
+    .filter((o) => !o.bonus && (statuses[o.id] === "at-risk" || statuses[o.id] === "failed"))
+    .map((o) => `${o.metric}:${statuses[o.id]}`)
+    .join("|");
+  useEffect(() => {
+    const out: Partial<Record<FocusKey, "at-risk" | "failed">> = {};
+    for (const part of troubleKey ? troubleKey.split("|") : []) {
+      const [metric, st] = part.split(":") as [FocusKey, "at-risk" | "failed"];
+      if (out[metric] !== "failed") out[metric] = st;
+    }
+    useLab.setState({ districtStatus: out });
+    return () => useLab.setState({ districtStatus: {} });
+  }, [troubleKey]);
   const endQuarter = useGame((s) => s.endQuarter);
   const modal = useGame((s) => s.modal);
   const setScreen = useGame((s) => s.setScreen);
-  const restart = useGame((s) => s.restart);
   const rewind = useGame((s) => s.rewind);
   const setFramework = useGame((s) => s.setFramework);
   const run = useGame((s) => s.run);
@@ -93,12 +106,9 @@ export default function Play({ scene }: { scene: ReactNode }) {
           <h1 className="truncate font-display text-(length:--t-lg) font-semibold leading-tight">{mission.title}</h1>
         </div>
         <div className="game-progress" aria-label={`Quarter ${Math.min(clock + 1, mission.quarters)} of ${mission.quarters}`}>
-          <div className="flex items-baseline justify-between gap-2 text-(length:--t-xs)">
-            <span className="font-semibold">{done ? "Final quarter played" : `Deciding ${deciding}`}</span>
-            <span className="text-[var(--lab-ink-2)] tabular-nums">
-              turn {Math.min(clock + 1, mission.quarters)} of {mission.quarters}
-              {mission.quarters - clock > 1 ? <b className="ml-1 font-semibold text-[var(--lab-ink)]">· {mission.quarters - clock - 1} left after this</b> : null}
-            </span>
+          <div className="game-progress-head">
+            <strong>{done ? "Final quarter played" : `Deciding ${deciding}`}</strong>
+            {!done ? <span className="tabular-nums">· {mission.quarters - clock - 1} left</span> : null}
           </div>
           <div className="game-progress-track">
             {Array.from({ length: mission.quarters }, (_, i) => {
@@ -119,22 +129,13 @@ export default function Play({ scene }: { scene: ReactNode }) {
           <NextUp />
         </div>
         <Capital />
-        <div className="ml-auto flex items-center justify-end gap-1.5">
+        <div className="game-hud-actions ml-auto flex items-center justify-end gap-1.5">
           <button type="button" className="lab-btn lab-btn-sm game-fw-open" onClick={() => setFramework(true)} title="Every sector, every channel, and why things are or aren't moving (M)">
             <ChartIcon /> <span className="game-fw-open-label">Macro framework</span><span className="game-fw-open-short">Framework</span> <kbd className="game-fw-kbd">M</kbd>
           </button>
-          <SoundToggle />
-          {clock > 0 ? <button type="button" className="lab-btn lab-btn-ghost lab-btn-sm" onClick={rewind} title="Go back one quarter and decide again">Rewind</button> : null}
-          <details className="game-menu">
-            <summary className="lab-btn lab-btn-ghost lab-btn-sm" aria-label="Menu">
-              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><circle cx="3" cy="8" r="1.5" /><circle cx="8" cy="8" r="1.5" /><circle cx="13" cy="8" r="1.5" /></svg>
-              <span className="game-menu-label">Menu</span>
-            </summary>
-            <div className="game-menu-list" role="menu">
-              <button type="button" role="menuitem" onClick={() => setScreen("missions")}>All missions</button>
-              <button type="button" role="menuitem" onClick={restart}>Restart this mission</button>
-            </div>
-          </details></div>
+          {clock > 0 ? <button type="button" className="lab-btn lab-btn-ghost lab-btn-sm game-hud-rewind" onClick={rewind} title="Go back one quarter and decide again">Rewind</button> : null}
+          <HudMenu clock={clock} />
+        </div>
       </header>
 
       <main id="main-content" className="game-grid">
@@ -151,11 +152,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
               ]}
             />
           </div>
-          {tips && mission.number === 1 && clock < 2 && !changed ? (
-            <p className="game-coach">
-              {clock === 0 ? "Try moving the policy rate. The dashed line on each goal card shows where that choice leads; the faint one is where you started." : "Inflation reacts slowly. Judge your rate by the forecast at the end, not by this quarter."}
-            </p>
-          ) : null}
+          {tips && mission.number === 1 && clock === 0 && !changed ? <p className="game-coach">Move the policy rate and watch the blue forecast on each goal.</p> : null}
           <div className="game-agenda-top">
             <Agenda />
           </div>
@@ -189,6 +186,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
               <div className="game-agenda-bar">
                 <Agenda />
               </div>
+              <MoveStrip />
               {changed ? <span className="game-end-note">You changed policy this quarter.</span> : <span className="game-end-note">No changes: policy carries on as it is.</span>}
               <button type="button" className="game-end-btn" onClick={endQuarter} disabled={Boolean(modal) || done || Boolean(run)}>
                 End {quarterLabel(clock + 1)}
@@ -244,18 +242,67 @@ function DecisionLog() {
   return (
     <section className="game-log" aria-label="Your decisions so far">
       <h3>Your decisions so far</h3>
-      {mine.length ? (
-        <ol>
-          {mine.slice(0, 5).map((d) => (
-            <li key={d.quarter}>
-              <span>{quarterLabel(d.quarter)}</span> {describeChanges(d.changes)}
-            </li>
+      <table className="game-log-table">
+        <thead>
+          <tr>
+            <th scope="col">Quarter</th>
+            <th scope="col">Decision</th>
+          </tr>
+        </thead>
+        <tbody>
+          {mine.slice(0, 8).map((d) => (
+            <tr key={d.quarter}>
+              <th scope="row">{quarterLabel(d.quarter)}</th>
+              <td>{describeChanges(d.changes)}</td>
+            </tr>
           ))}
-        </ol>
-      ) : (
-        <p>None yet: policy carries on as you found it{inheritedText ? ` (${inheritedText})` : ""}.</p>
-      )}
+          <tr className="is-start">
+            <th scope="row">Start</th>
+            <td>{inheritedText || "Policy as you found it"}</td>
+          </tr>
+        </tbody>
+      </table>
     </section>
+  );
+}
+
+/** Everything that isn't the turn: the framework (phones), sound, settings, missions, restart. */
+function HudMenu({ clock }: { clock: number }) {
+  const setScreen = useGame((s) => s.setScreen);
+  const restart = useGame((s) => s.restart);
+  const rewind = useGame((s) => s.rewind);
+  const setFramework = useGame((s) => s.setFramework);
+  const muted = useSettings((s) => s.muted);
+  const setSettings = useSettings((s) => s.set);
+  const setSettingsOpen = useSettings((s) => s.setOpen);
+  const ref = useRef<HTMLDetailsElement>(null);
+  const close = () => ref.current?.removeAttribute("open");
+  return (
+    <details className="game-menu" ref={ref}>
+      <summary className="lab-btn lab-btn-ghost lab-btn-sm" aria-label="Menu" title="Menu: framework, sound, settings, missions">
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M2 3.5h12v1.5H2zM2 7.25h12v1.5H2zM2 11h12v1.5H2z" /></svg>
+        <span className="game-menu-label">Menu</span>
+      </summary>
+      <div className="game-menu-list" role="menu">
+        <button type="button" role="menuitem" className="game-menu-fw" onClick={() => { close(); setFramework(true); }}>Macro framework</button>
+        {clock > 0 ? <button type="button" role="menuitem" className="game-menu-rewind" onClick={() => { close(); rewind(); }}>Rewind one quarter</button> : null}
+        <button
+          type="button"
+          role="menuitemcheckbox"
+          aria-checked={!muted}
+          onClick={() => {
+            sound.unlock();
+            setSettings({ muted: !muted });
+            if (muted) window.setTimeout(() => sound.play("toggle"), 50);
+          }}
+        >
+          Sound: {muted ? "off" : "on"}
+        </button>
+        <button type="button" role="menuitem" onClick={() => { close(); setSettingsOpen(true); }}>Settings</button>
+        <button type="button" role="menuitem" onClick={() => setScreen("missions")}>All missions</button>
+        <button type="button" role="menuitem" onClick={restart}>Restart this mission</button>
+      </div>
+    </details>
   );
 }
 

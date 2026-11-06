@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ADVISORS, advise, type Advice } from "../advisors";
 import { useTurn } from "../useTurn";
 
@@ -29,12 +29,28 @@ export function AdviceList({ advice, compact = false }: { advice: Advice[]; comp
                 </span>
                 <span className={`game-stance is-${a.tone}`}>{STANCE[a.tone]}</span>
               </div>
-              <p className="game-advice-text">{emphasise(a.text)}</p>
+              <AdviceText text={a.text} compact={compact} />
             </div>
           </li>
         );
       })}
     </ul>
+  );
+}
+
+/** One line of advice by default; the full note on "More". */
+function AdviceText({ text, compact }: { text: string; compact: boolean }) {
+  const [open, setOpen] = useState(false);
+  const long = !compact && text.length > 64;
+  return (
+    <>
+      <p className={`game-advice-text ${long && !open ? "is-clamped" : ""}`}>{emphasise(text)}</p>
+      {long ? (
+        <button type="button" className="game-why" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          {open ? "Less" : "More"}
+        </button>
+      ) : null}
+    </>
   );
 }
 

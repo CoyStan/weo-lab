@@ -11,7 +11,7 @@ import { responsesFor } from "../responses";
 import { forecastFor, useGame, type Recap } from "../store";
 import { withDecision } from "../useTurn";
 import { AdviceList } from "./Advisors";
-import { TrustIcon, VotesIcon } from "./Capital";
+import Glyph from "./Glyph";
 import { annual } from "../calibrate";
 import { getStartYear, simulate } from "../../model/economy";
 import type { Mission } from "../missions";
@@ -68,15 +68,18 @@ function RecapCard({ recap }: { recap: Recap }) {
   const primary = usePrimary();
   const metrics = Array.from(new Set(mission.objectives.map((o) => o.metric)));
   const changes = recap.statuses.filter((s) => s.before !== s.after);
+  const lead = outcomeHeadline(mission, recap);
 
   return (
     <div className="game-card game-recap" role="dialog" aria-modal="true" aria-labelledby="recap-title">
       <div className="game-paper">
-        <div className="game-masthead">
-          <span>{recap.headline.paper}</span>
-          <span>{quarterLabel(recap.quarter)}</span>
-        </div>
-        <h2 id="recap-title" className="game-headline">{recap.headline.text}</h2>
+        <p className="game-masthead">{recap.headline.paper}</p>
+        <p className="game-dateline">
+          <span>{quarterLabel(recap.quarter)} edition</span>
+          <span>{mission.number ? `Mission ${mission.number} · ${mission.title}` : mission.title}</span>
+        </p>
+        <h2 id="recap-title" className="game-headline">{lead}</h2>
+        {lead !== recap.headline.text ? <p className="game-dek">{recap.headline.text}</p> : null}
       </div>
       <div className="game-stamp-row">
         <StarNote mission={mission} recap={recap} />
@@ -105,7 +108,7 @@ function RecapCard({ recap }: { recap: Recap }) {
         </div>
       ) : null}
 
-      <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(metrics.length, 4)}, minmax(0, 1fr))` }}>
+      <div className={`game-recap-stats is-${Math.min(metrics.length, 4)}`}>
         {metrics.map((m) => {
           const meta = GAME_METRICS[m];
           const d = recap.now[m] - recap.prev[m];
@@ -115,12 +118,19 @@ function RecapCard({ recap }: { recap: Recap }) {
                 {meta.label}
                 <StatusPill status={worstStatus(mission, recap, m)} />
               </span>
-              <span className="game-recap-value font-display text-(length:--t-xl) font-bold leading-none tabular-nums">
+              <span className="game-recap-value font-display font-bold leading-none tabular-nums">
                 <CountUp from={recap.prev[m]} to={recap.now[m]} digits={meta.digits} />
-                <span className="ml-0.5 align-baseline text-(length:--t-sm) font-semibold">{unitShort(meta.unit)}</span>
+                <span className="game-recap-unit">{unitShort(meta.unit)}</span>
               </span>
-              <span className={`whitespace-nowrap text-(length:--t-xs) font-semibold tabular-nums ${["on-track", "met"].includes(worstStatus(mission, recap, m) ?? "") ? "text-[var(--lab-ink-2)]" : verdict(mission, m, d)}`}>
-                {Math.abs(d) < 0.05 ? "unchanged" : `${d > 0 ? "▲" : "▼"} ${fmtNum(d, meta.digits, true)}${deltaUnit(meta.unit)}`}
+              <span className={`game-recap-change whitespace-nowrap font-semibold tabular-nums ${verdict(mission, m, d)}`}>
+                {Math.abs(d) < 0.05 ? (
+                  "unchanged"
+                ) : (
+                  <>
+                    <Glyph name={d > 0 ? "up" : "down"} /> {fmtNum(Math.abs(d), meta.digits)}
+                    {deltaUnit(meta.unit)}
+                  </>
+                )}
                 <span className="block text-(length:--t-xs) font-normal text-[var(--lab-ink-2)]">{recap.from !== undefined && recap.quarter - recap.from > 1 ? "over the stretch" : "this quarter"}</span>
               </span>
               <GoalLine mission={mission} metric={m} />
@@ -149,7 +159,9 @@ function RecapCard({ recap }: { recap: Recap }) {
       ) : null}
       {recap.crisis ? <p className="game-banner is-bad">Trust has collapsed. Markets will test you next quarter.</p> : null}
 
-      <h3 className="mt-3 mb-1 text-(length:--t-xs) font-semibold text-[var(--lab-ink-2)]">Political capital</h3>
+      <details className="game-recap-more">
+      <summary>Votes, trust and your advisors</summary>
+      <h3 className="mt-2 mb-1 text-(length:--t-xs) font-semibold text-[var(--lab-ink-2)]">Political capital</h3>
       <div className="flex flex-wrap items-start gap-x-5 gap-y-1">
         {(["votes", "trust"] as const).map((c) => {
           const list = recap.points.entries.filter((e) => e.currency === c);
@@ -157,7 +169,7 @@ function RecapCard({ recap }: { recap: Recap }) {
           return (
             <div key={c} className="min-w-[13rem] flex-1">
               <div className="flex items-center gap-1.5 text-(length:--t-xs) font-semibold">
-                {c === "votes" ? <VotesIcon /> : <TrustIcon />} {c === "votes" ? "Votes" : "Trust"} {recap.points[c]}
+                {c === "votes" ? "Votes" : "Trust"} {recap.points[c]}
                 <span className={`text-(length:--t-xs) ${total > 0 ? "text-[var(--lab-good)]" : total < 0 ? "text-[var(--lab-bad)]" : "text-[var(--lab-ink-2)]"}`}>({total > 0 ? "+" : ""}{total} {recap.from !== undefined && recap.quarter - recap.from > 1 ? "over the stretch" : "this quarter"})</span>
               </div>
               <ul className="mt-0.5 text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">
@@ -170,6 +182,7 @@ function RecapCard({ recap }: { recap: Recap }) {
 
       <h3 className="mt-3 mb-1 text-(length:--t-xs) font-semibold text-[var(--lab-ink-2)]">Your advisors on the quarter ahead</h3>
       <AdviceList advice={recap.advice.map((a) => ({ ...a, text: firstSentence(a.text) }))} compact />
+      </details>
 
       <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
         <button type="button" className="lab-btn lab-btn-ghost lab-btn-md" onClick={() => setFramework(true)} title="Every sector, every channel, and why things moved">
@@ -281,7 +294,7 @@ function DebriefCard() {
             const met = !o.bonus || outcome.bonusMet.includes(o.id);
             return (
               <li key={o.id} className="text-(length:--t-xs)">
-                <span className={`game-status is-${met ? "met" : "failed"}`}>{met ? "Met" : "Missed"}</span> {o.bonus ? "★ " : ""}
+                <span className={`game-status is-${met ? "met" : "failed"}`}>{met ? "Met" : "Missed"}</span> {o.bonus ? <><Glyph name="star" label="Extra star" />{" "}</> : null}
                 {o.label}
               </li>
             );
@@ -413,8 +426,7 @@ function OutcomeChips({ mission, config, clock, changes }: { mission: Mission; c
     <span className="game-outcomes" title={`Effect by ${quarterLabel(end)}, against holding policy`}>
       {parts.map((p) => (
         <span key={p.m} className={`game-outcome ${outcomeTone(mission, p.m, p.d)}`}>
-          {p.d > 0 ? "▲ " : "▼ "}
-          {GAME_METRICS[p.m].label} {fmtNum(p.d, GAME_METRICS[p.m].digits, true)}
+          <Glyph name={p.d > 0 ? "up" : "down"} /> {GAME_METRICS[p.m].label} {fmtNum(Math.abs(p.d), GAME_METRICS[p.m].digits)}
           {deltaUnit(GAME_METRICS[p.m].unit)}
         </span>
       ))}
@@ -434,6 +446,32 @@ function outcomeTone(mission: Mission, metric: string, d: number): string {
   const o = mission.objectives.find((x) => x.metric === metric && !x.bonus) ?? mission.objectives.find((x) => x.metric === metric);
   if (!o) return "";
   return (o.op === "<=" ? d < 0 : d > 0) ? "is-good" : "is-bad";
+}
+
+const trimNum = (v: number, d: number) => v.toFixed(d).replace(/\.?0+$/, "");
+
+/**
+ * The recap's headline written from the outcome: what the bank did and what moved the most
+ * among the goals, e.g. "Central bank lifts rates to 10.5% as food price surge pushes
+ * inflation to 6.9%". The generic news line becomes the dek under it.
+ */
+function outcomeHeadline(mission: Mission, recap: Recap): string {
+  const { prev, now } = recap;
+  const dRate = now.rate - prev.rate;
+  const rate = Math.abs(dRate) >= 0.1 ? `Central bank ${dRate > 0 ? "lifts" : "cuts"} rates to ${trimNum(now.rate, 2)}%` : null;
+  const judged = Array.from(new Set(mission.objectives.filter((o) => !o.bonus).map((o) => o.metric)));
+  const moves = judged.map((m) => ({ m, d: now[m] - prev[m] })).sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+  const top = moves[0];
+  const shock = recap.events.find((e) => e.kind === "shock");
+  if (!top || Math.abs(top.d) < 0.05) return rate ?? recap.headline.text;
+  const meta = GAME_METRICS[top.m];
+  const name = meta.label.toLowerCase();
+  const value = `${fmtNum(now[top.m], meta.digits)}${unitShort(meta.unit) === "%" ? "%" : unitShort(meta.unit)}`;
+  const clause = shock
+    ? `${shock.title.toLowerCase()} ${top.d > 0 ? "pushes" : "drags"} ${name} to ${value}`
+    : `${name} ${top.d > 0 ? "rises" : "falls"} to ${value}`;
+  if (rate) return `${rate} as ${clause}`;
+  return clause.charAt(0).toUpperCase() + clause.slice(1);
 }
 
 function firstSentence(text: string): string {
@@ -473,12 +511,11 @@ function GoalLine({ mission, metric }: { mission: Mission; metric: keyof typeof 
 function Stamp({ mission, recap }: { mission: Mission; recap: Recap }) {
   const main = recap.statuses.filter((st) => !mission.objectives.find((o) => o.id === st.id)?.bonus);
   if (!main.length) return null;
-  const bad = main.filter((st) => st.after === "at-risk" || st.after === "failed").length;
-  return (
-    <span className={`game-stamp ${bad ? "is-bad" : "is-good"}`} aria-label={bad ? `${bad} goal${bad > 1 ? "s" : ""} at risk` : "All goals on track"}>
-      {bad ? `${bad} goal${bad > 1 ? "s" : ""} at risk` : "All goals on track"}
-    </span>
-  );
+  const risky = main.filter((st) => st.after === "at-risk" || st.after === "failed");
+  const failed = risky.some((st) => st.after === "failed");
+  const names = Array.from(new Set(risky.map((st) => GAME_METRICS[mission.objectives.find((o) => o.id === st.id)!.metric].label)));
+  const text = !risky.length ? "All goals on track" : names.length === 1 ? `${names[0]} goal ${failed ? "missed" : "at risk"}` : `${risky.length} goals ${failed ? "in trouble" : "at risk"}`;
+  return <span className={`game-stamp ${!risky.length ? "is-good" : failed ? "is-bad" : "is-warn"}`}>{text}</span>;
 }
 
 /** Next to the stamp: what's at stake for the stars, not a repeat of the verdict. */
@@ -491,7 +528,8 @@ function StarNote({ mission, recap }: { mission: Mission; recap: Recap }) {
   if (!bonus.length) return <span />;
   return (
     <p className="game-stamp-note">
-      {risky.length ? `★ ${risky.length} of ${bonus.length} bonus star${bonus.length > 1 ? "s" : ""} at risk: ${risky[0].label.charAt(0).toLowerCase()}${risky[0].label.slice(1)}` : `★ Every bonus star still in reach`}
+      <Glyph name="star" />{" "}
+      {risky.length ? `${risky.length} of ${bonus.length} bonus star${bonus.length > 1 ? "s" : ""} at risk: ${risky[0].label.charAt(0).toLowerCase()}${risky[0].label.slice(1)}` : `Every bonus star still in reach`}
     </p>
   );
 }
