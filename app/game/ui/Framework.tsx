@@ -76,8 +76,8 @@ function FrameworkPanel() {
         <header className="game-fw-head">
           <div className="min-w-0">
             <p className="game-eyebrow !mb-0">Macro framework · {preset.name}</p>
-            <h2 id="fw-title" className="font-display text-[1.35rem] font-semibold leading-tight">How the whole economy fits together</h2>
-            <p className="mt-1 text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">
+            <h2 id="fw-title" className="font-display text-(length:--t-lg) font-semibold leading-tight">How the whole economy fits together</h2>
+            <p className="mt-1 text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">
               {clock > 0 ? (
                 <>Mechanics of <strong>{shown.label}</strong>, the quarter just played. Forecasts run to {forecast[end].label}, the end of the mission.</>
               ) : (
@@ -223,7 +223,7 @@ function ChannelCard({ channel: c }: { channel: Channel }) {
   return (
     <article className={`game-fw-channel is-${c.status} ${c.id === "world" ? "is-env" : c.id === "confidence" || c.id === "currency" || c.status === "idle" || c.status === "blocked" ? "is-mixed" : "is-policy"}`}>
       <header className="flex items-start justify-between gap-2">
-        <h4 className="text-[0.82rem] font-semibold leading-tight">{c.title}</h4>
+        <h4 className="text-(length:--t-xs) font-semibold leading-tight">{c.title}</h4>
         <span className={`game-fw-pill is-${c.status}`}>{STATUS_WORD[c.status]}</span>
       </header>
       <ol className="game-fw-chain" aria-label="Transmission chain">
@@ -234,7 +234,7 @@ function ChannelCard({ channel: c }: { channel: Channel }) {
           </li>
         ))}
       </ol>
-      <p className="game-fw-note-clamp text-[0.75rem] leading-snug text-[var(--lab-ink-2)]" title={c.note}>{c.note}</p>
+      <p className="game-fw-note-clamp text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]" title={c.note}>{c.note}</p>
       <ul className="mt-1.5 flex flex-col gap-1">
         {c.links.map((l) => (
           <li key={l.label} className="game-fw-link">
@@ -272,8 +272,8 @@ function SectorCard({ sector, actual, forecast, untouched, clock, end, touched, 
   const prevShown = clock > 0 ? actual[clock - 1] : actual[0];
   return (
     <article className="game-fw-sector" id={`fw-sector-${sector.id}`}>
-      <h4 className="text-[0.92rem] font-semibold">{sector.title}</h4>
-      <p className="mb-2 text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">{sector.blurb}</p>
+      <h4 className="text-(length:--t-sm) font-semibold">{sector.title}</h4>
+      <p className="mb-2 text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">{sector.blurb}</p>
       <table className="game-fw-table">
         <thead>
           <tr>

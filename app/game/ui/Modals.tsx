@@ -80,16 +80,16 @@ function RecapCard({ recap }: { recap: Recap }) {
 
       {recap.stopReasons ? (
         <div className="game-run-recap">
-          <p className="text-[0.75rem] font-semibold">
+          <p className="text-(length:--t-xs) font-semibold">
             {recap.from !== undefined && recap.quarter - recap.from > 1
               ? `Fast-forwarded ${recap.quarter - recap.from} quarters, ${quarterLabel(recap.from + 1)} to ${quarterLabel(recap.quarter)}. Changes below are over the whole stretch.`
               : `Played ${quarterLabel(recap.quarter)}.`}
           </p>
-          <p className="mt-0.5 text-[0.75rem]">
+          <p className="mt-0.5 text-(length:--t-xs)">
             <span className="font-semibold">Stopped because:</span> {recap.stopReasons.join(" · ")}
           </p>
           {recap.skipped?.length ? (
-            <ul className="mt-1 text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">
+            <ul className="mt-1 text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">
               {recap.skipped.map((l) => (
                 <li key={l.label}>
                   <span className="font-semibold tabular-nums">{l.label}</span> {l.text}
@@ -106,17 +106,17 @@ function RecapCard({ recap }: { recap: Recap }) {
           const d = recap.now[m] - recap.prev[m];
           return (
             <div key={m} className="game-recap-stat">
-              <span className="flex items-center justify-between gap-2 text-[0.75rem] font-semibold text-[var(--lab-ink-2)]">
+              <span className="flex items-center justify-between gap-2 text-(length:--t-xs) font-semibold text-[var(--lab-ink-2)]">
                 {meta.label}
                 <StatusPill status={worstStatus(mission, recap, m)} />
               </span>
-              <span className="game-recap-value font-display text-[1.7rem] font-semibold leading-none tabular-nums">
+              <span className="game-recap-value font-display text-(length:--t-xl) font-bold leading-none tabular-nums">
                 {fmtNum(recap.now[m], meta.digits)}
-                <span className="ml-0.5 align-baseline text-[0.45em] font-semibold">{unitShort(meta.unit)}</span>
+                <span className="ml-0.5 align-baseline text-(length:--t-sm) font-semibold">{unitShort(meta.unit)}</span>
               </span>
-              <span className={`whitespace-nowrap text-[0.8rem] font-semibold tabular-nums ${["on-track", "met"].includes(worstStatus(mission, recap, m) ?? "") ? "text-[var(--lab-ink-2)]" : verdict(mission, m, d)}`}>
+              <span className={`whitespace-nowrap text-(length:--t-xs) font-semibold tabular-nums ${["on-track", "met"].includes(worstStatus(mission, recap, m) ?? "") ? "text-[var(--lab-ink-2)]" : verdict(mission, m, d)}`}>
                 {Math.abs(d) < 0.05 ? "unchanged" : `${d > 0 ? "▲" : "▼"} ${fmtNum(d, meta.digits, true)}${deltaUnit(meta.unit)}`}
-                <span className="block text-[0.75rem] font-normal text-[var(--lab-ink-2)]">{recap.from !== undefined && recap.quarter - recap.from > 1 ? "over the stretch" : "this quarter"}</span>
+                <span className="block text-(length:--t-xs) font-normal text-[var(--lab-ink-2)]">{recap.from !== undefined && recap.quarter - recap.from > 1 ? "over the stretch" : "this quarter"}</span>
               </span>
               <GoalLine mission={mission} metric={m} />
             </div>
@@ -129,7 +129,7 @@ function RecapCard({ recap }: { recap: Recap }) {
           {changes.map((c) => {
             const o = mission.objectives.find((x) => x.id === c.id)!;
             return (
-              <li key={c.id} className="text-[0.75rem]">
+              <li key={c.id} className="text-(length:--t-xs)">
                 <span className={`game-status is-${c.after}`}>{STATUS_WORD[c.after]}</span> {o.label}
               </li>
             );
@@ -144,18 +144,18 @@ function RecapCard({ recap }: { recap: Recap }) {
       ) : null}
       {recap.crisis ? <p className="game-banner is-bad">Trust has collapsed. Markets will test you next quarter.</p> : null}
 
-      <h3 className="mt-3 mb-1 text-[0.75rem] font-semibold text-[var(--lab-ink-2)]">Political capital</h3>
+      <h3 className="mt-3 mb-1 text-(length:--t-xs) font-semibold text-[var(--lab-ink-2)]">Political capital</h3>
       <div className="flex flex-wrap items-start gap-x-5 gap-y-1">
         {(["votes", "trust"] as const).map((c) => {
           const list = recap.points.entries.filter((e) => e.currency === c);
           const total = list.reduce((a, e) => a + e.amount, 0);
           return (
             <div key={c} className="min-w-[13rem] flex-1">
-              <div className="flex items-center gap-1.5 text-[0.78rem] font-semibold">
+              <div className="flex items-center gap-1.5 text-(length:--t-xs) font-semibold">
                 {c === "votes" ? <VotesIcon /> : <TrustIcon />} {c === "votes" ? "Votes" : "Trust"} {recap.points[c]}
-                <span className={`text-[0.75rem] ${total > 0 ? "text-[var(--lab-good)]" : total < 0 ? "text-[var(--lab-bad)]" : "text-[var(--lab-ink-2)]"}`}>({total > 0 ? "+" : ""}{total} {recap.from !== undefined && recap.quarter - recap.from > 1 ? "over the stretch" : "this quarter"})</span>
+                <span className={`text-(length:--t-xs) ${total > 0 ? "text-[var(--lab-good)]" : total < 0 ? "text-[var(--lab-bad)]" : "text-[var(--lab-ink-2)]"}`}>({total > 0 ? "+" : ""}{total} {recap.from !== undefined && recap.quarter - recap.from > 1 ? "over the stretch" : "this quarter"})</span>
               </div>
-              <ul className="mt-0.5 text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">
+              <ul className="mt-0.5 text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">
                 {list.length ? groupReasons(list).map((e) => <li key={e.reason}>{e.amount > 0 ? "+" : ""}{e.amount} {e.reason}{e.times > 1 ? ` (×${e.times})` : ""}</li>) : <li>No change</li>}
               </ul>
             </div>
@@ -163,7 +163,7 @@ function RecapCard({ recap }: { recap: Recap }) {
         })}
       </div>
 
-      <h3 className="mt-3 mb-1 text-[0.75rem] font-semibold text-[var(--lab-ink-2)]">Your advisors on the quarter ahead</h3>
+      <h3 className="mt-3 mb-1 text-(length:--t-xs) font-semibold text-[var(--lab-ink-2)]">Your advisors on the quarter ahead</h3>
       <AdviceList advice={recap.advice.map((a) => ({ ...a, text: firstSentence(a.text) }))} compact />
 
       <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
@@ -200,8 +200,8 @@ function ShockCard({ ids }: { ids: string[] }) {
     <div ref={dialog} tabIndex={-1} className="game-card game-shock" role="dialog" aria-modal="true" aria-labelledby="shock-title">
       <span className="game-shock-kicker">{now && main.quarter > 1 ? "Breaking news" : "On your desk"}</span>
       <h2 id="shock-title" className="game-shock-title">{spec.name}</h2>
-      <p className="text-[0.82rem] leading-relaxed">{spec.description}</p>
-      <p className="mt-1 text-[0.75rem] text-[var(--lab-ink-2)]">
+      <p className="text-(length:--t-xs) leading-relaxed">{spec.description}</p>
+      <p className="mt-1 text-(length:--t-xs) text-[var(--lab-ink-2)]">
         It hits in {quarterLabel(main.quarter)}. {options.length ? `How do you respond? Each option shows what it does to your goals by ${quarterLabel(mission.quarters)}, against holding policy.` : "Your tools are on the left."}
       </p>
       <div className="mt-3 flex flex-col gap-1.5">
@@ -256,12 +256,12 @@ function DebriefCard() {
           ))}
         </div>
         <h2 id="debrief-title" className="game-shock-title text-center">Mission complete</h2>
-        <p className="text-center text-[0.8rem] text-[var(--lab-ink-2)]">{mission.title}</p>
+        <p className="text-center text-(length:--t-xs) text-[var(--lab-ink-2)]">{mission.title}</p>
         <ul className="mt-3 flex flex-col gap-1">
           {mission.objectives.map((o) => {
             const met = !o.bonus || outcome.bonusMet.includes(o.id);
             return (
-              <li key={o.id} className="text-[0.75rem]">
+              <li key={o.id} className="text-(length:--t-xs)">
                 <span className={`game-status is-${met ? "met" : "failed"}`}>{met ? "Met" : "Missed"}</span> {o.bonus ? "★ " : ""}
                 {o.label}
               </li>
@@ -295,8 +295,8 @@ function DebriefCard() {
   return (
     <div className="game-card game-debrief is-lost" role="dialog" aria-modal="true" aria-labelledby="debrief-title">
       <h2 id="debrief-title" className="game-shock-title">Mission failed</h2>
-      <p className="text-[0.86rem] leading-relaxed">{outcome.reason}</p>
-      <p className="mt-2 text-[0.75rem] leading-relaxed text-[var(--lab-ink-2)]">Rewind one quarter to try a different decision, or start the mission again. The goal cards show where the forecast was heading before each choice.</p>
+      <p className="text-(length:--t-xs) leading-relaxed">{outcome.reason}</p>
+      <p className="mt-2 text-(length:--t-xs) leading-relaxed text-[var(--lab-ink-2)]">Rewind one quarter to try a different decision, or start the mission again. The goal cards show where the forecast was heading before each choice.</p>
       <Comparison mission={mission} />
       <div className="mt-3 flex flex-wrap justify-end gap-2">
         <button type="button" className="lab-btn lab-btn-ghost lab-btn-md" onClick={() => setScreen("missions")}>All missions</button>
@@ -359,7 +359,7 @@ function Comparison({ mission }: { mission: Mission }) {
         <div className="mt-2">
           <h3 className="game-section">What actually happened</h3>
           {mission.comparison.story.map((p) => (
-            <p key={p} className="mb-1 text-[0.75rem] leading-relaxed">{p}</p>
+            <p key={p} className="mb-1 text-(length:--t-xs) leading-relaxed">{p}</p>
           ))}
         </div>
       ) : null}
@@ -442,7 +442,7 @@ function GoalLine({ mission, metric }: { mission: Mission; metric: keyof typeof 
   const meta = GAME_METRICS[metric];
   const f = forecastFor(config, clock)[mission.quarters][metric];
   return (
-    <span className="text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">
+    <span className="text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">
       Forecast {fmtNum(f, meta.digits)}
       {unitShort(meta.unit)} by {quarterLabel(mission.quarters)} · goal {o.op === "<=" ? "≤" : "≥"} {fmtNum(o.threshold, meta.digits)}
       {unitShort(meta.unit)}

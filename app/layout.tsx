@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Fraunces, Inter } from "next/font/google";
+import { Fraunces, IBM_Plex_Sans, Inter } from "next/font/google";
 import "./globals.css";
 
-// The lab's themes refer to these two font variables.
+// The lab's themes refer to these font variables; IBM Plex Sans is the default design's one family.
 const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -11,13 +11,20 @@ const fraunces = Fraunces({
   variable: "--font-fraunces",
 });
 
+const plex = IBM_Plex_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-plex",
+});
+
 export const metadata: Metadata = {
   title: "WEO Scenario Lab",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${fraunces.variable} h-full antialiased`}>
+    <html lang="en" className={`${plex.variable} ${inter.variable} ${fraunces.variable} h-full antialiased`}>
       <body className="min-h-full">{children}</body>
     </html>
   );

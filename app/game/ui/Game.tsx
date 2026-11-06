@@ -21,7 +21,7 @@ import "../../contagion/contagion.css";
 const IslandScene = dynamic(() => import("../../scene/IslandScene"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full w-full items-center justify-center text-[0.78rem] text-[var(--lab-ink-2)]" role="status">
+    <div className="flex h-full w-full items-center justify-center text-(length:--t-xs) text-[var(--lab-ink-2)]" role="status">
       Building the island…
     </div>
   ),

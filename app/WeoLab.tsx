@@ -20,7 +20,7 @@ import { getPreset } from "./model/presets";
 import { SHOCKS } from "./model/shocks";
 import { STORYLINES } from "./model/storylines";
 import { decodeConfig, loadSavedConfig, saveConfig, useLab } from "./store";
-import { getTheme } from "./themes";
+import { getTheme, THEMES } from "./themes";
 
 const IslandScene = dynamic(() => import("./scene/IslandScene"), {
   ssr: false,
@@ -81,7 +81,7 @@ export default function WeoLab({ restoreSaved = true }: { restoreSaved?: boolean
       // ignore
     }
     const url = new URL(window.location.href);
-    if (themeId === "palari") url.searchParams.delete("theme");
+    if (themeId === THEMES[0].id) url.searchParams.delete("theme");
     else url.searchParams.set("theme", themeId);
     window.history.replaceState(null, "", url);
   }, [themeId, hydrated]);

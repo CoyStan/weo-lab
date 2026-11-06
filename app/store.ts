@@ -146,7 +146,7 @@ export const useLab = create<LabState>((set, get) => ({
   reduceMotion: false,
   cameraHome: 0,
   storyId: null,
-  theme: "palari",
+  theme: "ledger",
 
   setPreset: (id) =>
     set((s) => {

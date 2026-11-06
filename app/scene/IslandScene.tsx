@@ -25,7 +25,7 @@ class SceneErrorBoundary extends Component<{ children: ReactNode }, { failed: bo
   render() {
     if (this.state.failed) {
       return (
-        <div className="flex h-full w-full items-center justify-center p-6 text-center text-[0.8rem] leading-relaxed text-[#4A4D73]" role="status">
+        <div className="flex h-full w-full items-center justify-center p-6 text-center text-(length:--t-xs) leading-relaxed text-[#4A4D73]" role="status">
           The 3D view could not start in this browser (WebGL is unavailable). The indicators, charts and table below still reflect every change you make.
         </div>
       );

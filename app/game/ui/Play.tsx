@@ -85,10 +85,10 @@ export default function Play({ scene }: { scene: ReactNode }) {
         </button>
         <div className="min-w-0">
           <p className="game-eyebrow !mb-0">{mission.number ? `Mission ${mission.number} of ${MISSIONS.length} · ${preset.name}` : mission.kicker.length < 40 ? mission.kicker : preset.name}</p>
-          <h1 className="truncate font-display text-[1.15rem] font-semibold leading-tight">{mission.title}</h1>
+          <h1 className="truncate font-display text-(length:--t-lg) font-semibold leading-tight">{mission.title}</h1>
         </div>
         <div className="game-progress" aria-label={`Quarter ${Math.min(clock + 1, mission.quarters)} of ${mission.quarters}`}>
-          <div className="flex items-baseline justify-between gap-2 text-[0.75rem]">
+          <div className="flex items-baseline justify-between gap-2 text-(length:--t-xs)">
             <span className="font-semibold">{done ? "Final quarter played" : `Deciding ${deciding}`}</span>
             <span className="text-[var(--lab-ink-2)] tabular-nums">
               turn {Math.min(clock + 1, mission.quarters)} of {mission.quarters}

@@ -69,13 +69,13 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
             <span className="game-goal-now">
               <small>Now</small>
               <span className="game-goal-value tabular-nums">{fmtNum(now, meta.digits)}</span>
-              <span className="text-[0.75rem] text-[var(--lab-ink-2)]">{unitShort(meta.unit).trim() || meta.unit}</span>
+              <span className="text-(length:--t-xs) text-[var(--lab-ink-2)]">{unitShort(meta.unit).trim() || meta.unit}</span>
             </span>
             {clock < end ? (
               <span className="game-goal-fc">
                 <small>{quarterLabel(end)} forecast</small>
                 <span className="game-goal-value tabular-nums">{fmtNum(endValue, meta.digits)}</span>
-                <span className="text-[0.75rem]">{unitShort(meta.unit).trim() || meta.unit}</span>
+                <span className="text-(length:--t-xs)">{unitShort(meta.unit).trim() || meta.unit}</span>
               </span>
             ) : null}
           </div>
@@ -97,7 +97,7 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
 
       <ul className="mt-1.5 flex flex-col gap-1">
         {objectives.map((o) => (
-          <li key={o.id} className="flex items-start gap-1.5 text-[0.75rem] leading-snug">
+          <li key={o.id} className="flex items-start gap-1.5 text-(length:--t-xs) leading-snug">
             <span className={`game-status is-${statuses[o.id]}`}>{STATUS_TEXT[statuses[o.id]]}</span>
             <span className="text-[var(--lab-ink)]">
               {o.bonus ? <span className="game-star-inline" aria-label="Bonus">★</span> : null}
@@ -109,7 +109,7 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
 
       <OutlookChart metric={metric} objectives={objectives} actual={actual} forecast={forecast} ghost={ghost} clock={clock} end={end} comparison={comparison} />
       {comparison && comparisonLabel ? (
-        <p className="mt-0.5 text-[0.75rem] text-[var(--lab-ink-2)]">
+        <p className="mt-0.5 text-(length:--t-xs) text-[var(--lab-ink-2)]">
           {comparisonLabel}, {quarterLabel(Math.min(clock + 1, end))}: {fmtNum(comparison[Math.min(clock + 1, end)][metric], meta.digits)}
           {unitShort(meta.unit)}
         </p>
@@ -156,12 +156,12 @@ function WhyBars({ metric, state, prev }: { metric: MetricKey; state: QuarterSta
   const max = Math.max(0.1, ...parts.map((p) => Math.abs(p.value)));
   return (
     <div className="game-why-panel">
-      <p className="mb-1.5 text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">
+      <p className="mb-1.5 text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">
         {subject} moved {fmtNum(total, 2, true)} {unit} in {state.label}. What pushed it:
       </p>
       <ul className="flex flex-col gap-1">
         {parts.slice(0, 6).map((p) => (
-          <li key={p.key} className="grid grid-cols-[minmax(0,1fr)_88px_44px] items-center gap-2 text-[0.75rem]">
+          <li key={p.key} className="grid grid-cols-[minmax(0,1fr)_88px_44px] items-center gap-2 text-(length:--t-xs)">
             <span className="truncate" title={p.label}>{p.label}</span>
             <span className="game-why-track" aria-hidden="true">
               <span className={`game-why-bar ${p.value > 0 ? "is-pos" : "is-neg"}`} style={{ width: `${(Math.abs(p.value) / max) * 50}%`, [p.value > 0 ? "left" : "right"]: "50%" }} />
@@ -170,7 +170,7 @@ function WhyBars({ metric, state, prev }: { metric: MetricKey; state: QuarterSta
           </li>
         ))}
       </ul>
-      {metric === "growth" ? <p className="mt-1.5 text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">Growth follows the output gap: when demand pushes output above its potential, growth runs faster than potential.</p> : null}
+      {metric === "growth" ? <p className="mt-1.5 text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">Growth follows the output gap: when demand pushes output above its potential, growth runs faster than potential.</p> : null}
     </div>
   );
 }

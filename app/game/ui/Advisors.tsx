@@ -24,8 +24,8 @@ export function AdviceList({ advice, compact = false }: { advice: Advice[]; comp
             <div className="min-w-0 flex-1">
               <div className="flex w-full items-start justify-between gap-2">
                 <span className="flex flex-col leading-tight">
-                  <strong className="text-[0.8rem]">{who.name}</strong>
-                  <span className="text-[0.75rem] text-[var(--lab-ink-2)]">{who.role}</span>
+                  <strong className="text-(length:--t-xs)">{who.name}</strong>
+                  <span className="text-(length:--t-xs) text-[var(--lab-ink-2)]">{who.role}</span>
                 </span>
                 <span className={`game-stance is-${a.tone}`}>{STANCE[a.tone]}</span>
               </div>

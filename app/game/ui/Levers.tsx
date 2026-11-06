@@ -48,7 +48,7 @@ export default function Levers() {
         <LeverGroup title="Interest rate">
           {unlocked.has("rate") && unlocked.has("rule") && !pegged ? (
             <Lever id="rate-mode" lever={null} moved={moved(["rateMode"])} metrics={metrics}>
-              <span className="mb-1 block text-[0.78rem] font-medium">Who sets the rate</span>
+              <span className="mb-1 block text-(length:--t-xs) font-semibold">Who sets the rate</span>
               <Segmented<RateMode>
                 ariaLabel="Who sets the rate"
                 value={policy.rateMode}
@@ -114,7 +114,7 @@ export default function Levers() {
         <LeverGroup title="Currency">
           {unlocked.has("fxRegime") ? (
             <Lever id="fx" lever={null} moved={moved(["fxRegime"])} metrics={metrics}>
-              <span className="mb-1 block text-[0.78rem] font-medium">Exchange-rate regime</span>
+              <span className="mb-1 block text-(length:--t-xs) font-semibold">Exchange-rate regime</span>
               <Segmented<FxRegime>
                 ariaLabel="Exchange-rate regime"
                 value={policy.fxRegime}
@@ -151,7 +151,7 @@ export default function Levers() {
           {unlocked.has("devalue") && policy.fxRegime !== "float" ? (
             <div className="lab-field flex items-center justify-between gap-2">
               <span>
-                <span className="block text-[0.78rem] font-medium">One-off devaluation</span>
+                <span className="block text-(length:--t-xs) font-semibold">One-off devaluation</span>
                 <span className="game-hint">Reset the parity 15% weaker. Inflation and foreign-currency debt feel it at once.</span>
               </span>
               <span className="flex shrink-0 flex-col items-end gap-1">
@@ -169,7 +169,7 @@ export default function Levers() {
         <LeverGroup title="Debt">
           <div className="lab-field flex items-center justify-between gap-2">
             <span>
-              <span className="block text-[0.78rem] font-medium">Restructure the debt</span>
+              <span className="block text-(length:--t-xs) font-semibold">Restructure the debt</span>
               <span className="game-hint">Cut the debt stock by 30% now. Spreads jump and credibility falls for about two years. Once per mission.</span>
             </span>
             <span className="flex shrink-0 flex-col items-end gap-1">
