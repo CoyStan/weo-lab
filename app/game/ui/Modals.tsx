@@ -17,6 +17,9 @@ import { getStartYear, simulate } from "../../model/economy";
 import type { Mission } from "../missions";
 import { DUR_SLOW, useTween } from "./useTween";
 
+/** Gap between the debrief stars, shared by their animation delay and their sound pings. */
+const STAR_STAGGER = 120;
+
 /** Focus the primary action when a card opens, and let Enter press it. */
 function usePrimary() {
   const ref = useRef<HTMLButtonElement>(null);
@@ -40,7 +43,8 @@ export default function Modals() {
     } else if (modal.outcome.kind === "won") {
       sound.stinger("win");
       const stars = modal.outcome.stars;
-      const timers = Array.from({ length: stars }, (_, i) => window.setTimeout(() => sound.stinger("star"), 700 + i * 180));
+      // Each ping lands as its star finishes: star n starts at n * STAR_STAGGER and runs DUR_SLOW.
+      const timers = Array.from({ length: stars }, (_, i) => window.setTimeout(() => sound.stinger("star"), (i + 1) * STAR_STAGGER + DUR_SLOW));
       return () => timers.forEach(clearTimeout);
     } else if (modal.outcome.kind === "lost") sound.stinger("lose");
   }, [modal]);
@@ -265,7 +269,7 @@ function DebriefCard() {
       <div className="game-card game-debrief is-won" role="dialog" aria-modal="true" aria-labelledby="debrief-title">
         <div className="game-stars" aria-label={`${outcome.stars} of 3 stars`}>
           {[1, 2, 3].map((n) => (
-            <span key={n} className={n <= outcome.stars ? "is-on" : ""} style={{ animationDelay: `${n * 120}ms` }}>
+            <span key={n} className={n <= outcome.stars ? "is-on" : ""} style={{ animationDelay: `${n * STAR_STAGGER}ms` }}>
               ★
             </span>
           ))}

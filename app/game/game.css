@@ -5,8 +5,7 @@
   --game-risk: var(--lab-warn);
   --game-bad: var(--lab-bad);
   /* Motion tokens (--ease, --dur-fast/--dur/--dur-slow) live on .lab in
-     weo-lab.css; --game-ease is the older name for the same curve. */
-  --game-ease: var(--ease);
+     weo-lab.css. */
 }
 
 .game .lab-btn:focus-visible,
