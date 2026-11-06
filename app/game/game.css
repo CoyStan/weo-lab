@@ -3204,6 +3204,10 @@
   color: var(--lab-bad);
 }
 
+.game-stamp.is-warn {
+  color: var(--lab-warn);
+}
+
 @keyframes game-stamp {
   0% {
     opacity: 0;
@@ -4120,6 +4124,14 @@ html:not(.is-kbd) .game button:focus-visible {
 .game-valence.is-bad .game-valence-mark {
   border: 1.5px solid var(--lab-alert);
   background: transparent;
+}
+/* At risk, in every theme: amber words with a half-filled marker. */
+.game-valence.is-warn {
+  color: var(--lab-warn);
+}
+.game-valence.is-warn .game-valence-mark {
+  border: 1.5px solid var(--lab-warn-mark);
+  background: linear-gradient(to top, var(--lab-warn-mark) 50%, transparent 50%);
 }
 .game-direction {
   display: inline-flex;
