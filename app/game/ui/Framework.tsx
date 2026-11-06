@@ -7,6 +7,7 @@ import { explain } from "../explain";
 import { channels, deltaTail, diagnose, policyTouched, SECTORS, unitTail, untouchedConfig, type Channel, type ChannelStatus, type FrameworkInput, type RowMeta, type Sector } from "../framework";
 import { forecastFor, useGame } from "../store";
 import { useTurn } from "../useTurn";
+import Decomp from "./Decomp";
 
 const STATUS_WORD: Record<ChannelStatus, string> = { active: "Working", weak: "Muted", blocked: "Blocked", idle: "Idle" };
 
@@ -83,6 +84,11 @@ function FrameworkPanel() {
             </ul>
           </section>
         ) : null}
+
+        <section className="game-fw-section" aria-labelledby="fw-dc">
+          <h3 id="fw-dc" className="game-fw-h">Where the path comes from: shocks against your instruments</h3>
+          <Decomp />
+        </section>
 
         <section className="game-fw-section" aria-labelledby="fw-chan">
           <h3 id="fw-chan" className="game-fw-h">How policy and shocks reach each sector</h3>

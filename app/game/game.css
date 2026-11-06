@@ -1800,3 +1800,163 @@
 .is-reduced .game-run-pulse {
   animation: none;
 }
+
+/* ---- Shock decomposition ------------------------------------------------- */
+
+.game {
+  /* Validated categorical palette, fixed order: environment takes the warm slots, instruments the cool ones. */
+  --dc-1: #2a78d6;
+  --dc-2: #eb6834;
+  --dc-3: #1baf7a;
+  --dc-4: #eda100;
+  --dc-5: #e87ba4;
+  --dc-6: #008300;
+  --dc-7: #6250d6;
+  --dc-8: #e34948;
+  --dc-momentum: color-mix(in srgb, var(--lab-ink) 28%, var(--lab-paper));
+}
+
+.game-dc {
+  border: 1px solid var(--lab-line);
+  border-radius: 0.8rem;
+  padding: 0.75rem 0.85rem;
+}
+
+.game-dc-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.game-dc-metrics button {
+  border: 1px solid var(--lab-line);
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--lab-ink-2);
+  background: var(--lab-paper);
+}
+
+.game-dc-metrics button.is-on {
+  border-color: var(--lab-ink);
+  background: var(--lab-ink);
+  color: var(--lab-paper);
+}
+
+.game-dc-lede {
+  margin: 0.6rem 0 0.4rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.game-dc-key {
+  font-weight: 700;
+  border-bottom: 3px solid;
+}
+
+.game-dc-key.is-env {
+  border-image: linear-gradient(90deg, var(--dc-4), var(--dc-2), var(--dc-8)) 1;
+}
+
+.game-dc-key.is-pol {
+  border-image: linear-gradient(90deg, var(--dc-1), var(--dc-3), var(--dc-7)) 1;
+}
+
+.game-dc-chart {
+  position: relative;
+}
+
+.game-dc-axis,
+.game-dc-note {
+  font-size: 0.64rem;
+  line-height: 1.4;
+  color: var(--lab-ink-2);
+}
+
+.game-dc-note {
+  margin-top: 0.5rem;
+}
+
+.game-dc-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 0.5rem 1rem;
+  margin-top: 0.6rem;
+}
+
+.game-dc-group h5 {
+  margin-bottom: 0.25rem;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--lab-ink-2);
+}
+
+.game-dc-group > p {
+  font-size: 0.68rem;
+  color: var(--lab-ink-2);
+}
+
+.game-dc-group ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.game-dc-group button {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 0.7rem minmax(0, 1fr) 3.2rem 3rem;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 0.35rem;
+  padding: 0.15rem 0.25rem;
+  font-size: 0.72rem;
+  text-align: left;
+}
+
+.game-dc-group button:hover {
+  background: color-mix(in srgb, var(--lab-ink) 5%, transparent);
+}
+
+.game-dc-group button.is-off {
+  opacity: 0.4;
+}
+
+.game-dc-group button i {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 3px;
+}
+
+.game-dc-group button > span:last-child {
+  text-align: right;
+  font-weight: 600;
+}
+
+.game-dc-mini {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--lab-ink) 6%, transparent);
+  overflow: hidden;
+}
+
+.game-dc-mini span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.game-dc-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-self: end;
+  border-top: 2px solid var(--lab-ink);
+  padding-top: 0.3rem;
+  font-size: 0.74rem;
+}

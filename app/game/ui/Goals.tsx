@@ -8,6 +8,10 @@ import { explain } from "../explain";
 import { deltaUnit, fmtNum, GAME_METRICS, unitShort } from "../metrics";
 import type { MetricKey, Objective, ObjectiveStatus } from "../missions";
 import { useProbeEffect, useTurn } from "../useTurn";
+import { useGame } from "../store";
+import { DECOMP_METRICS, type DecompMetric } from "../decompose";
+
+const DECOMPOSABLE = new Set<string>(DECOMP_METRICS.map((m) => m.key));
 
 const STATUS_TEXT: Record<ObjectiveStatus, string> = { met: "Met", failed: "Missed", "on-track": "On track", "at-risk": "At risk" };
 
@@ -50,6 +54,7 @@ export default function Goals() {
 function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock, end, probeDelta, comparison, comparisonLabel }: { metric: MetricKey; objectives: Objective[]; statuses: Record<string, ObjectiveStatus>; actual: QuarterState[]; forecast: QuarterState[]; ghost: QuarterState[]; clock: number; end: number; probeDelta: number | null; comparison: QuarterState[] | null; comparisonLabel: string | null }) {
   const meta = GAME_METRICS[metric];
   const [why, setWhy] = useState(false);
+  const setFramework = useGame((s) => s.setFramework);
   const now = actual[clock][metric];
   const endValue = clock >= end ? actual[end][metric] : forecast[end][metric];
   const worst = objectives.some((o) => statuses[o.id] === "failed" && !o.bonus) ? "failed" : objectives.some((o) => statuses[o.id] === "at-risk" && !o.bonus) ? "at-risk" : "ok";
@@ -98,20 +103,27 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
         </p>
       ) : null}
 
-      {meta.explain && clock > 0 ? (
-        <div className="mt-1">
-          <button
-            type="button"
-            className="game-why"
-            aria-expanded={why}
-            onClick={() => {
-              if (!why) sound.play("pluck");
-              setWhy((v) => !v);
-            }}
-          >
-            {why ? "Hide" : "Why did it move?"}
-          </button>
-          {why ? <WhyBars metric={metric} state={actual[clock]} prev={actual[clock - 1]} /> : null}
+      {(meta.explain && clock > 0) || DECOMPOSABLE.has(metric) ? (
+        <div className="mt-1 flex flex-wrap items-center gap-x-3">
+          {meta.explain && clock > 0 ? (
+            <button
+              type="button"
+              className="game-why"
+              aria-expanded={why}
+              onClick={() => {
+                if (!why) sound.play("pluck");
+                setWhy((v) => !v);
+              }}
+            >
+              {why ? "Hide" : "Why did it move?"}
+            </button>
+          ) : null}
+          {DECOMPOSABLE.has(metric) ? (
+            <button type="button" className="game-why" onClick={() => setFramework(true, metric as DecompMetric)} title="Split the whole path into shocks and your instruments">
+              Break it down: shocks vs. policy
+            </button>
+          ) : null}
+          {why && clock > 0 ? <div className="w-full"><WhyBars metric={metric} state={actual[clock]} prev={actual[clock - 1]} /></div> : null}
         </div>
       ) : null}
     </section>
