@@ -167,7 +167,7 @@ export function decompose(full: ScenarioConfig, start: ScenarioConfig, horizon: 
 
   const momentum: Component = {
     id: "momentum",
-    label: "Momentum from the start",
+    label: "Momentum",
     kind: "momentum",
     slot: 0,
     values: Object.fromEntries(KEYS.map((k) => [k, Array.from({ length: horizon + 1 }, (_, t) => bare[t][k] - startVals[k])])) as Record<DecompMetric, number[]>,

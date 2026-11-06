@@ -26,7 +26,7 @@ const fmt = (v: number, d: number) => {
 };
 
 const W_MAX = 760;
-const H = 250;
+const H = 228;
 const PAD = { l: 40, r: 44, t: 26, b: 36 };
 
 /** Stacked contributions to the change in one variable, quarter by quarter. */
@@ -127,7 +127,7 @@ export default function Decomp() {
                 {fmt(v, tickDigits(ticks))}
               </text>
               {i === ticks.length - 1 ? (
-                <text x={4} y={PAD.t - 12} fontSize={11} fill="var(--lab-ink-2)">
+                <text x={4} y={PAD.t - 12} fontSize={10.5} fill="var(--lab-ink-2)">
                   {meta.unit} vs start
                 </text>
               ) : null}

@@ -72,6 +72,8 @@ function RecapCard({ recap }: { recap: Recap }) {
           <span>{quarterLabel(recap.quarter)}</span>
         </div>
         <h2 id="recap-title" className="game-headline">{recap.headline.text}</h2>
+      </div>
+      <div className="game-stamp-row">
         <Stamp mission={mission} recap={recap} />
       </div>
 
@@ -111,9 +113,9 @@ function RecapCard({ recap }: { recap: Recap }) {
                 {fmtNum(recap.now[m], meta.digits)}
                 <span className="text-[0.75rem] font-normal">{unitShort(meta.unit)}</span>
               </span>
-              <span className={`text-[0.8rem] font-semibold tabular-nums ${["on-track", "met"].includes(worstStatus(mission, recap, m) ?? "") ? "text-[var(--lab-ink-2)]" : verdict(mission, m, d)}`}>
+              <span className={`whitespace-nowrap text-[0.8rem] font-semibold tabular-nums ${["on-track", "met"].includes(worstStatus(mission, recap, m) ?? "") ? "text-[var(--lab-ink-2)]" : verdict(mission, m, d)}`}>
                 {Math.abs(d) < 0.05 ? "unchanged" : `${d > 0 ? "▲" : "▼"} ${fmtNum(d, meta.digits, true)}${deltaUnit(meta.unit)}`}
-                <span className="font-normal text-[var(--lab-ink-2)]"> {recap.from !== undefined && recap.quarter - recap.from > 1 ? "over the stretch" : "this quarter"}</span>
+                <span className="block text-[0.75rem] font-normal text-[var(--lab-ink-2)]">{recap.from !== undefined && recap.quarter - recap.from > 1 ? "over the stretch" : "this quarter"}</span>
               </span>
               <GoalLine mission={mission} metric={m} />
             </div>

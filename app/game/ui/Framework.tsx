@@ -177,8 +177,15 @@ function FrameworkPanel() {
               <span><i className="is-forecast" /> Forecast with your policies</span>
               {touched ? <span><i className="is-untouched" /> Had you changed nothing</span> : null}
               <span className="ml-auto">“Your policies” = forecast minus the no-change path, at {forecast[end].label}</span>
-              <span className="game-fw-valence"><b className="is-good">▲▼ helps a goal</b><b className="is-bad">▲▼ hurts a goal</b><b className="is-neutral">▲▼ depends</b></span>
+              <span className="game-fw-valence"><b className="is-good">▲▼ helps a goal</b><b className="is-bad">▲▼ hurts a goal</b><b className="is-neutral">▲▼ neither</b></span>
             </div>
+            <nav className="game-fw-jump" aria-label="Jump to a sector">
+              {SECTORS.map((sec) => (
+                <button key={sec.id} type="button" onClick={() => document.getElementById(`fw-sector-${sec.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+                  {sec.title}
+                </button>
+              ))}
+            </nav>
             <div className="game-fw-sectors">
               {SECTORS.map((s) => (
                 <SectorCard key={s.id} sector={s} actual={actual} forecast={forecast} untouched={untouched} clock={clock} end={end} touched={touched} shown={shown} />
@@ -224,7 +231,7 @@ function ChannelCard({ channel: c }: { channel: Channel }) {
           </li>
         ))}
       </ol>
-      <p className="text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">{c.note}</p>
+      <p className="game-fw-note-clamp text-[0.75rem] leading-snug text-[var(--lab-ink-2)]" title={c.note}>{c.note}</p>
       <ul className="mt-1.5 flex flex-col gap-1">
         {c.links.map((l) => (
           <li key={l.label} className="game-fw-link">
@@ -261,7 +268,7 @@ function Bar({ value, max, kind }: { value: number; max: number; kind?: "policy"
 function SectorCard({ sector, actual, forecast, untouched, clock, end, touched, shown }: { sector: Sector; actual: QuarterState[]; forecast: QuarterState[]; untouched: QuarterState[]; clock: number; end: number; touched: boolean; shown: QuarterState }) {
   const prevShown = clock > 0 ? actual[clock - 1] : actual[0];
   return (
-    <article className="game-fw-sector">
+    <article className="game-fw-sector" id={`fw-sector-${sector.id}`}>
       <h4 className="text-[0.92rem] font-semibold">{sector.title}</h4>
       <p className="mb-2 text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">{sector.blurb}</p>
       <table className="game-fw-table">
@@ -344,7 +351,7 @@ function Spark({ rowKey, actual, forecast, untouched, clock, end }: { rowKey: Ro
   const line = (vals: number[], from: number) => vals.map((v, i) => `${i === 0 ? "M" : "L"}${x(from + i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
   return (
     <svg viewBox={`0 0 ${SW} ${SH}`} width={SW} height={SH} className="block" aria-hidden="true">
-      {lo < 0 && hi > 0 ? <line x1={0} x2={SW} y1={y(0)} y2={y(0)} stroke="var(--lab-line)" strokeDasharray="2 2" /> : null}
+      <line x1={0} x2={SW} y1={y(past[0])} y2={y(past[0])} stroke="var(--lab-line)" strokeDasharray="2 2" />
       {differs ? <path d={line(un, 0)} fill="none" stroke="var(--lab-ink-2)" strokeOpacity={0.6} strokeWidth={1.4} strokeDasharray="1.2 2.4" strokeLinecap="round" /> : null}
       {fut.length > 1 ? <path d={line(fut, clock)} fill="none" stroke="var(--lab-scenario)" strokeWidth={1.6} strokeDasharray="4 2.5" /> : null}
       <path d={line(past, 0)} fill="none" stroke="var(--lab-ink)" strokeWidth={1.7} strokeLinejoin="round" />

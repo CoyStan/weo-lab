@@ -2682,8 +2682,7 @@
     display: flex;
     flex-direction: column;
   }
-  .game-col .game-hint-box,
-  .game-col .game-freeplay {
+  .game-col .game-hint-box {
     margin-top: auto;
   }
 }
@@ -3172,9 +3171,7 @@
 }
 
 .game-stamp {
-  position: absolute;
-  right: 0.6rem;
-  bottom: 0.4rem;
+  display: inline-block;
   border: 2.5px solid currentColor;
   border-radius: var(--game-r-sm);
   padding: 0.15rem 0.6rem;
@@ -3290,7 +3287,7 @@ html:not(.is-kbd) .game button:focus-visible {
 }
 
 .game-fw-channel > ul {
-  margin-top: auto;
+  margin-top: 0.25rem;
 }
 
 @media (max-width: 640px) {
@@ -3308,5 +3305,135 @@ html:not(.is-kbd) .game button:focus-visible {
 @media (min-width: 1180px) {
   .game-grid {
     grid-template-columns: 290px minmax(0, 1fr) 330px;
+  }
+}
+
+/* ---- Design council, round 6 ---------------------------------------------- */
+
+.game-stamp-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: -0.35rem 0 0.75rem;
+}
+
+.game-stamp {
+  font-size: 0.9rem;
+}
+
+/* Channel cards: natural heights, long notes clamp to four lines (full text on hover). */
+.game-fw-channels {
+  align-items: start;
+}
+
+.game-fw-note-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.85rem !important;
+}
+
+/* Advisors: steady is a stance too. */
+.game-stance {
+  background: color-mix(in srgb, var(--lab-info-mark) 12%, transparent);
+  color: var(--lab-info);
+}
+
+/* "Neither direction" reads grey, clearly apart from body ink. */
+.game-fw-effect.is-up:not(.is-good):not(.is-bad),
+.game-fw-effect.is-down:not(.is-good):not(.is-bad) {
+  color: var(--lab-ink-2);
+}
+
+.game-fw-valence .is-neutral {
+  background: color-mix(in srgb, var(--lab-ink) 7%, transparent);
+  color: var(--lab-ink-2);
+}
+
+/* Goal cards: now and the judged forecast side by side. */
+.game-goal-figures {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.game-goal-now,
+.game-goal-fc {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.25rem;
+}
+
+.game-goal-now small,
+.game-goal-fc small {
+  flex-basis: 100%;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--lab-ink-2);
+}
+
+.game-goal-fc {
+  color: var(--lab-scenario);
+}
+
+.game-goal-fc small {
+  color: var(--lab-scenario);
+}
+
+/* What's next on the clock. */
+.game-nextup {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--lab-ink-2);
+}
+
+.game-nextup span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dc-4);
+}
+
+.game-nextup.is-election span {
+  background: var(--dc-7);
+}
+
+.game-progress {
+  padding-bottom: 0;
+}
+
+.game-fw-jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.6rem;
+}
+
+.game-fw-jump button {
+  border: 1px solid var(--lab-line);
+  border-radius: var(--game-r-sm);
+  padding: 0.25rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.game-fw-jump button:hover {
+  border-color: var(--lab-scenario);
+  color: var(--lab-scenario);
+}
+
+.game-fw-sector {
+  scroll-margin-top: 0.5rem;
+}
+
+/* Phones: the last block always clears the dock. */
+@media (max-width: 1179px) {
+  .game-play {
+    padding-bottom: 8rem;
   }
 }

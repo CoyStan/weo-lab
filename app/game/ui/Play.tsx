@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { describeChanges, quarterLabel } from "../../model/economy";
+import { SHOCKS } from "../../model/shocks";
 import { getPreset } from "../../model/presets";
 import { MISSIONS } from "../missions";
 import { sound } from "../audio";
@@ -103,6 +104,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
               );
             })}
           </div>
+          <NextUp />
         </div>
         <Capital />
         <div className="ml-auto flex items-center justify-end gap-1.5">
@@ -195,6 +197,24 @@ export default function Play({ scene }: { scene: ReactNode }) {
         </aside>
       </main>
     </div>
+  );
+}
+
+/** The next thing everyone can see coming: a known shock or an election. */
+function NextUp() {
+  const { mission, config, clock } = useTurn();
+  const shock = config.shocks.filter((s) => !s.id.startsWith("surprise") && s.quarter > clock).sort((a, b) => a.quarter - b.quarter)[0];
+  const election = mission.politics.elections.find((q) => q > clock);
+  const items: { q: number; text: string; kind: string }[] = [];
+  if (shock) items.push({ q: shock.quarter, text: SHOCKS[shock.kind].name, kind: "shock" });
+  if (election) items.push({ q: election, text: "Election", kind: "election" });
+  const next = items.sort((a, b) => a.q - b.q)[0];
+  if (!next) return null;
+  return (
+    <p className={`game-nextup is-${next.kind}`} title="Dots on the track: amber = known shock, violet = election">
+      <span aria-hidden="true" /> Next: {next.text}, {quarterLabel(next.q)}
+      {next.q === clock + 1 ? " (this quarter)" : ""}
+    </p>
   );
 }
 

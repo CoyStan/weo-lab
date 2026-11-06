@@ -65,13 +65,17 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
       <header className="flex items-start justify-between gap-2">
         <div>
           <h3 className="game-goal-title" title={meta.plain}>{meta.label}</h3>
-          <div className="flex items-baseline gap-1.5">
-            <span className="game-goal-value tabular-nums">{fmtNum(now, meta.digits)}</span>
-            <span className="text-[0.75rem] text-[var(--lab-ink-2)]">{meta.unit}</span>
+          <div className="game-goal-figures">
+            <span className="game-goal-now">
+              <small>Now</small>
+              <span className="game-goal-value tabular-nums">{fmtNum(now, meta.digits)}</span>
+              <span className="text-[0.75rem] text-[var(--lab-ink-2)]">{unitShort(meta.unit).trim() || meta.unit}</span>
+            </span>
             {clock < end ? (
-              <span className="ml-1 text-[0.75rem] text-[var(--lab-ink-2)]">
-                forecast {fmtNum(endValue, meta.digits)}
-                {unitShort(meta.unit)} in {quarterLabel(end)}
+              <span className="game-goal-fc">
+                <small>{quarterLabel(end)} forecast</small>
+                <span className="game-goal-value tabular-nums">{fmtNum(endValue, meta.digits)}</span>
+                <span className="text-[0.75rem]">{unitShort(meta.unit).trim() || meta.unit}</span>
               </span>
             ) : null}
           </div>
@@ -210,6 +214,11 @@ function OutlookChart({ metric, objectives, actual, forecast, ghost, clock, end,
           <g key={o.id}>
             <rect x={x(from)} y={bad.y0} width={Math.max(2, x(to) - x(from) + (o.when === "end" ? 6 : 0))} height={Math.max(0, bad.y1 - bad.y0)} fill={o.bonus ? "color-mix(in srgb, var(--lab-warn-mark) 10%, transparent)" : "color-mix(in srgb, var(--lab-alert) 11%, transparent)"} />
             <line x1={x(from)} x2={x(to)} y1={yT} y2={yT} stroke={o.bonus ? "var(--lab-warn-mark)" : "var(--lab-alert)"} strokeWidth={1.8} strokeDasharray={o.bonus ? "3 3" : undefined} />
+            {!o.bonus ? (
+              <text x={x(to) - 2} y={yT - 4} fontSize={11} fontWeight={700} textAnchor="end" fill="var(--lab-bad)" paintOrder="stroke" stroke="var(--lab-paper)" strokeWidth={3}>
+                goal {o.op === "<=" ? "≤" : "≥"} {fmtNum(o.threshold, meta.digits)}
+              </text>
+            ) : null}
           </g>
         );
       })}

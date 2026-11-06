@@ -21,8 +21,8 @@ export function AdviceList({ advice, compact = false }: { advice: Advice[]; comp
         return (
           <li key={a.advisor} className={`game-advice is-${a.tone}`} style={{ ["--advisor" as string]: who.accent }}>
             <img src={`${base}${who.portrait}`} alt="" width={44} height={44} className="game-portrait" />
-            <div className="min-w-0">
-              <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex w-full items-start justify-between gap-2">
                 <span className="flex flex-col leading-tight">
                   <strong className="text-[0.8rem]">{who.name}</strong>
                   <span className="text-[0.75rem] text-[var(--lab-ink-2)]">{who.role}</span>
