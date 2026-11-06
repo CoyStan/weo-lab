@@ -4503,3 +4503,622 @@ html:not(.is-kbd) .game button:focus-visible {
 html {
   scroll-padding-bottom: var(--sticky-h, 0px);
 }
+
+/* ---- Palari base for the restructured markup ----------------------------------- */
+/* The recap, goal cards, island tags, framework tabs and sector tables were reshaped while
+   another design was the default; these base rules give that markup the Palari desk look
+   (warm paper, soft cards, navy ink). Themes with their own CSS override them. */
+
+/* Recap. The Ledger lays its broadsheet recap out in full in its own CSS, so these rules
+   stay out of it (:where keeps their specificity unchanged). The card scrolls in its body;
+   the actions stay put at its foot. */
+:where(.lab:not([data-theme="ledger"])) .game-modal-backdrop.is-recap > .game-recap {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 2rem);
+  margin-block: auto;
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap > .game-recap-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0 -0.5rem;
+  padding: 0 0.5rem 0.25rem;
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap > .game-recap-actions {
+  flex: none;
+  margin-top: 0.6rem;
+  border-top: 1px solid var(--lab-line);
+  padding-top: 0.7rem;
+}
+:where(.lab:not([data-theme="ledger"])) .game-paper {
+  margin-top: 0;
+}
+:where(.lab:not([data-theme="ledger"])) .game-masthead-row {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--lab-ink) 20%, transparent);
+  padding-bottom: 0.3rem;
+}
+:where(.lab:not([data-theme="ledger"])) .game-masthead-row .game-masthead {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}
+/* The verdict is said once, by the stamp below the reactions. */
+:where(.lab:not([data-theme="ledger"])) .game-edition-mark {
+  display: none;
+}
+:where(.lab:not([data-theme="ledger"])) .game-dateline {
+  flex-wrap: wrap;
+  gap: 0 1rem;
+  margin-top: 0.3rem;
+}
+:where(.lab:not([data-theme="ledger"])) .game-dateline > span {
+  white-space: nowrap;
+}
+
+/* Reaction: one quote from each advisor, side by side, as the advisor cards on the desk. */
+:where(.lab:not([data-theme="ledger"])) .game-reactions {
+  margin: 0 0 0.75rem;
+}
+:where(.lab:not([data-theme="ledger"])) .game-reactions-title {
+  margin: 0 0 0.35rem;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  color: var(--lab-ink-2);
+}
+:where(.lab:not([data-theme="ledger"])) .game-reactions ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+:where(.lab:not([data-theme="ledger"])) .game-reaction {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  border: 1px solid var(--lab-line);
+  border-left: 3px solid var(--advisor, var(--lab-line-strong));
+  border-radius: var(--lab-radius-card);
+  background: var(--lab-paper);
+  padding: 0.5rem 0.65rem;
+}
+:where(.lab:not([data-theme="ledger"])) .game-reaction > div {
+  flex: 1 1 auto;
+}
+:where(.lab:not([data-theme="ledger"])) .game-reaction .game-portrait {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+:where(.lab:not([data-theme="ledger"])) .game-reaction-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.1rem 0.5rem;
+  margin: 0;
+  font-size: var(--t-xs);
+  line-height: 1.3;
+}
+:where(.lab:not([data-theme="ledger"])) .game-reaction-mood {
+  border-radius: var(--game-r-sm);
+  background: color-mix(in srgb, var(--lab-info-mark) 12%, transparent);
+  padding: 0.05rem 0.45rem;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  color: var(--lab-info);
+}
+:where(.lab:not([data-theme="ledger"])) .game-reaction-mood.is-pleased {
+  background: color-mix(in srgb, var(--lab-good-mark) 16%, transparent);
+  color: var(--lab-good);
+}
+:where(.lab:not([data-theme="ledger"])) .game-reaction-mood.is-worried {
+  background: color-mix(in srgb, var(--lab-alert) 12%, transparent);
+  color: var(--lab-bad);
+}
+:where(.lab:not([data-theme="ledger"])) .game-reaction-mood i {
+  display: none;
+}
+:where(.lab:not([data-theme="ledger"])) .game-reaction-quote {
+  margin: 0.15rem 0 0;
+  font-size: var(--t-sm);
+  line-height: 1.4;
+}
+
+/* The verdict: a calm line with its square, beside the score box; no rotation, no overlap. */
+:where(.lab:not([data-theme="ledger"])) .game-recap .game-stamp-row,
+:where(.lab:not([data-theme="ledger"])) .game-stamp-row.has-score {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+  margin: 0 0 0.6rem;
+  border-top: 1px solid var(--lab-line);
+  padding-top: 0.65rem;
+}
+:where(.lab:not([data-theme="ledger"])) .game-stamp-lead {
+  display: flex;
+  flex: 1 1 16rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  min-width: 0;
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap .game-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  font-family: var(--lab-font-ui);
+  font-size: var(--t-md);
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  transform: none;
+  opacity: 1;
+  animation: game-fade var(--dur-slow) var(--dur) var(--ease) both;
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap .game-stamp::before {
+  content: "";
+  flex: none;
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 2px;
+  background: currentColor;
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap .game-stamp.is-warn::before {
+  background: linear-gradient(to top, var(--lab-warn-mark) 50%, transparent 50%);
+  box-shadow: inset 0 0 0 1.5px var(--lab-warn-mark);
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap .game-stamp.is-bad::before {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--lab-alert);
+}
+:where(.lab:not([data-theme="ledger"])).is-reduced .game-recap .game-stamp {
+  animation: none;
+}
+:where(.lab:not([data-theme="ledger"])) .game-stamp-note {
+  font-size: var(--t-xs);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+/* The score: Votes and Trust in one soft two-cell box. */
+:where(.lab:not([data-theme="ledger"])) .game-recap-capital {
+  display: grid;
+  flex: 0 1 auto;
+  grid-template-columns: repeat(2, minmax(0, auto));
+  margin: 0;
+  border-radius: var(--game-r-md);
+  background: color-mix(in srgb, var(--lab-ink) 4%, transparent);
+  padding: 0.4rem 0.2rem;
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-capital > div {
+  padding: 0 0.7rem;
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-capital > div + div {
+  border-left: 1px solid var(--lab-line);
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-capital dt {
+  font-size: var(--t-xs);
+  font-weight: 700;
+  color: var(--lab-ink-2);
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-capital dd {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0;
+  white-space: nowrap;
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-capital dd b {
+  font-family: var(--lab-font-display);
+  font-size: var(--t-lg);
+  font-weight: 700;
+  line-height: 1.1;
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-capital-d {
+  font-size: var(--t-xs);
+  font-weight: 700;
+  color: var(--lab-ink-2);
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-capital-d.is-up {
+  color: var(--lab-good);
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-capital-d.is-down {
+  color: var(--lab-bad);
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-capital-was {
+  font-weight: 400;
+  color: var(--lab-ink-2);
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-watch {
+  margin: 0 0 0.6rem;
+  font-size: var(--t-sm);
+  line-height: 1.4;
+}
+
+/* The goal figures: label, hero number with its unit, the quarter's move, the chart, the verdict. */
+:where(.lab:not([data-theme="ledger"])) .game-recap-stat {
+  min-width: 0;
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-label {
+  font-size: var(--t-xs);
+  font-weight: 700;
+  color: var(--lab-ink-2);
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-value {
+  font-size: var(--t-xl);
+  letter-spacing: -0.01em;
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-unit {
+  margin-left: 0.1rem;
+  font-family: var(--lab-font-ui);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--lab-ink-2);
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap .game-recap-change {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.3rem;
+  white-space: normal;
+  font-size: var(--t-sm);
+  font-weight: 700;
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-when {
+  font-size: var(--t-xs);
+  font-weight: 400;
+  color: var(--lab-ink-2);
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-chart {
+  margin-top: 0.15rem;
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-goal {
+  align-items: flex-start;
+  margin-top: 0.2rem;
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-goal-text {
+  font-size: var(--t-xs);
+  line-height: 1.35;
+  color: var(--lab-ink-2);
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-more {
+  margin-top: 0.6rem;
+  font-size: var(--t-sm);
+}
+:where(.lab:not([data-theme="ledger"])) .game-recap-more > summary {
+  font-weight: 600;
+  color: var(--lab-info);
+}
+/* The island line under the scene is for themes that dock the recap beside a phone island. */
+:where(.lab:not([data-theme="ledger"])) .game-scene-recapline {
+  display: none;
+}
+@media (max-width: 640px) {
+  :where(.lab:not([data-theme="ledger"])) .game-recap-chart {
+    display: none;
+  }
+  :where(.lab:not([data-theme="ledger"])) .game-recap-value {
+    font-size: var(--t-lg);
+  }
+  :where(.lab:not([data-theme="ledger"])) .game-recap .game-stamp-row,
+  :where(.lab:not([data-theme="ledger"])) .game-stamp-row.has-score {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  :where(.lab:not([data-theme="ledger"])) .game-stamp-lead {
+    flex-basis: auto;
+  }
+  :where(.lab:not([data-theme="ledger"])) .game-recap-capital {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Goal cards: the hero figure keeps its unit beside it; a sentence under the bonus star. */
+:where(.lab:not([data-theme="ledger"])) .game-goal-figures > .game-goal-fc {
+  grid-template-columns: max-content 1fr;
+}
+:where(.lab:not([data-theme="ledger"])) .game-goal-unit {
+  font-size: var(--t-sm);
+  font-weight: 600;
+}
+:where(.lab:not([data-theme="ledger"])) .game-goal-target {
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--lab-ink);
+}
+:where(.lab:not([data-theme="ledger"])) .game-goal-now {
+  font-size: var(--t-sm);
+}
+:where(.lab:not([data-theme="ledger"])) .game-goal-now small {
+  font-size: var(--t-xs);
+}
+:where(.lab:not([data-theme="ledger"])) .game-goal-bonus {
+  line-height: 1.35;
+}
+:where(.lab:not([data-theme="ledger"])) .game-goal-bonus-what {
+  display: block;
+  color: var(--lab-ink-2);
+}
+:where(.lab:not([data-theme="ledger"])) .game-goal-sub .game-goal-star-state {
+  font-weight: 700;
+}
+:where(.lab:not([data-theme="ledger"])) .game-goal-part {
+  line-height: 1.35;
+}
+:where(.lab:not([data-theme="ledger"])) .game-goal-note {
+  margin-top: 0.2rem;
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+:where(.lab:not([data-theme="ledger"])) .game-spark {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+}
+
+/* Agenda: the reminder follows the headline on the same line, in body weight. */
+:where(.lab:not([data-theme="ledger"])) .game-agenda strong .game-agenda-note {
+  display: inline;
+  font-weight: 400;
+  color: var(--lab-ink-2);
+}
+:where(.lab:not([data-theme="ledger"])) .game-agenda-more > summary {
+  width: fit-content;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* Island tags: one line, sentence case: "Central bank · Policy rate now 8.5% → next 10.5%". */
+:where(.lab:not([data-theme="ledger"])) .lab-scene-label .lab-banner-text {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+  white-space: nowrap;
+}
+:where(.lab:not([data-theme="ledger"])) .lab-scene-label .lab-banner-text strong {
+  display: inline;
+}
+:where(.lab:not([data-theme="ledger"])) .lab-banner-cue strong {
+  display: inline;
+}
+:where(.lab:not([data-theme="ledger"])) .lab-banner-status {
+  flex: none;
+  border-radius: var(--game-r-sm);
+  padding: 0.05rem 0.4rem;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  background: var(--lab-warn-bg);
+  color: var(--lab-warn);
+}
+:where(.lab:not([data-theme="ledger"])) .lab-banner-status.is-failed {
+  background: var(--lab-bad-bg);
+  color: var(--lab-bad);
+}
+
+/* Framework tabs: number in a circle at the left, the long name over its subtitle; phones
+   use the short name. */
+:where(.lab:not([data-theme="ledger"])) .game-fw-tab-short {
+  display: none;
+}
+:where(.lab:not([data-theme="ledger"])) .game-fw-tabs button > span {
+  min-width: 0;
+}
+@media (min-width: 641px) {
+  :where(.lab:not([data-theme="ledger"])) .game-fw-tabs button {
+    position: relative;
+    padding-left: 2.8rem;
+  }
+  :where(.lab:not([data-theme="ledger"])) .game-fw-tabs .game-fw-tab-n {
+    position: absolute;
+    left: 0.7rem;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+}
+@media (max-width: 640px) {
+  :where(.lab:not([data-theme="ledger"])) .game-fw-tab-long {
+    display: none;
+  }
+  :where(.lab:not([data-theme="ledger"])) .game-fw-tab-short {
+    display: block;
+  }
+  :where(.lab:not([data-theme="ledger"])) .game-fw-tabs .game-fw-tab-n {
+    display: grid;
+    margin: 0 auto 0.15rem;
+  }
+  :where(.lab:not([data-theme="ledger"])) .game-fw-place {
+    display: none;
+  }
+}
+
+/* Why tiles: the start and end values as one line; one tile per row on phones. */
+:where(.lab:not([data-theme="ledger"])) .game-fw-tile-ends {
+  display: block;
+}
+@media (max-width: 640px) {
+  :where(.lab:not([data-theme="ledger"])) .game-fw-section .game-fw-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Sector tables: the quarter's change has its own column; phones fold it under the level. */
+:where(.lab:not([data-theme="ledger"])) .game-fw-dq-inline {
+  display: none;
+}
+@media (max-width: 760px) {
+  :where(.lab:not([data-theme="ledger"])) .game-fw-dq-inline {
+    display: block;
+    font-size: var(--t-xs);
+    font-weight: 400;
+    white-space: nowrap;
+    color: var(--lab-ink-2);
+  }
+}
+
+/* Decomposition: the key above the chart doubles as its show/hide control. */
+:where(.lab:not([data-theme="ledger"])) .game-dc-chart > .game-dc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.1rem;
+  margin: 0 0 0.35rem;
+  font-size: var(--t-xs);
+}
+:where(.lab:not([data-theme="ledger"])) .game-dc-legend button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: var(--game-r-sm);
+  padding: 0.1rem 0.2rem;
+  font-weight: 600;
+  color: var(--lab-ink);
+}
+:where(.lab:not([data-theme="ledger"])) .game-dc-legend button:hover {
+  background: color-mix(in srgb, var(--lab-ink) 5%, transparent);
+}
+:where(.lab:not([data-theme="ledger"])) .game-dc-legend button.is-off {
+  font-weight: 400;
+  color: var(--lab-ink-2);
+  text-decoration: line-through;
+}
+:where(.lab:not([data-theme="ledger"])) .game-dc-legend i {
+  flex: none;
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 2px;
+}
+:where(.lab:not([data-theme="ledger"])) .game-dc-legend button.is-off i {
+  opacity: 0.35;
+}
+:where(.lab:not([data-theme="ledger"])) .game-dc-legend i.is-hatch {
+  background: repeating-linear-gradient(45deg, var(--dc-momentum) 0 1.5px, color-mix(in srgb, var(--dc-momentum) 22%, var(--lab-paper)) 1.5px 5px);
+}
+:where(.lab:not([data-theme="ledger"])) .game-dc-note,
+:where(.lab:not([data-theme="ledger"])) .game-dc-note * {
+  font-weight: 400;
+}
+:where(.lab:not([data-theme="ledger"])) .game-dc-note strong {
+  font-weight: 700;
+}
+:where(.lab:not([data-theme="ledger"])) .game-dc-when {
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+:where(.lab:not([data-theme="ledger"])) .game-dc-table thead th {
+  padding-bottom: 0.25rem;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  text-align: right;
+  color: var(--lab-ink-2);
+}
+:where(.lab:not([data-theme="ledger"])) .game-dc-table td + td,
+:where(.lab:not([data-theme="ledger"])) .game-dc-table thead th + th {
+  padding-left: 0.75rem;
+}
+
+/* Phones: the "Your move" strip sits on its own rows above End and Skip. */
+@media (max-width: 1179px) {
+  :where(.lab:not([data-theme="ledger"])) .game-end:has(.game-move-strip) {
+    flex-wrap: wrap;
+  }
+  :where(.lab:not([data-theme="ledger"])) .game-move-strip {
+    flex-direction: column;
+    gap: 0.1rem;
+    font-size: var(--t-xs);
+  }
+  :where(.lab:not([data-theme="ledger"])) .game-move-strip-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0 0.6rem;
+  }
+  :where(.lab:not([data-theme="ledger"])) .game-move-strip-level {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3rem;
+  }
+}
+
+/* Turn track: the current quarter's code on one line under its square. */
+:where(.lab:not([data-theme="ledger"])) .game-progress-track span em {
+  white-space: nowrap;
+}
+:where(.lab:not([data-theme="ledger"])) .game-progress-track span em.is-code {
+  color: var(--lab-ink);
+}
+
+/* Phones: an island tag shrunk to its figures keeps "now → next" readable (the Ledger
+   keeps the words, so it needs no arrow). */
+@media (max-width: 760px) {
+  :where(.lab:not([data-theme="ledger"])) .lab-scene-label .lab-banner-next strong::before {
+    content: "\2192\00a0";
+    font-weight: 400;
+    color: var(--lab-ink-2);
+  }
+  :where(.lab:not([data-theme="ledger"])) .lab-scene-label .lab-banner-next strong {
+    margin-left: 0.3em;
+  }
+}
+
+/* Phones: sector tables fit the sheet: tighter cells, the policy effect may wrap. */
+@media (max-width: 640px) {
+  :where(.lab:not([data-theme="ledger"])) .game-fw-table {
+    font-size: var(--t-xs);
+  }
+  :where(.lab:not([data-theme="ledger"])) .game-fw-table th,
+  :where(.lab:not([data-theme="ledger"])) .game-fw-table td {
+    padding-inline: 0.2rem;
+  }
+  :where(.lab:not([data-theme="ledger"])) .game-fw-table th:first-child {
+    padding-left: 0;
+    white-space: normal;
+  }
+  :where(.lab:not([data-theme="ledger"])) .game-fw-table thead th {
+    white-space: normal;
+    vertical-align: bottom;
+  }
+  :where(.lab:not([data-theme="ledger"])) .game-fw-table .game-fw-effect {
+    white-space: normal;
+  }
+  :where(.lab:not([data-theme="ledger"])) .game-recap > .game-recap-actions {
+    flex-wrap: nowrap;
+  }
+  :where(.lab:not([data-theme="ledger"])) .game-recap > .game-recap-actions > .lab-btn {
+    flex: 1 1 auto;
+    padding-inline: 0.8rem;
+  }
+}
+
+/* Decomposition key: a plain table and note (the old key's bold and rule do not apply). */
+:where(.lab:not([data-theme="ledger"])) .game-dc > .game-dc-key {
+  border-bottom: 0;
+  font-weight: 400;
+}
+
+/* Sector tables: a narrower trend column on laptop widths, so "Your policies" stays inside its card. */
+@media (max-width: 1500px) {
+  :where(.lab:not([data-theme="ledger"])) .game-fw-table .game-fw-spark-col svg {
+    width: 72px;
+    height: auto;
+  }
+}
+
+/* Shock responses: a "Baseline" tag is as wide as its word. */
+:where(.lab:not([data-theme="ledger"])) .game-choice-body > .game-outcome {
+  align-self: flex-start;
+}

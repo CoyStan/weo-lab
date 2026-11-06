@@ -100,7 +100,7 @@ export function Reactions({ advice }: { advice: Advice[] }) {
         {advice.slice(0, 2).map((a) => {
           const who = ADVISORS[a.advisor];
           return (
-            <li key={a.advisor} className={`game-reaction is-${a.tone}`}>
+            <li key={a.advisor} className={`game-reaction is-${a.tone}`} style={{ ["--advisor" as string]: who.accent }}>
               <img src={`${base}${who.portrait}`} alt="" width={40} height={40} className="game-portrait" />
               <div className="min-w-0">
                 <p className="game-reaction-who">
