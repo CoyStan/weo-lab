@@ -120,7 +120,7 @@ const theme: LabTheme = {
   border-radius: 3px;
 }
 .lab[data-theme="tabletop"] .game-progress-track span.is-done {
-  background: var(--lab-ink);
+  --game-track-done: var(--lab-ink);
 }
 .lab[data-theme="tabletop"] .game-progress-track span.is-now {
   background: #e8b03a;

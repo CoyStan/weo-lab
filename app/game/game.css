@@ -4,7 +4,13 @@
   --game-good: var(--lab-good);
   --game-risk: var(--lab-warn);
   --game-bad: var(--lab-bad);
-  --game-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Motion: one easing curve (quick start, settles with no overshoot) and
+     three durations. useTween.ts mirrors --ease for numbers that count. */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-fast: 150ms;
+  --dur: 250ms;
+  --dur-slow: 400ms;
+  --game-ease: var(--ease);
 }
 
 .game .lab-btn:focus-visible,
@@ -255,7 +261,7 @@
   padding: 1rem;
   background: color-mix(in srgb, var(--lab-ink) 28%, transparent);
   backdrop-filter: blur(3px);
-  animation: game-fade 0.3s ease both;
+  animation: game-fade var(--dur) var(--ease) both;
   overflow-y: auto;
 }
 
@@ -436,16 +442,28 @@
   flex: 1;
   border-radius: 3px;
   background: color-mix(in srgb, var(--lab-ink) 12%, transparent);
-  transition: background 0.4s var(--game-ease);
+  transition: background-color var(--dur-slow) var(--ease);
 }
 
-.game-progress-track span.is-done {
-  background: var(--lab-scenario);
+/* A played quarter fills from the left (a scaled layer, so the fill sweeps
+   when a quarter ends); themes recolour it with --game-track-done. */
+.game-progress-track span::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--game-track-done, var(--lab-scenario));
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--dur-slow) var(--ease);
+}
+
+.game-progress-track span.is-done::before {
+  transform: scaleX(1);
 }
 
 .game-progress-track span.is-now {
   background: color-mix(in srgb, var(--lab-scenario) 45%, transparent);
-  animation: game-pulse 1.8s ease-in-out infinite;
 }
 
 .game-grid {
@@ -1032,22 +1050,13 @@
 }
 
 @keyframes game-star {
-  0% {
+  from {
     opacity: 0;
-    transform: scale(0.3) rotate(-30deg);
+    transform: scale(0.6) rotate(-12deg);
   }
-  70% {
-    transform: scale(1.18) rotate(6deg);
-  }
-  100% {
+  to {
     opacity: 1;
     transform: none;
-  }
-}
-
-@keyframes game-pulse {
-  50% {
-    opacity: 0.45;
   }
 }
 
@@ -2753,16 +2762,13 @@
 }
 
 @keyframes game-label-pop {
-  0% {
-    transform: scale(0.92);
+  from {
+    transform: scale(0.94);
     opacity: 0.4;
   }
-  60% {
-    transform: scale(1.06);
+  to {
+    transform: none;
     opacity: 1;
-  }
-  100% {
-    transform: scale(1);
   }
 }
 
@@ -3597,4 +3603,37 @@ html:not(.is-kbd) .game button:focus-visible {
     white-space: normal;
     vertical-align: bottom;
   }
+}
+
+/* ---- Motion: purposeful, one curve ---------------------------------------
+   Every move here uses --ease and 150-400 ms. The .is-reduced and
+   prefers-reduced-motion rules above switch all of it off. */
+
+/* The shock card lands with weight: drops a short way and settles, no bounce.
+   Higher specificity than the themes' .game-card rules, which drop the rise. */
+.lab.game .game-card.game-shock {
+  animation: game-drop var(--dur-slow) var(--ease) both;
+}
+
+@keyframes game-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-36px) scale(1.04);
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Framework tabs cross-fade: each pane is keyed by its tab and fades in. */
+.game-fw-pane {
+  animation: game-fade var(--dur) var(--ease) both;
+}
+
+.game-move-chip {
+  animation-duration: var(--dur);
 }

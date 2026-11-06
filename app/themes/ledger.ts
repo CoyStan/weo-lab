@@ -146,11 +146,10 @@ const theme: LabTheme = {
   background: color-mix(in srgb, var(--lab-ink) 16%, transparent);
 }
 .lab[data-theme="ledger"] .game-progress-track span.is-done {
-  background: var(--lab-ink);
+  --game-track-done: var(--lab-ink);
 }
 .lab[data-theme="ledger"] .game-progress-track span.is-now {
   background: var(--lab-scenario);
-  animation: none;
 }
 .lab[data-theme="ledger"] .game-progress-track span em {
   top: 0.5rem;

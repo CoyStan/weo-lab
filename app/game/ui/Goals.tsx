@@ -10,6 +10,7 @@ import type { MetricKey, Objective, ObjectiveStatus } from "../missions";
 import { useProbeEffect, useTurn } from "../useTurn";
 import { useGame } from "../store";
 import { DECOMP_METRICS, type DecompMetric } from "../decompose";
+import { useTween } from "./useTween";
 
 const DECOMPOSABLE = new Set<string>(DECOMP_METRICS.map((m) => m.key));
 
@@ -68,24 +69,20 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
           <div className="game-goal-figures">
             <span className="game-goal-now">
               <small>Now</small>
-              <span className="game-goal-value tabular-nums">{fmtNum(now, meta.digits)}</span>
+              <span className="game-goal-value tabular-nums"><TweenNum value={now} digits={meta.digits} /></span>
               <span className="text-(length:--t-xs) text-[var(--lab-ink-2)]">{unitShort(meta.unit).trim() || meta.unit}</span>
             </span>
             {clock < end ? (
               <span className="game-goal-fc">
                 <small>{quarterLabel(end)} forecast</small>
-                <span className="game-goal-value tabular-nums">{fmtNum(endValue, meta.digits)}</span>
+                <span className="game-goal-value tabular-nums"><TweenNum value={endValue} digits={meta.digits} /></span>
                 <span className="text-(length:--t-xs)">{unitShort(meta.unit).trim() || meta.unit}</span>
               </span>
             ) : null}
           </div>
         </div>
         {probeDelta === null && clock < end && Math.abs(forecast[end][metric] - ghost[end][metric]) >= 0.05 ? (
-          <span className={`game-move-chip ${moveTone(objectives, forecast[end][metric] - ghost[end][metric])}`} title={`What this quarter's changes do to ${meta.label.toLowerCase()} by ${quarterLabel(end)}`}>
-            <small>Your move</small>
-            {forecast[end][metric] - ghost[end][metric] > 0 ? "▲" : "▼"} {fmtNum(forecast[end][metric] - ghost[end][metric], meta.digits, true)}
-            {deltaUnit(meta.unit)}
-          </span>
+          <MoveChip metric={metric} objectives={objectives} delta={forecast[end][metric] - ghost[end][metric]} end={end} />
         ) : null}
         {probeDelta !== null && Math.abs(probeDelta) >= 0.05 ? (
           <span className={`game-probe-chip ${probeDelta > 0 ? "is-up" : "is-down"}`} title="Effect of the lever under your pointer, by the end of the mission">
@@ -139,6 +136,24 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
         </div>
       ) : null}
     </section>
+  );
+}
+
+/** A goal figure that eases to its new value when a lever or the clock moves it. */
+function TweenNum({ value, digits }: { value: number; digits: number }) {
+  return <>{fmtNum(useTween(value), digits)}</>;
+}
+
+/** "Your move": what this quarter's changes do by the end; the number eases as a lever moves. */
+function MoveChip({ metric, objectives, delta, end }: { metric: MetricKey; objectives: Objective[]; delta: number; end: number }) {
+  const meta = GAME_METRICS[metric];
+  const shown = useTween(delta);
+  return (
+    <span className={`game-move-chip ${moveTone(objectives, delta)}`} title={`What this quarter's changes do to ${meta.label.toLowerCase()} by ${quarterLabel(end)}`}>
+      <small>Your move</small>
+      {shown > 0 ? "▲" : "▼"} {fmtNum(shown, meta.digits, true)}
+      {deltaUnit(meta.unit)}
+    </span>
   );
 }
 

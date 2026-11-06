@@ -15,6 +15,7 @@ import { TrustIcon, VotesIcon } from "./Capital";
 import { annual } from "../calibrate";
 import { getStartYear, simulate } from "../../model/economy";
 import type { Mission } from "../missions";
+import { useTween } from "./useTween";
 
 /** Focus the primary action when a card opens, and let Enter press it. */
 function usePrimary() {
@@ -111,7 +112,7 @@ function RecapCard({ recap }: { recap: Recap }) {
                 <StatusPill status={worstStatus(mission, recap, m)} />
               </span>
               <span className="game-recap-value font-display text-(length:--t-xl) font-bold leading-none tabular-nums">
-                {fmtNum(recap.now[m], meta.digits)}
+                <CountUp from={recap.prev[m]} to={recap.now[m]} digits={meta.digits} />
                 <span className="ml-0.5 align-baseline text-(length:--t-sm) font-semibold">{unitShort(meta.unit)}</span>
               </span>
               <span className={`whitespace-nowrap text-(length:--t-xs) font-semibold tabular-nums ${["on-track", "met"].includes(worstStatus(mission, recap, m) ?? "") ? "text-[var(--lab-ink-2)]" : verdict(mission, m, d)}`}>
@@ -176,6 +177,11 @@ function RecapCard({ recap }: { recap: Recap }) {
       </div>
     </div>
   );
+}
+
+/** Counts a recap figure up from last quarter's value to this one's. */
+function CountUp({ from, to, digits }: { from: number; to: number; digits: number }) {
+  return <>{fmtNum(useTween(to, 400, from), digits)}</>;
 }
 
 function ShockCard({ ids }: { ids: string[] }) {

@@ -8,6 +8,7 @@ import { channels, deltaTail, diagnose, policyTouched, SECTORS, unitTail, untouc
 import { forecastFor, useGame, type FrameworkTab } from "../store";
 import { useTurn } from "../useTurn";
 import Decomp from "./Decomp";
+import { useReducedMotion } from "./useTween";
 
 const TABS: { id: FrameworkTab; label: string; sub: string }[] = [
   { id: "why", label: "Why", sub: "Is it moving, or not?" },
@@ -55,6 +56,7 @@ function FrameworkPanel() {
   const closeRef = useRef<HTMLButtonElement>(null);
   const tab = useGame((s) => s.frameworkTab);
   const setTab = useGame((s) => s.setFrameworkTab);
+  const reduced = useReducedMotion();
 
   useEffect(() => {
     closeRef.current?.focus({ preventScroll: true });
@@ -103,6 +105,8 @@ function FrameworkPanel() {
         </nav>
 
         <div className="game-fw-body">
+        {/* Keyed by tab, so each switch remounts the pane and it fades in. */}
+        <div key={tab} className="game-fw-pane">
         {tab === "why" ? (
           <section className="game-fw-section" aria-label="Why is it moving, or not?">
             {notes.length ? (
@@ -184,7 +188,7 @@ function FrameworkPanel() {
             </div>
             <nav className="game-fw-jump" aria-label="Jump to a sector">
               {SECTORS.map((sec) => (
-                <button key={sec.id} type="button" onClick={() => document.getElementById(`fw-sector-${sec.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+                <button key={sec.id} type="button" onClick={() => document.getElementById(`fw-sector-${sec.id}`)?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" })}>
                   {sec.title}
                 </button>
               ))}
@@ -202,6 +206,7 @@ function FrameworkPanel() {
             The same accounts must add up across sectors: a budget deficit is borrowed (fiscal) at a spread set by markets (external), a weaker currency raises inflation (prices) and foreign-currency debt (fiscal), and every demand push shows up in output and jobs (real). That is why one lever moves everything.
           </p>
         ) : null}
+        </div>
         </div>
       </div>
     </div>

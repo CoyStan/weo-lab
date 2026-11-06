@@ -306,7 +306,7 @@ const theme: LabTheme = {
   border-radius: 0;
 }
 .lab[data-theme="swiss"] .game-progress-track span.is-done {
-  background: #000000;
+  --game-track-done: #000000;
 }
 .lab[data-theme="swiss"] .game-progress-track span.is-now {
   background: #e30613;
