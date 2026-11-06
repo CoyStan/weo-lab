@@ -27,6 +27,12 @@ export default function Levers() {
   const unlocked = new Set(mission.unlocks);
   const metrics = Array.from(new Set(mission.objectives.map((o) => o.metric)));
   const pegged = policy.fxRegime === "peg";
+  // The rate the peg alone would set this quarter (anchor plus spread plus pressure).
+  const marketRate = useLab((s) => {
+    const now = s.result.path[s.clock];
+    const next = s.result.path[Math.min(s.clock + 1, s.result.path.length - 1)];
+    return now.regime === "peg" ? s.config.assumptions.usRate + now.spread / 100 + Math.max(0, next.pressure) * 0.5 : now.rate;
+  });
   const devaluedNow = oneOffs.some((o) => o.kind === "devalue" && o.quarter === clock + 1);
   const restructured = oneOffs.some((o) => o.kind === "restructure");
 
@@ -54,7 +60,23 @@ export default function Levers() {
               />
             </Lever>
           ) : null}
-          {pegged ? <p className="game-hint">Under a peg the rate follows the anchor currency; it is not yours to set.</p> : null}
+          {pegged && unlocked.has("rate") ? (
+            <Lever id="rate" lever="rate" moved={moved(["manualRate", "rateMode"])} metrics={metrics}>
+              <Slider
+                label="Defend the peg: rate floor"
+                value={policy.rateMode === "manual" ? policy.manualRate : 0}
+                min={0}
+                max={30}
+                step={0.5}
+                format={(v) => (v === 0 ? "none" : `${trim(v)}%`)}
+                onChange={(v) => decide({ rateMode: "manual", manualRate: v })}
+                hint={`Behind a peg the rate follows the anchor plus your spread (${marketRate.toFixed(1)}% now). Hold it higher to make the currency worth keeping: less pressure on reserves, but a deeper slump.`}
+              />
+              {policy.rateMode === "manual" && policy.manualRate > 0 && policy.manualRate <= marketRate ? <span className="game-hint">Below the market rate, so it isn&rsquo;t binding.</span> : null}
+            </Lever>
+          ) : pegged ? (
+            <p className="game-hint">Under a peg the rate follows the anchor currency; it is not yours to set.</p>
+          ) : null}
           {!pegged && policy.rateMode === "manual" && unlocked.has("rate") ? (
             <Lever id="rate" lever="rate" moved={moved(["manualRate"])} metrics={metrics}>
               <Slider label="Policy rate" value={policy.manualRate} min={0} max={20} step={0.25} format={(v) => `${trim(v)}%`} onChange={(v) => decide({ manualRate: v })} hint="Higher rates cool demand and, a few quarters later, inflation." />

@@ -1363,3 +1363,440 @@
 .game-reform:hover {
   z-index: 7;
 }
+
+/* ---- Macro framework overlay --------------------------------------------- */
+
+.game-fw-backdrop {
+  z-index: 60;
+  align-items: flex-start;
+}
+
+.game-fw {
+  width: min(100%, 76rem);
+  margin: auto 0;
+  padding: 1.1rem 1.25rem 1.25rem;
+}
+
+.game-fw-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--lab-line);
+  padding-bottom: 0.75rem;
+}
+
+.game-fw-kbd {
+  margin-left: 0.35rem;
+  border: 1px solid var(--lab-line);
+  border-radius: 0.3rem;
+  padding: 0 0.3rem;
+  font-family: var(--lab-font-mono, ui-monospace, monospace);
+  font-size: 0.62rem;
+  color: var(--lab-ink-2);
+}
+
+.game-fw-section {
+  margin-top: 1rem;
+}
+
+.game-fw-h {
+  margin-bottom: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--lab-ink-2);
+}
+
+.game-fw-sub {
+  margin-bottom: 0.5rem;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: var(--lab-ink-2);
+}
+
+.game-fw-notes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: 0.5rem;
+}
+
+.game-fw-note {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  border-left: 3px solid var(--lab-info-mark);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--lab-info-mark) 8%, transparent);
+  padding: 0.55rem 0.7rem;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.game-fw-note.is-warn {
+  border-left-color: var(--lab-warn-mark);
+  background: color-mix(in srgb, var(--lab-warn-mark) 10%, transparent);
+}
+
+.game-fw-note strong {
+  font-size: 0.78rem;
+}
+
+.game-fw-channels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13.5rem), 1fr));
+  gap: 0.5rem;
+}
+
+.game-fw-channel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border: 1px solid var(--lab-line);
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--lab-ink) 2%, transparent);
+  padding: 0.6rem 0.7rem;
+}
+
+.game-fw-channel.is-blocked,
+.game-fw-channel.is-idle {
+  background: color-mix(in srgb, var(--lab-ink) 5%, transparent);
+}
+
+.game-fw-pill {
+  flex-shrink: 0;
+  border-radius: 0.35rem;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--lab-paper);
+  background: var(--lab-good-mark);
+}
+
+.game-fw-pill.is-weak {
+  background: var(--lab-warn-mark);
+}
+
+.game-fw-pill.is-blocked {
+  background: var(--lab-alert);
+}
+
+.game-fw-pill.is-idle {
+  color: var(--lab-ink-2);
+  background: color-mix(in srgb, var(--lab-ink) 10%, transparent);
+}
+
+.game-fw-chain {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.3rem;
+  font-size: 0.66rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--lab-ink);
+}
+
+.game-fw-chain li span {
+  color: var(--lab-ink-2);
+}
+
+.game-fw-link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 52px 40px;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.66rem;
+}
+
+.game-fw-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.66rem;
+  color: var(--lab-ink-2);
+}
+
+.game-fw-legend i {
+  display: inline-block;
+  width: 1.2rem;
+  height: 0;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+  border-top: 2px solid var(--lab-ink);
+}
+
+.game-fw-legend i.is-forecast {
+  border-top: 2px dashed var(--lab-scenario);
+}
+
+.game-fw-legend i.is-untouched {
+  border-top: 2px dotted var(--lab-ink-2);
+}
+
+.game-fw-sectors {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 30rem), 1fr));
+  gap: 0.6rem;
+}
+
+.game-fw-sector {
+  min-width: 0;
+  border: 1px solid var(--lab-line);
+  border-radius: 0.8rem;
+  padding: 0.7rem 0.8rem;
+}
+
+.game-fw-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+}
+
+.game-fw-table th,
+.game-fw-table td {
+  padding: 0.22rem 0.3rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.game-fw-table thead th {
+  border-bottom: 1px solid var(--lab-line);
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--lab-ink-2);
+}
+
+.game-fw-table th:first-child {
+  text-align: left;
+}
+
+.game-fw-table tbody th {
+  font-weight: 500;
+  cursor: help;
+}
+
+.game-fw-table tbody tr + tr {
+  border-top: 1px solid color-mix(in srgb, var(--lab-line) 60%, transparent);
+}
+
+.game-fw-unit {
+  margin-left: 0.1rem;
+  font-size: 0.6rem;
+  color: var(--lab-ink-2);
+}
+
+.game-fw-table .is-flat {
+  color: var(--lab-ink-2);
+}
+
+.game-fw-effect {
+  font-weight: 600;
+}
+
+.game-fw-effect.is-up,
+.game-fw-effect.is-down {
+  color: var(--lab-scenario);
+}
+
+.game-fw-drivers {
+  margin-top: 0.55rem;
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--lab-ink) 4%, transparent);
+  padding: 0.5rem 0.6rem;
+}
+
+.game-fw-drivers > p {
+  margin-bottom: 0.35rem;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: var(--lab-ink-2);
+}
+
+.game-fw-drivers ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.game-fw-foot {
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--lab-line);
+  padding-top: 0.6rem;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  color: var(--lab-ink-2);
+}
+
+@media (max-width: 640px) {
+  .game-fw {
+    padding: 0.9rem 0.8rem 1rem;
+  }
+  .game-fw-spark-col {
+    display: none;
+  }
+  .game-fw-open kbd {
+    display: none;
+  }
+}
+
+/* ---- Pacing: agenda, skip ahead and the fast-forward ticker ---------------- */
+
+.game-agenda {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-width: 17rem;
+  border-left: 3px solid var(--lab-warn-mark);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--lab-warn-mark) 10%, transparent);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.game-agenda.is-quiet {
+  border-left-color: var(--lab-good-mark);
+  background: color-mix(in srgb, var(--lab-good-mark) 10%, transparent);
+}
+
+.game-agenda strong {
+  font-size: 0.74rem;
+}
+
+.game-agenda ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.game-agenda li.is-warn::before {
+  content: "• ";
+  color: var(--lab-alert);
+}
+
+.game-agenda li.is-info::before {
+  content: "• ";
+  color: var(--lab-info-mark);
+}
+
+.game-skip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid var(--lab-line-strong, var(--lab-line));
+  border-radius: 0.8rem;
+  background: var(--lab-paper);
+  padding: 0.5rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--lab-ink);
+  transition: background 0.15s ease;
+}
+
+.game-skip-btn:not(:disabled):hover {
+  background: color-mix(in srgb, var(--lab-ink) 6%, var(--lab-paper));
+}
+
+.game-skip-btn:disabled {
+  opacity: 0.5;
+}
+
+.game-skip-btn kbd {
+  border: 1px solid var(--lab-line);
+  border-radius: 0.3rem;
+  padding: 0 0.3rem;
+  font-size: 0.6rem;
+  color: var(--lab-ink-2);
+}
+
+.game-run {
+  position: absolute;
+  top: 0.8rem;
+  left: 50%;
+  z-index: 5;
+  width: min(92%, 30rem);
+  transform: translateX(-50%);
+  border: 1px solid var(--lab-line);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--lab-paper) 94%, transparent);
+  padding: 0.7rem 0.9rem;
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--lab-ink) 20%, transparent);
+  backdrop-filter: blur(6px);
+  animation: game-fade 0.25s ease both;
+}
+
+.game-run-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.game-run-head button {
+  margin-left: auto;
+}
+
+.game-run-pulse {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--lab-scenario);
+  animation: game-run-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes game-run-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.game-run ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.5rem;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.game-run li {
+  animation: game-fade 0.3s ease both;
+}
+
+.game-run li span {
+  margin-right: 0.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--lab-ink-2);
+}
+
+.game-run > p {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--lab-ink-2);
+}
+
+.game-run-foot {
+  font-size: 0.66rem !important;
+}
+
+.game-run-recap {
+  margin-bottom: 0.7rem;
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--lab-scenario) 8%, transparent);
+  padding: 0.5rem 0.65rem;
+}
+
+.is-reduced .game-run-pulse {
+  animation: none;
+}

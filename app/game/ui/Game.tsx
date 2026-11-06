@@ -12,6 +12,7 @@ import { useSettings } from "../settings";
 import { useGame } from "../store";
 import SettingsPanel from "./Settings";
 import Modals from "./Modals";
+import Framework from "./Framework";
 import Play from "./Play";
 import { Briefing, MissionSelect, TitleScreen } from "./Screens";
 import Contagion from "../../contagion/ui/Contagion";
@@ -106,6 +107,7 @@ export default function Game() {
         </div>
       )}
       <Modals />
+      {screen === "play" ? <Framework /> : null}
       <SettingsPanel />
     </div>
   );

@@ -9,6 +9,9 @@ import { sound } from "./audio";
 import { useSettings } from "./settings";
 import type { FocusKey } from "../store";
 import { headline } from "./explain";
+import { attention, eventful } from "./pacing";
+import { SHOCKS } from "../model/shocks";
+import { quarterLabel } from "../model/economy";
 import { buildEpisode, EPISODES, TODAY, todayMission } from "./economies";
 import { WEO } from "./data";
 import { getMission, registerMission, isSurprise, knownConfig, missionOutcome, MISSIONS, objectiveStatus, policyForTurn, type LeverId, type Mission, type ObjectiveStatus, type Outcome } from "./missions";
@@ -29,6 +32,20 @@ export type Recap = {
   points: { entries: Entry[]; votes: number; trust: number };
   election: { votes: number; won: boolean } | null;
   crisis: boolean;
+  /** Set when the recap ends a fast-forward: the quiet quarters it skipped and why it stopped. */
+  skipped?: { label: string; text: string }[];
+  stopReasons?: string[];
+  /** The clock the fast-forward started from. */
+  from?: number;
+};
+
+/** A fast-forward through quiet quarters. */
+export type Run = {
+  from: number;
+  lines: { label: string; text: string }[];
+  startStatuses: Record<string, ObjectiveStatus>;
+  startAttention: string[];
+  last: Recap | null;
 };
 
 export type Modal =
@@ -56,6 +73,14 @@ type GameState = {
   sandboxKeep: boolean;
   /** Island districts tied to the current mission's goals. */
   spotlight: FocusKey[];
+  /** The macro framework overlay: every sector and channel at once. */
+  framework: boolean;
+  setFramework: (open: boolean) => void;
+  /** A fast-forward in progress. */
+  run: Run | null;
+  /** Play quarters one after another until something calls for a decision. */
+  skipAhead: () => void;
+  stopRun: () => void;
 
   setScreen: (screen: Screen) => void;
   openSandbox: (keepScenario: boolean) => void;
@@ -104,6 +129,144 @@ function newsFor(config: ScenarioConfig, clock: number, announced: string[]): Sc
   return config.shocks.filter((s) => !announced.includes(s.id) && (isSurprise(s) ? s.quarter === clock + 1 : clock === 0 && s.quarter <= 1));
 }
 
+
+/** Each turn the run plays one quarter, slowly enough to watch the island change. */
+let runTimer: number | undefined;
+/** A fast-forward stops after this many quiet quarters, to check in. */
+const RUN_CAP = 8;
+
+type Get = () => GameState;
+type Set = (partial: Partial<GameState>) => void;
+
+/** Goal statuses and what needs attention, for the quarter about to be decided. */
+function lookAhead(mission: Mission) {
+  const lab = useLab.getState();
+  const forecast = forecastFor(lab.config, lab.clock);
+  const statuses: Record<string, ObjectiveStatus> = {};
+  for (const o of mission.objectives) statuses[o.id] = objectiveStatus(o, mission, lab.result.path, forecast, lab.clock);
+  const books = ledger(mission.politics, lab.config, lab.result.path, lab.result.events, lab.clock);
+  const list = attention({ mission, config: lab.config, clock: lab.clock, statuses, forecast, actual: lab.result.path, policy: policyForTurn(lab.config, lab.clock), votes: books.votes });
+  return { statuses, attention: list };
+}
+
+function scheduleTick(get: Get, set: Set, delay?: number) {
+  window.clearTimeout(runTimer);
+  const pace = delay ?? (useSettings.getState().reducedMotion ? 400 : 1300);
+  runTimer = window.setTimeout(() => runTick(get, set), pace);
+}
+
+function runTick(get: Get, set: Set) {
+  const run = get().run;
+  const mission = getMission(get().missionId ?? "");
+  if (!run || !mission || get().modal) {
+    set({ run: null });
+    return;
+  }
+  const played = playQuarter(get, set, true);
+  if (!played) {
+    set({ run: null });
+    return;
+  }
+  if (played.kind === "over") {
+    set({ run: null });
+    return;
+  }
+  const recap = played.recap;
+  const reasons = eventful(recap, mission);
+  const lab = useLab.getState();
+  const news = newsFor(lab.config, lab.clock, get().announced);
+  for (const s of news) reasons.push(`News: ${SHOCKS[s.kind].name.toLowerCase()}`);
+  const fresh = lookAhead(mission).attention.filter((a) => !run.startAttention.includes(a.key));
+  for (const a of fresh) reasons.push(a.text);
+  const quarters = recap.quarter - run.from;
+  if (!reasons.length && quarters >= RUN_CAP) reasons.push(`${quarters} quiet quarters in a row: time to check in`);
+  if (reasons.length || lab.clock >= mission.quarters) {
+    finishRun(get, set, recap, reasons);
+    return;
+  }
+  set({ run: { ...run, lines: [...run.lines, { label: quarterLabel(recap.quarter), text: recap.headline.text }], last: recap } });
+  scheduleTick(get, set);
+}
+
+/** End a fast-forward on one recap that covers every quarter it played. */
+function finishRun(get: Get, set: Set, last: Recap, reasons: string[]) {
+  const run = get().run;
+  window.clearTimeout(runTimer);
+  if (!run) return;
+  const lab = useLab.getState();
+  const mission = getMission(get().missionId ?? "")!;
+  const books = ledger(mission.politics, lab.config, lab.result.path, lab.result.events, last.quarter);
+  const merged: Recap = {
+    ...last,
+    prev: lab.result.path[run.from],
+    statuses: last.statuses.map((s) => ({ ...s, before: run.startStatuses[s.id] ?? s.before })),
+    points: { ...last.points, entries: books.entries.filter((e) => e.quarter > run.from && e.quarter <= last.quarter && e.kind === "earned") },
+    skipped: run.lines.filter((l) => l.label !== quarterLabel(last.quarter)),
+    stopReasons: reasons,
+    from: run.from,
+  };
+  sound.play("open");
+  set({ run: null, modal: { kind: "recap", recap: merged } });
+}
+
+/**
+ * Play the coming quarter: move the clock, score it, keep the turn history and
+ * handle the end of the mission. Returns the recap, or "over" when the mission ended.
+ */
+function playQuarter(get: Get, set: Set, quiet: boolean): { kind: "recap"; recap: Recap } | { kind: "over" } | null {
+  const mission = getMission(get().missionId ?? "");
+  if (!mission) return null;
+  const lab = useLab.getState();
+  const before = lab.clock;
+  if (before >= mission.quarters) return null;
+  sound.play(quiet ? "tick" : "confirm");
+  const config = lab.config;
+  const forecastBefore = forecastFor(config, before);
+  const after = before + 1;
+  lab.setClock(after);
+
+  const result = useLab.getState().result;
+  const forecastAfter = forecastFor(config, after);
+  const outcome = missionOutcome(mission, result, forecastAfter, after, config);
+  const books = ledger(mission.politics, config, result.path, result.events, after);
+  const election = books.elections.find((e) => e.quarter === after) ?? null;
+  const crisis = mission.politics.trustCrisis !== false && books.crisisAt === after && !config.shocks.some((s) => s.id === "surprise-confidence");
+  const prev = result.path[before];
+  const now = result.path[after];
+  const events = result.events.filter((e) => e.quarter === after);
+  const recap: Recap = {
+    quarter: after,
+    prev,
+    now,
+    events,
+    headline: headline(config.presetId, prev, now, events),
+    advice: advise({ mission, now, forecast: forecastAfter, policy: policyForTurn(config, after) }),
+    statuses: mission.objectives.map((o) => ({ id: o.id, before: objectiveStatus(o, mission, result.path, forecastBefore, before), after: objectiveStatus(o, mission, result.path, forecastAfter, after) })),
+    points: { entries: books.entries.filter((e) => e.quarter === after && e.kind === "earned"), votes: books.votes, trust: books.trust },
+    election: election ? { votes: election.votes, won: election.won } : null,
+    crisis,
+  };
+
+  const turns = [...get().turns, config];
+  if (outcome.kind !== "playing") {
+    if (outcome.kind === "won") {
+      const progress = { stars: { ...get().progress.stars, [mission.id]: Math.max(outcome.stars, get().progress.stars[mission.id] ?? 0) } };
+      saveProgress(progress);
+      set({ progress });
+    }
+    set({ turns, run: null, modal: { kind: "debrief", outcome } });
+    return { kind: "over" };
+  }
+  // Trust ran out: markets turn on the country next quarter.
+  if (crisis && after < mission.quarters) {
+    const shocked = { ...config, shocks: [...config.shocks, { id: "surprise-confidence", kind: "downgrade" as const, quarter: after + 1, magnitude: 1.3, source: "scheduled" as const }] };
+    useLab.getState().replaceConfig(shocked);
+    turns[turns.length - 1] = shocked;
+  }
+  set({ turns });
+  return { kind: "recap", recap };
+}
+
 export const useGame = create<GameState>((set, get) => ({
   screen: "title",
   missionId: null,
@@ -114,6 +277,13 @@ export const useGame = create<GameState>((set, get) => ({
   announced: [],
   sandboxKeep: false,
   spotlight: [],
+  framework: false,
+  run: null,
+
+  setFramework: (open) => {
+    if (open !== get().framework) sound.play(open ? "open" : "back");
+    set({ framework: open });
+  },
 
   recordStars: (id, stars) => {
     const prev = get().progress.stars[id] ?? 0;
@@ -128,7 +298,8 @@ export const useGame = create<GameState>((set, get) => ({
       useLab.setState({ labels: "all", spotlight: [] });
       sound.stopAmbient();
     }
-    set({ screen, modal: null, probe: null, sandboxKeep: false });
+    window.clearTimeout(runTimer);
+    set({ screen, modal: null, probe: null, sandboxKeep: false, framework: false, run: null });
   },
 
   openSandbox: (keepScenario) => {
@@ -158,7 +329,7 @@ export const useGame = create<GameState>((set, get) => ({
     const spotlight: FocusKey[] = (["infl", "growth", "debt", "reserves", "unemp", "cred", "rate", "ca"] as const).filter((k) => watched.has(k));
     const mode = useSettings.getState().labels;
     useLab.setState({ clock: 0, playing: false, focus: null, storyId: null, past: [], future: [], labels: mode === "all" ? "all" : "focus", spotlight: mode === "hover" ? [] : spotlight });
-    set({ screen: "briefing", missionId: id, turns: [], modal: null, probe: null, announced: [], spotlight });
+    set({ screen: "briefing", missionId: id, turns: [], modal: null, probe: null, announced: [], spotlight, framework: false, run: null });
   },
 
   startEpisode: (id) => {
@@ -185,6 +356,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   decide: (changes) => {
+    if (get().run) get().stopRun();
     sound.play("tick");
     const lab = useLab.getState();
     lab.decideAt(lab.clock + 1, changes);
@@ -198,58 +370,32 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   endQuarter: () => {
-    const { missionId, announced } = get();
+    if (get().run) return;
+    const played = playQuarter(get, set, false);
+    if (played?.kind === "recap") set({ modal: { kind: "recap", recap: played.recap } });
+  },
+
+  skipAhead: () => {
+    const { missionId, modal, run } = get();
     const mission = missionId ? getMission(missionId) : undefined;
-    if (!mission) return;
     const lab = useLab.getState();
-    const before = lab.clock;
-    if (before >= mission.quarters) return;
+    if (!mission || modal || run || lab.clock >= mission.quarters) return;
     sound.play("confirm");
-    const config = lab.config;
-    const forecastBefore = forecastFor(config, before);
-    const after = before + 1;
-    lab.setClock(after);
+    const look = lookAhead(mission);
+    set({ run: { from: lab.clock, lines: [], startStatuses: look.statuses, startAttention: look.attention.map((a) => a.key), last: null }, framework: false });
+    scheduleTick(get, set, 250);
+  },
 
-    const result = useLab.getState().result;
-    const forecastAfter = forecastFor(config, after);
-    const outcome = missionOutcome(mission, result, forecastAfter, after, config);
-    const books = ledger(mission.politics, config, result.path, result.events, after);
-    const election = books.elections.find((e) => e.quarter === after) ?? null;
-    const crisis = mission.politics.trustCrisis !== false && books.crisisAt === after && !config.shocks.some((s) => s.id === "surprise-confidence");
-    const prev = result.path[before];
-    const now = result.path[after];
-    const events = result.events.filter((e) => e.quarter === after);
-    const recap: Recap = {
-      quarter: after,
-      prev,
-      now,
-      events,
-      headline: headline(config.presetId, prev, now, events),
-      advice: advise({ mission, now, forecast: forecastAfter, policy: policyForTurn(config, after) }),
-      statuses: mission.objectives.map((o) => ({ id: o.id, before: objectiveStatus(o, mission, result.path, forecastBefore, before), after: objectiveStatus(o, mission, result.path, forecastAfter, after) })),
-      points: { entries: books.entries.filter((e) => e.quarter === after && e.kind === "earned"), votes: books.votes, trust: books.trust },
-      election: election ? { votes: election.votes, won: election.won } : null,
-      crisis,
-    };
-
-    const turns = [...get().turns, config];
-    if (outcome.kind !== "playing") {
-      if (outcome.kind === "won") {
-        const progress = { stars: { ...get().progress.stars, [mission.id]: Math.max(outcome.stars, get().progress.stars[mission.id] ?? 0) } };
-        saveProgress(progress);
-        set({ progress });
-      }
-      set({ turns, modal: { kind: "debrief", outcome } });
+  stopRun: () => {
+    const run = get().run;
+    if (!run) return;
+    window.clearTimeout(runTimer);
+    if (!run.last) {
+      set({ run: null });
       return;
     }
-    // Trust ran out: markets turn on the country next quarter.
-    if (crisis && after < mission.quarters) {
-      const shocked = { ...config, shocks: [...config.shocks, { id: "surprise-confidence", kind: "downgrade" as const, quarter: after + 1, magnitude: 1.3, source: "scheduled" as const }] };
-      useLab.getState().replaceConfig(shocked);
-      turns[turns.length - 1] = shocked;
-    }
-    set({ turns, modal: { kind: "recap", recap } });
-    void announced;
+    // Show what the skipped quarters did, ending on the last one played.
+    finishRun(get, set, run.last, ["You stopped the clock"]);
   },
 
   closeModal: () => {
@@ -266,6 +412,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   rewind: () => {
+    if (get().run) return;
     const turns = get().turns;
     const lab = useLab.getState();
     if (lab.clock === 0 || turns.length < 2) return;

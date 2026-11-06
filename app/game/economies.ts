@@ -242,7 +242,7 @@ export const EPISODES: Episode[] = [
       "An IMF-led package of about $17 billion followed in August, with tight money and an initial fiscal tightening that was later reversed. Output fell 7.6% in 1998 before recovering.",
     ],
     lesson: "Defending a peg with reserves only buys time if the problem is temporary; with large foreign-currency debts, the longer the defence, the harder the landing.",
-    hint: "Decide early whether the peg can survive. Floating before the reserves are gone keeps a buffer for later.",
+    hint: "Decide early whether the peg can survive. Higher rates slow the drain on reserves but deepen the slump; floating before the reserves are gone keeps a buffer for later.",
     shocks: [{ id: "surprise-stop", kind: "sudden-stop", quarter: 3, magnitude: 2 }],
     unlocks: ["rate", "fxRegime", "intervention", "fiscal", "imf", "devalue", "controls"],
     goals: (a) => [
@@ -314,7 +314,7 @@ export const EPISODES: Episode[] = [
       "Convertibility ended in January 2002. The peso fell to almost four per dollar, dollar debts nearly tripled in pesos, output fell 10.9% in 2002, and unemployment passed 20%. Recovery was strong from 2003.",
     ],
     lesson: "A peg with dollar debts creates a trap: the longer the exit waits, the larger the devaluation and the debt shock when it comes.",
-    hint: "The peg's cost grows every quarter. Consider an orderly exit while reserves and IMF support are still there, and restructure before the debt balloons.",
+    hint: "The peg's cost grows every quarter. Consider an orderly exit while reserves and IMF support are still there, restructure before the debt balloons, and don't crush a shrinking, deflating economy with high interest rates once the peso floats.",
     unlocks: ["rate", "fiscal", "mix", "fxRegime", "imf", "devalue", "restructure"],
     goals: (a) => [
       { id: "growth02", label: `Growth in 2002 better than what happened (${a("growth", 2002).toFixed(1)}%)`, metric: "growth", op: ">=", threshold: a("growth", 2002) + 0.1, when: "year", year: 2002 },
@@ -417,7 +417,10 @@ export function buildEpisode(data: WeoData, ep: Episode): EpisodeBuild {
   const targets: YearTarget[] = years.map((year) => ({ year, growth: v(c, "growth", year), infl: v(c, "infl", year), balance: v(c, "balance", year), debt: v(c, "debt", year) }));
   const shocks: ScheduledShock[] = (ep.shocks ?? []).map((s) => ({ ...s, source: "scheduled" }));
   const oneOffs = (ep.history.oneOffs ?? []).map((o, i) => ({ ...o, id: `history-${i}` }));
-  const base: ScenarioConfig = { ...baselineConfig(preset.id), startYear: ep.startYear, shocks, decisions: ep.history.decisions, oneOffs };
+  const reference = baselineConfig(preset.id);
+  // Crises are about currencies moving, so episodes let the model move the real exchange rate
+  // (the WEO convention of holding it flat would make floating, or a run, change almost nothing).
+  const base: ScenarioConfig = { ...reference, assumptions: { ...reference.assumptions, rerConvention: "model" }, startYear: ep.startYear, shocks, decisions: ep.history.decisions, oneOffs };
   const history = calibrate(base, targets, { hidden: true });
 
   const actual = (key: keyof WeoCountry["series"], year: number) => v(c, key, year) ?? NaN;

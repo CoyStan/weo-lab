@@ -54,6 +54,7 @@ const STATUS_WORD: Record<ObjectiveStatus, string> = { met: "met", failed: "miss
 
 function RecapCard({ recap }: { recap: Recap }) {
   const close = useGame((s) => s.closeModal);
+  const setFramework = useGame((s) => s.setFramework);
   const missionId = useGame((s) => s.missionId);
   const mission = getMission(missionId ?? "")!;
   const primary = usePrimary();
@@ -69,6 +70,28 @@ function RecapCard({ recap }: { recap: Recap }) {
         </div>
         <h2 id="recap-title" className="game-headline">{recap.headline.text}</h2>
       </div>
+
+      {recap.stopReasons ? (
+        <div className="game-run-recap">
+          <p className="text-[0.74rem] font-semibold">
+            {recap.from !== undefined && recap.quarter - recap.from > 1
+              ? `Fast-forwarded ${recap.quarter - recap.from} quarters, ${quarterLabel(recap.from + 1)} to ${quarterLabel(recap.quarter)}. Changes below are over the whole stretch.`
+              : `Played ${quarterLabel(recap.quarter)}.`}
+          </p>
+          <p className="mt-0.5 text-[0.72rem]">
+            <span className="font-semibold">Stopped because:</span> {recap.stopReasons.join(" · ")}
+          </p>
+          {recap.skipped?.length ? (
+            <ul className="mt-1 text-[0.68rem] leading-snug text-[var(--lab-ink-2)]">
+              {recap.skipped.map((l) => (
+                <li key={l.label}>
+                  <span className="font-semibold tabular-nums">{l.label}</span> {l.text}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(metrics.length, 4)}, minmax(0, 1fr))` }}>
         {metrics.map((m) => {
@@ -118,7 +141,7 @@ function RecapCard({ recap }: { recap: Recap }) {
             <div key={c} className="min-w-[13rem] flex-1">
               <div className="flex items-center gap-1.5 text-[0.78rem] font-semibold">
                 {c === "votes" ? <VotesIcon /> : <TrustIcon />} {c === "votes" ? "Votes" : "Trust"} {recap.points[c]}
-                <span className={`text-[0.7rem] ${total > 0 ? "text-[var(--lab-good)]" : total < 0 ? "text-[var(--lab-bad)]" : "text-[var(--lab-ink-2)]"}`}>({total > 0 ? "+" : ""}{total} this quarter)</span>
+                <span className={`text-[0.7rem] ${total > 0 ? "text-[var(--lab-good)]" : total < 0 ? "text-[var(--lab-bad)]" : "text-[var(--lab-ink-2)]"}`}>({total > 0 ? "+" : ""}{total} {recap.from !== undefined && recap.quarter - recap.from > 1 ? "over the stretch" : "this quarter"})</span>
               </div>
               <ul className="mt-0.5 text-[0.68rem] leading-snug text-[var(--lab-ink-2)]">
                 {list.length ? list.map((e, i) => <li key={i}>{e.amount > 0 ? "+" : ""}{e.amount} {e.reason}</li>) : <li>No change</li>}
@@ -131,7 +154,10 @@ function RecapCard({ recap }: { recap: Recap }) {
       <h3 className="mt-3 mb-1 text-[0.7rem] font-semibold text-[var(--lab-ink-2)]">Your advisors on the quarter ahead</h3>
       <AdviceList advice={recap.advice} compact />
 
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+        <button type="button" className="lab-btn lab-btn-ghost lab-btn-md" onClick={() => setFramework(true)} title="Every sector, every channel, and why things moved">
+          See every sector
+        </button>
         <button ref={primary} type="button" className="lab-btn lab-btn-primary lab-btn-md" onClick={close}>
           Plan {quarterLabel(recap.quarter + 1)}
         </button>
