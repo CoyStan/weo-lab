@@ -92,9 +92,16 @@ export default function Play({ scene }: { scene: ReactNode }) {
             <span className="text-[var(--lab-ink-2)] tabular-nums">turn {Math.min(clock + 1, mission.quarters)} of {mission.quarters}</span>
           </div>
           <div className="game-progress-track">
-            {Array.from({ length: mission.quarters }, (_, i) => (
-              <span key={i} className={i < clock ? "is-done" : i === clock ? "is-now" : ""} />
-            ))}
+            {Array.from({ length: mission.quarters }, (_, i) => {
+              const q = i + 1;
+              const shock = config.shocks.some((s) => !s.id.startsWith("surprise") && s.quarter === q);
+              const election = mission.politics.elections.includes(q);
+              return (
+                <span key={i} className={`${i < clock ? "is-done" : i === clock ? "is-now" : ""} ${shock ? "has-shock" : ""} ${election ? "has-election" : ""}`} title={`${quarterLabel(q)}${shock ? " · known shock" : ""}${election ? " · election" : ""}`}>
+                  {(q - 1) % 4 === 0 ? <em>{quarterLabel(q).slice(0, 4)}</em> : null}
+                </span>
+              );
+            })}
           </div>
         </div>
         <Capital />
@@ -197,8 +204,9 @@ function DecisionLog() {
   const config = useLab((s) => s.config);
   const clock = useLab((s) => s.clock);
   const start = turns[0];
-  if (!start || clock === 0) return null;
+  if (!start) return null;
   const inherited = new Set(start.decisions.map((d) => JSON.stringify(d)));
+  const inheritedText = start.decisions.filter((d) => d.quarter === 0).map((d) => describeChanges(d.changes)).join(" · ");
   const mine = config.decisions.filter((d) => d.quarter >= 1 && d.quarter <= clock && !inherited.has(JSON.stringify(d))).sort((a, b) => b.quarter - a.quarter);
   return (
     <section className="game-log" aria-label="Your decisions so far">
@@ -212,7 +220,7 @@ function DecisionLog() {
           ))}
         </ol>
       ) : (
-        <p>None yet: policy has carried on as you found it.</p>
+        <p>None yet: policy carries on as you found it{inheritedText ? ` (${inheritedText})` : ""}.</p>
       )}
     </section>
   );

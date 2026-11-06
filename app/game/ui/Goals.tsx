@@ -209,7 +209,7 @@ function OutlookChart({ metric, objectives, actual, forecast, ghost, clock, end,
         return (
           <g key={o.id}>
             <rect x={x(from)} y={bad.y0} width={Math.max(2, x(to) - x(from) + (o.when === "end" ? 6 : 0))} height={Math.max(0, bad.y1 - bad.y0)} fill={o.bonus ? "color-mix(in srgb, var(--lab-warn-mark) 10%, transparent)" : "color-mix(in srgb, var(--lab-alert) 11%, transparent)"} />
-            <line x1={x(from)} x2={x(to)} y1={yT} y2={yT} stroke={o.bonus ? "var(--lab-warn-mark)" : "var(--lab-alert)"} strokeWidth={1} strokeDasharray={o.bonus ? "2 2" : undefined} />
+            <line x1={x(from)} x2={x(to)} y1={yT} y2={yT} stroke={o.bonus ? "var(--lab-warn-mark)" : "var(--lab-alert)"} strokeWidth={1.8} strokeDasharray={o.bonus ? "3 3" : undefined} />
           </g>
         );
       })}

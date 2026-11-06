@@ -59,8 +59,6 @@ export function TitleScreen() {
         <ul className="game-title-points">
           <li><strong>6 missions</strong> across four economies, from a first rate decision to a sudden stop.</li>
           <li><strong>One quarter per turn.</strong> Shocks arrive unannounced; the forecast only knows what you know.</li>
-          <li><strong>Contagion:</strong> start a crisis anywhere in the world, then try to contain it.</li>
-          <li><strong>Free play</strong> opens the full lab: every lever, assumption, shock and constraint.</li>
         </ul>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <SoundToggle />

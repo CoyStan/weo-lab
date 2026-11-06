@@ -54,6 +54,7 @@ export default function Decomp() {
   const comps = d.components.filter((c) => c.id === "momentum" || c.values[metric].some((v) => Math.abs(v) > 0.005));
   const shown = comps.filter((c) => !hidden.has(c.id));
   const total = (t: number) => d.path[t][metric] - d.start[metric];
+  const stackTop = (t: number) => shown.reduce((a, c) => a + Math.max(0, c.values[metric][t]), 0);
 
   // Scale over every stack and the total line.
   let lo = 0;
@@ -143,7 +144,7 @@ export default function Decomp() {
               ))
             : null}
           {years.map((t) => (
-            <text key={t} x={x(t) + band / 2} y={H - 2} fontSize={12} fontWeight={600} textAnchor={band >= 26 ? "middle" : "start"} fill="var(--lab-ink-2)">
+            <text key={t} x={x(t) + band / 2} y={H - 2} fontSize={12} fontWeight={500} textAnchor={band >= 26 ? "middle" : "start"} fill="var(--lab-ink-2)">
               {d.path[t].label.slice(0, 4)}
             </text>
           ))}
@@ -177,7 +178,7 @@ export default function Decomp() {
             <circle key={t} cx={x(t) + band / 2} cy={y(total(t))} r={t === at ? 4.5 : 2.5} fill="var(--lab-ink)" stroke="var(--lab-paper)" strokeWidth={1.5} />
           ))}
           {at !== end ? (
-            <text x={x(at) + band / 2} y={y(total(at)) - 10} fontSize={13} fontWeight={700} textAnchor="middle" fill="var(--lab-ink)" paintOrder="stroke" stroke="var(--lab-paper)" strokeWidth={4}>
+            <text x={x(at) + band / 2} y={Math.min(y(total(at)), y(stackTop(at))) - 8} fontSize={13} fontWeight={700} textAnchor="middle" fill="var(--lab-ink)" paintOrder="stroke" stroke="var(--lab-paper)" strokeWidth={4}>
               {fmt(total(at), meta.digits)}
             </text>
           ) : null}

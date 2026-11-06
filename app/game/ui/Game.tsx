@@ -40,6 +40,20 @@ export default function Game() {
   const loadSettings = useSettings((s) => s.load);
 
   useEffect(() => loadSettings(), [loadSettings]);
+  // Focus rings only after the keyboard is used, so autofocused buttons don't wear one at rest.
+  useEffect(() => {
+    const root = document.documentElement;
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Tab" || e.key.startsWith("Arrow")) root.classList.add("is-kbd");
+    };
+    const pointer = () => root.classList.remove("is-kbd");
+    window.addEventListener("keydown", key);
+    window.addEventListener("pointerdown", pointer);
+    return () => {
+      window.removeEventListener("keydown", key);
+      window.removeEventListener("pointerdown", pointer);
+    };
+  }, []);
   useEffect(() => useLab.setState({ reduceMotion: reducedMotion }), [reducedMotion]);
 
   useEffect(() => {

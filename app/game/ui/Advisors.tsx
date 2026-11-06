@@ -22,13 +22,14 @@ export function AdviceList({ advice, compact = false }: { advice: Advice[]; comp
           <li key={a.advisor} className={`game-advice is-${a.tone}`} style={{ ["--advisor" as string]: who.accent }}>
             <img src={`${base}${who.portrait}`} alt="" width={44} height={44} className="game-portrait" />
             <div className="min-w-0">
-              <div className="flex flex-col leading-tight">
-                <strong className="text-[0.8rem]">{who.name}</strong>
-                <span className="text-[0.75rem] text-[var(--lab-ink-2)]">{who.role}</span>
+              <div className="flex items-start justify-between gap-2">
+                <span className="flex flex-col leading-tight">
+                  <strong className="text-[0.8rem]">{who.name}</strong>
+                  <span className="text-[0.75rem] text-[var(--lab-ink-2)]">{who.role}</span>
+                </span>
+                <span className={`game-stance is-${a.tone}`}>{STANCE[a.tone]}</span>
               </div>
-              <p className="game-advice-text">
-                <strong className="game-advice-lead">{lead(a.text)}</strong> {a.text.slice(lead(a.text).length).trim()}
-              </p>
+              <p className="game-advice-text">{emphasise(a.text)}</p>
             </div>
           </li>
         );
@@ -37,8 +38,10 @@ export function AdviceList({ advice, compact = false }: { advice: Advice[]; comp
   );
 }
 
-/** The first sentence: the advisor's verdict, set in bold so a glance is enough. */
-function lead(text: string): string {
-  const m = text.match(/^.*?[.!?](\s|$)/);
-  return m ? m[0].trim() : text;
+/** A one-word stance a room can read at a glance. */
+const STANCE: Record<string, string> = { worried: "Worried", calm: "Steady", pleased: "Pleased" };
+
+/** Bold the numbers in the advice: they carry the argument. */
+function emphasise(text: string) {
+  return text.split(/(−?-?\d+(?:\.\d+)?%?(?:\s?pp)?(?: by \d{4}Q\d)?)/).map((part, i) => (i % 2 ? <strong key={i}>{part}</strong> : part));
 }

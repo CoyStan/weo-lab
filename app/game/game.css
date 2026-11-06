@@ -3123,3 +3123,190 @@
     order: -2;
   }
 }
+
+/* ---- Design council, round 5 ---------------------------------------------- */
+
+/* Island: only the pending decision and the focused district carry full banners on desktop too. */
+@media (min-width: 761px) {
+  .lab-scene-label:not(.is-pending):not(.is-capital):not(.is-focus) .lab-banner-text {
+    font-size: 0;
+  }
+  .lab-scene-label:not(.is-pending):not(.is-capital):not(.is-focus) .lab-banner-text strong {
+    font-size: 12px;
+  }
+}
+
+/* Advisors: a stance chip, numbers in bold, the rest at reading weight. */
+.game-stance {
+  flex: none;
+  border-radius: var(--game-r-sm);
+  padding: 0.1rem 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--lab-ink) 7%, transparent);
+  color: var(--lab-ink-2);
+}
+
+.game-stance.is-worried {
+  background: color-mix(in srgb, var(--lab-alert) 12%, transparent);
+  color: var(--lab-bad);
+}
+
+.game-stance.is-pleased {
+  background: color-mix(in srgb, var(--lab-good-mark) 16%, transparent);
+  color: var(--lab-good);
+}
+
+.game-advice-text strong {
+  font-weight: 650;
+  color: var(--lab-ink);
+}
+
+.game-advice.is-worried .game-advice-text::before {
+  content: none;
+}
+
+/* Recap: a stamp on the paper. */
+.game-paper {
+  position: relative;
+}
+
+.game-stamp {
+  position: absolute;
+  right: 0.6rem;
+  bottom: 0.4rem;
+  border: 2.5px solid currentColor;
+  border-radius: var(--game-r-sm);
+  padding: 0.15rem 0.6rem;
+  font-family: var(--lab-font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transform: rotate(-4deg);
+  animation: game-stamp 0.5s 0.25s var(--game-ease) both;
+}
+
+.game-stamp.is-good {
+  color: var(--lab-good);
+}
+
+.game-stamp.is-bad {
+  color: var(--lab-bad);
+}
+
+@keyframes game-stamp {
+  0% {
+    opacity: 0;
+    transform: rotate(-4deg) scale(1.8);
+  }
+  100% {
+    opacity: 0.9;
+    transform: rotate(-4deg) scale(1);
+  }
+}
+
+.is-reduced .game-stamp {
+  animation: none;
+  opacity: 0.9;
+}
+
+.game-recap-go {
+  min-height: 3rem;
+  padding-inline: 1.6rem;
+  font-size: 1rem;
+}
+
+/* Turn track: years under the track, known shocks and elections marked. */
+.game-progress-track span {
+  position: relative;
+}
+
+.game-progress-track span em {
+  position: absolute;
+  top: 0.75rem;
+  left: 0;
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 600;
+  color: var(--lab-ink-2);
+}
+
+.game-progress-track span.has-shock::after,
+.game-progress-track span.has-election::after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  background: var(--dc-4);
+  box-shadow: 0 0 0 2px var(--lab-paper);
+}
+
+.game-progress-track span.has-election::after {
+  background: var(--dc-7);
+}
+
+.game-progress {
+  padding-bottom: 0.7rem;
+}
+
+/* Lever column: the hint follows the content; locked missions readable. */
+@media (min-width: 1180px) {
+  .game-col-levers .game-hint-box {
+    margin-top: 1rem;
+  }
+}
+
+.game-mission.is-locked {
+  background: color-mix(in srgb, var(--lab-paper) 88%, transparent);
+}
+
+.game-mission.is-locked .game-mission-kicker {
+  opacity: 1;
+  color: var(--lab-ink-2);
+}
+
+@media (max-width: 640px) {
+  .game-fw-kbd {
+    display: none;
+  }
+}
+
+.game-fw-table {
+  font-size: 0.9rem;
+}
+
+.game-dc-axis {
+  margin-top: 0.4rem;
+}
+
+html:not(.is-kbd) .game .lab-btn:focus-visible,
+html:not(.is-kbd) .game button:focus-visible {
+  outline: none;
+}
+
+.game-fw-channel > ul {
+  margin-top: auto;
+}
+
+@media (max-width: 640px) {
+  .game-dc-metrics {
+    mask-image: linear-gradient(90deg, #000 calc(100% - 2.5rem), transparent);
+    scroll-snap-type: x proximity;
+  }
+}
+
+.game-end-btn {
+  padding: 0.8rem 1.2rem;
+  font-size: 1rem;
+}
+
+@media (min-width: 1180px) {
+  .game-grid {
+    grid-template-columns: 290px minmax(0, 1fr) 330px;
+  }
+}

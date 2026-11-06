@@ -72,6 +72,7 @@ function RecapCard({ recap }: { recap: Recap }) {
           <span>{quarterLabel(recap.quarter)}</span>
         </div>
         <h2 id="recap-title" className="game-headline">{recap.headline.text}</h2>
+        <Stamp mission={mission} recap={recap} />
       </div>
 
       {recap.stopReasons ? (
@@ -110,8 +111,9 @@ function RecapCard({ recap }: { recap: Recap }) {
                 {fmtNum(recap.now[m], meta.digits)}
                 <span className="text-[0.75rem] font-normal">{unitShort(meta.unit)}</span>
               </span>
-              <span className={`text-[0.8rem] font-semibold tabular-nums ${verdict(mission, m, d)}`}>
+              <span className={`text-[0.8rem] font-semibold tabular-nums ${["on-track", "met"].includes(worstStatus(mission, recap, m) ?? "") ? "text-[var(--lab-ink-2)]" : verdict(mission, m, d)}`}>
                 {Math.abs(d) < 0.05 ? "unchanged" : `${d > 0 ? "▲" : "▼"} ${fmtNum(d, meta.digits, true)}${deltaUnit(meta.unit)}`}
+                <span className="font-normal text-[var(--lab-ink-2)]"> {recap.from !== undefined && recap.quarter - recap.from > 1 ? "over the stretch" : "this quarter"}</span>
               </span>
               <GoalLine mission={mission} metric={m} />
             </div>
@@ -165,7 +167,7 @@ function RecapCard({ recap }: { recap: Recap }) {
         <button type="button" className="lab-btn lab-btn-ghost lab-btn-md" onClick={() => setFramework(true)} title="Every sector, every channel, and why things moved">
           See every sector
         </button>
-        <button ref={primary} type="button" className="lab-btn lab-btn-primary lab-btn-md" onClick={close}>
+        <button ref={primary} type="button" className="lab-btn lab-btn-primary lab-btn-md game-recap-go" onClick={close}>
           Plan {quarterLabel(recap.quarter + 1)}
         </button>
       </div>
@@ -441,6 +443,18 @@ function GoalLine({ mission, metric }: { mission: Mission; metric: keyof typeof 
       Forecast {fmtNum(f, meta.digits)}
       {unitShort(meta.unit)} by {quarterLabel(mission.quarters)} · goal {o.op === "<=" ? "≤" : "≥"} {fmtNum(o.threshold, meta.digits)}
       {unitShort(meta.unit)}
+    </span>
+  );
+}
+
+/** The quarter's verdict, stamped on the paper: every goal on track, or not. */
+function Stamp({ mission, recap }: { mission: Mission; recap: Recap }) {
+  const main = recap.statuses.filter((st) => !mission.objectives.find((o) => o.id === st.id)?.bonus);
+  if (!main.length) return null;
+  const bad = main.filter((st) => st.after === "at-risk" || st.after === "failed").length;
+  return (
+    <span className={`game-stamp ${bad ? "is-bad" : "is-good"}`} aria-label={bad ? `${bad} goal${bad > 1 ? "s" : ""} at risk` : "All goals on track"}>
+      {bad ? `${bad} goal${bad > 1 ? "s" : ""} at risk` : "All goals on track"}
     </span>
   );
 }

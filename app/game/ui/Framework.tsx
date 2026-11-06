@@ -211,7 +211,7 @@ function PaletteKey() {
 function ChannelCard({ channel: c }: { channel: Channel }) {
   const max = Math.max(0.25, ...c.links.map((l) => Math.abs(l.value)));
   return (
-    <article className={`game-fw-channel is-${c.status} ${c.id === "world" ? "is-env" : c.id === "confidence" || c.status === "idle" || c.status === "blocked" ? "is-mixed" : "is-policy"}`}>
+    <article className={`game-fw-channel is-${c.status} ${c.id === "world" ? "is-env" : c.id === "confidence" || c.id === "currency" || c.status === "idle" || c.status === "blocked" ? "is-mixed" : "is-policy"}`}>
       <header className="flex items-start justify-between gap-2">
         <h4 className="text-[0.82rem] font-semibold leading-tight">{c.title}</h4>
         <span className={`game-fw-pill is-${c.status}`}>{STATUS_WORD[c.status]}</span>
