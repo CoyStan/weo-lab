@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { decompose, DECOMP_METRICS, type Component, type DecompMetric } from "../decompose";
 import { knownConfig } from "../missions";
 import { useGame } from "../store";
@@ -25,9 +25,9 @@ const fmt = (v: number, d: number) => {
   return v > 0 && Number(s) !== 0 ? `+${s}` : s;
 };
 
-const W = 760;
+const W_MAX = 760;
 const H = 250;
-const PAD = { l: 40, r: 10, t: 14, b: 26 };
+const PAD = { l: 40, r: 10, t: 26, b: 26 };
 
 /** Stacked contributions to the change in one variable, quarter by quarter. */
 export default function Decomp() {
@@ -40,6 +40,15 @@ export default function Decomp() {
   const d = useMemo(() => decompose(knownConfig(config, clock), start, end), [config, clock, start, end]);
   const meta = DECOMP_METRICS.find((m) => m.key === metric) ?? DECOMP_METRICS[0];
   const [hover, setHover] = useState<number | null>(null);
+  const [W, setW] = useState(W_MAX);
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setW(Math.max(320, Math.min(W_MAX, Math.round(e.contentRect.width)))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
 
   const comps = d.components.filter((c) => c.id === "momentum" || c.values[metric].some((v) => Math.abs(v) > 0.005));
@@ -101,7 +110,7 @@ export default function Decomp() {
         {at > clock ? " (forecast)" : ""}. Here is what caused it:
       </p>
 
-      <div className="game-dc-chart" onPointerLeave={() => setHover(null)}>
+      <div className="game-dc-chart" ref={boxRef} onPointerLeave={() => setHover(null)}>
         <svg viewBox={`0 0 ${W} ${H}`} className="block w-full" role="img" aria-label={`${meta.label}: contributions to the change since the start, by quarter`}>
           <defs>
             <pattern id="dc-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -117,7 +126,7 @@ export default function Decomp() {
                 {fmt(v, tickDigits(ticks))}
               </text>
               {i === ticks.length - 1 ? (
-                <text x={PAD.l + 4} y={y(v) - 4} fontSize={11} fill="var(--lab-ink-2)">
+                <text x={4} y={PAD.t - 12} fontSize={11} fill="var(--lab-ink-2)">
                   {meta.unit} vs start
                 </text>
               ) : null}
@@ -160,6 +169,9 @@ export default function Decomp() {
           {Array.from({ length: end }, (_, i) => i + 1).map((t) => (
             <circle key={t} cx={x(t) + band / 2} cy={y(total(t))} r={t === at ? 4.5 : 2.5} fill="var(--lab-ink)" stroke="var(--lab-paper)" strokeWidth={1.5} />
           ))}
+          <text x={x(end) + band / 2} y={y(total(end)) - 9} fontSize={13} fontWeight={700} textAnchor="middle" fill="var(--lab-ink)" paintOrder="stroke" stroke="var(--lab-paper)" strokeWidth={4}>
+            {fmt(total(end), meta.digits)}
+          </text>
           {Array.from({ length: end }, (_, i) => i + 1).map((t) => (
             <rect key={`hit-${t}`} x={x(t)} y={PAD.t} width={band} height={H - PAD.t - PAD.b} fill="transparent" onPointerEnter={() => setHover(t)} onClick={() => setHover(t)} />
           ))}

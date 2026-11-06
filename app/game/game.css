@@ -2334,14 +2334,7 @@
 }
 
 /* Phones: the decomposition chart scrolls sideways instead of shrinking to illegibility. */
-@media (max-width: 760px) {
-  .game-dc-chart {
-    overflow-x: auto;
-  }
-  .game-dc-chart svg {
-    min-width: 600px;
-  }
-}
+
 
 /* Phones: island labels shrink to their value so they don't pile up. */
 @media (max-width: 760px) {
@@ -2352,6 +2345,211 @@
     font-size: 0.75rem;
   }
   .lab-scene-label .lab-banner-icon {
+    display: none;
+  }
+}
+
+/* ---- Design council, round 2 --------------------------------------------- */
+
+/* Framework: a fixed frame; only the tab's content scrolls, so switching tabs doesn't jump. */
+.game-fw {
+  display: flex;
+  height: min(90dvh, 920px);
+  flex-direction: column;
+  margin: 3dvh 0 auto;
+}
+
+.game-fw-tabs {
+  position: static;
+}
+
+.game-fw-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0 -0.5rem;
+  padding: 0 0.5rem 0.5rem;
+}
+
+@media (hover: none) {
+  .game-fw-kbd,
+  .game-fw-open kbd {
+    display: none;
+  }
+}
+
+/* "Your policies": green helps, red hurts, purple depends. */
+.game-fw-effect.is-good {
+  color: var(--lab-good);
+}
+
+.game-fw-effect.is-bad {
+  color: var(--lab-bad);
+}
+
+.game-fw-goodkey {
+  color: var(--lab-good);
+}
+
+.game-fw-badkey {
+  color: var(--lab-bad);
+}
+
+/* Channel cards: the status pill gets its own line; bar labels sit above their bars. */
+.game-fw-channel > header {
+  flex-direction: column-reverse;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.game-fw-channel .game-fw-link {
+  grid-template-columns: minmax(0, 1fr) 3rem;
+  grid-template-areas: "label label" "bar value";
+  row-gap: 0.15rem;
+}
+
+.game-fw-channel .game-fw-link > :nth-child(1) {
+  grid-area: label;
+  white-space: normal;
+  overflow: visible;
+}
+
+.game-fw-channel .game-fw-link > :nth-child(2) {
+  grid-area: bar;
+}
+
+.game-fw-channel .game-fw-link > :nth-child(3) {
+  grid-area: value;
+}
+
+.game-fw-chain li {
+  white-space: nowrap;
+}
+
+/* Header menu. */
+.game-menu {
+  position: relative;
+}
+
+.game-menu summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  list-style: none;
+  cursor: pointer;
+}
+
+.game-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.game-menu-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.35rem);
+  z-index: 40;
+  display: flex;
+  min-width: 13rem;
+  flex-direction: column;
+  border: 1px solid var(--lab-line);
+  border-radius: var(--game-r-md);
+  background: var(--lab-paper);
+  padding: 0.3rem;
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--lab-ink) 18%, transparent);
+}
+
+.game-menu-list button {
+  border-radius: var(--game-r-sm);
+  padding: 0.5rem 0.65rem;
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+.game-menu-list button:hover {
+  background: color-mix(in srgb, var(--lab-ink) 6%, transparent);
+}
+
+/* Locked missions: a lock, not stars. */
+.game-lock {
+  color: var(--lab-ink-2);
+}
+
+/* Shock options show their effect on the goals. */
+.game-choice-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem 0.75rem;
+}
+
+.game-outcomes {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.game-outcome {
+  border-radius: var(--game-r-sm);
+  background: color-mix(in srgb, var(--lab-scenario) 10%, transparent);
+  padding: 0.1rem 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--lab-scenario);
+  white-space: nowrap;
+}
+
+.game-outcome.is-hold {
+  background: color-mix(in srgb, var(--lab-ink) 6%, transparent);
+  color: var(--lab-ink-2);
+}
+
+/* Phones and tablets: map, then the decision, then advice, then goals; the dock is one row. */
+@media (max-width: 1179px) {
+  .game-stage,
+  .game-stage-foot {
+    display: contents;
+  }
+  .game-scene {
+    order: 1;
+    max-height: 42vh;
+  }
+  .game-col-levers {
+    order: 2;
+  }
+  .game-advisors {
+    order: 3;
+  }
+  .game-col-goals {
+    order: 4;
+  }
+  .game-agenda-top {
+    display: block;
+  }
+  .game-agenda-bar {
+    display: none;
+  }
+  .game-play {
+    padding-bottom: 5.5rem;
+  }
+  .game-end {
+    flex-wrap: nowrap;
+  }
+}
+
+@media (max-width: 760px) {
+  .game-fw-dq {
+    display: none;
+  }
+  .game-fw-table {
+    table-layout: auto;
+  }
+  .game-fw-head h2 {
+    font-size: 1.2rem;
+  }
+  .game-fw-open-label,
+  .game-menu-label {
     display: none;
   }
 }

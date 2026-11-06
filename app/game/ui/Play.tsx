@@ -98,15 +98,22 @@ export default function Play({ scene }: { scene: ReactNode }) {
           </div>
         </div>
         <Capital />
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+        <div className="ml-auto flex items-center justify-end gap-1.5">
           <button type="button" className="lab-btn lab-btn-sm game-fw-open" onClick={() => setFramework(true)} title="Every sector, every channel, and why things are or aren't moving (M)">
-            <ChartIcon /> Macro framework <kbd className="game-fw-kbd">M</kbd>
+            <ChartIcon /> <span className="game-fw-open-label">Macro framework</span> <kbd className="game-fw-kbd">M</kbd>
           </button>
           <SoundToggle />
           {clock > 0 ? <button type="button" className="lab-btn lab-btn-ghost lab-btn-sm" onClick={rewind} title="Go back one quarter and decide again">Rewind</button> : null}
-          <button type="button" className="lab-btn lab-btn-ghost lab-btn-sm" onClick={restart}>Restart</button>
-          <button type="button" className="lab-btn lab-btn-soft lab-btn-sm" onClick={() => setScreen("missions")}>Missions</button>
-        </div>
+          <details className="game-menu">
+            <summary className="lab-btn lab-btn-ghost lab-btn-sm" aria-label="Menu">
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><circle cx="3" cy="8" r="1.5" /><circle cx="8" cy="8" r="1.5" /><circle cx="13" cy="8" r="1.5" /></svg>
+              <span className="game-menu-label">Menu</span>
+            </summary>
+            <div className="game-menu-list" role="menu">
+              <button type="button" role="menuitem" onClick={() => setScreen("missions")}>All missions</button>
+              <button type="button" role="menuitem" onClick={restart}>Restart this mission</button>
+            </div>
+          </details></div>
       </header>
 
       <main id="main-content" className="game-grid">

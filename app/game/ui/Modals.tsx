@@ -8,7 +8,8 @@ import { useLab } from "../../store";
 import { deltaUnit, fmtNum, GAME_METRICS, unitShort } from "../metrics";
 import { getMission, MISSIONS, policyForTurn, type ObjectiveStatus } from "../missions";
 import { responsesFor } from "../responses";
-import { useGame, type Recap } from "../store";
+import { forecastFor, useGame, type Recap } from "../store";
+import { withDecision } from "../useTurn";
 import { AdviceList } from "./Advisors";
 import { TrustIcon, VotesIcon } from "./Capital";
 import { annual } from "../calibrate";
@@ -26,6 +27,7 @@ function usePrimary() {
 
 export default function Modals() {
   const modal = useGame((s) => s.modal);
+  const framework = useGame((s) => s.framework);
 
   // Each card announces itself; the debrief plays a stinger and a ping per star.
   useEffect(() => {
@@ -42,7 +44,8 @@ export default function Modals() {
     } else if (modal.outcome.kind === "lost") sound.stinger("lose");
   }, [modal]);
 
-  if (!modal) return null;
+  // The framework opened from a recap replaces it on screen; closing the framework brings the recap back.
+  if (!modal || framework) return null;
   return (
     <div className="game-modal-backdrop" role="presentation">
       {modal.kind === "recap" ? <RecapCard recap={modal.recap} /> : modal.kind === "shock" ? <ShockCard ids={modal.shocks.map((s) => s.id)} /> : <DebriefCard />}
@@ -104,8 +107,8 @@ function RecapCard({ recap }: { recap: Recap }) {
                 {fmtNum(recap.now[m], meta.digits)}
                 <span className="text-[0.75rem] font-normal">{unitShort(meta.unit)}</span>
               </span>
-              <span className="text-[0.75rem] tabular-nums text-[var(--lab-ink-2)]">
-                {Math.abs(d) < 0.05 ? "unchanged" : `${fmtNum(d, meta.digits, true)}${deltaUnit(meta.unit)}`}
+              <span className={`text-[0.8rem] font-semibold tabular-nums ${verdict(mission, m, d)}`}>
+                {Math.abs(d) < 0.05 ? "unchanged" : `${d > 0 ? "▲" : "▼"} ${fmtNum(d, meta.digits, true)}${deltaUnit(meta.unit)}`}
               </span>
             </div>
           );
@@ -188,7 +191,7 @@ function ShockCard({ ids }: { ids: string[] }) {
       <h2 id="shock-title" className="game-shock-title">{spec.name}</h2>
       <p className="text-[0.82rem] leading-relaxed">{spec.description}</p>
       <p className="mt-1 text-[0.75rem] text-[var(--lab-ink-2)]">
-        It hits in {quarterLabel(main.quarter)}. {options.length ? "How do you respond?" : "Your tools are on the left."}
+        It hits in {quarterLabel(main.quarter)}. {options.length ? `How do you respond? Each option shows what it does to your goals by ${quarterLabel(mission.quarters)}, against holding policy.` : "Your tools are on the left."}
       </p>
       <div className="mt-3 flex flex-col gap-1.5">
         {options.map((o, i) => (
@@ -203,7 +206,10 @@ function ShockCard({ ids }: { ids: string[] }) {
               close();
             }}
           >
-            <strong>{o.label}</strong>
+            <span className="game-choice-head">
+              <strong>{o.label}</strong>
+              <OutcomeChips mission={mission} config={config} clock={clock} changes={o.changes} />
+            </span>
             <span>{o.detail}</span>
           </button>
         ))}
@@ -363,4 +369,33 @@ function groupReasons(list: { amount: number; reason: string }[]) {
     } else out.set(key, { reason: key, amount: e.amount, times: 1 });
   }
   return [...out.values()];
+}
+
+/** What a ready-made response does to each goal by the end of the mission, against holding policy. */
+function OutcomeChips({ mission, config, clock, changes }: { mission: Mission; config: import("../../model/types").ScenarioConfig; clock: number; changes: Partial<import("../../model/types").Policy> }) {
+  const metrics = Array.from(new Set(mission.objectives.map((o) => o.metric)));
+  if (!Object.keys(changes).length) return <span className="game-outcome is-hold">Baseline</span>;
+  const end = mission.quarters;
+  const base = forecastFor(config, clock)[end];
+  const next = forecastFor(withDecision(config, clock + 1, changes), clock)[end];
+  const parts = metrics.map((m) => ({ m, d: next[m] - base[m] })).filter((p) => Math.abs(p.d) >= 0.05);
+  if (!parts.length) return <span className="game-outcome is-hold">Little change</span>;
+  return (
+    <span className="game-outcomes" title={`Effect by ${quarterLabel(end)}, against holding policy`}>
+      {parts.map((p) => (
+        <span key={p.m} className="game-outcome">
+          {GAME_METRICS[p.m].label} {fmtNum(p.d, GAME_METRICS[p.m].digits, true)}
+          {deltaUnit(GAME_METRICS[p.m].unit)}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** Colour a change by whether it moves toward the mission's goal for that metric. */
+function verdict(mission: Mission, metric: string, d: number): string {
+  const o = mission.objectives.find((x) => x.metric === metric && !x.bonus) ?? mission.objectives.find((x) => x.metric === metric);
+  if (!o || Math.abs(d) < 0.05) return "text-[var(--lab-ink-2)]";
+  const good = o.op === "<=" ? d < 0 : d > 0;
+  return good ? "text-[var(--lab-good)]" : "text-[var(--lab-bad)]";
 }

@@ -94,6 +94,7 @@ function FrameworkPanel() {
           ))}
         </nav>
 
+        <div className="game-fw-body">
         {tab === "why" ? (
           <section className="game-fw-section" aria-label="Why is it moving, or not?">
             {notes.length ? (
@@ -134,7 +135,7 @@ function FrameworkPanel() {
               <span><i className="is-actual" /> Outturn</span>
               <span><i className="is-forecast" /> Forecast with your policies</span>
               {touched ? <span><i className="is-untouched" /> Had you changed nothing</span> : null}
-              <span className="ml-auto">“Your policies” = forecast minus the no-change path, at {forecast[end].label}</span>
+              <span className="ml-auto">“Your policies” = forecast minus the no-change path, at {forecast[end].label}. <b className="game-fw-goodkey">Green</b> helps, <b className="game-fw-badkey">red</b> hurts, purple depends.</span>
             </div>
             <div className="game-fw-sectors">
               {SECTORS.map((s) => (
@@ -144,9 +145,12 @@ function FrameworkPanel() {
           </section>
         ) : null}
 
-        <p className="game-fw-foot">
-          The same accounts must add up across sectors: a budget deficit is borrowed (fiscal) at a spread set by markets (external), a weaker currency raises inflation (prices) and foreign-currency debt (fiscal), and every demand push shows up in output and jobs (real). That is why one lever moves everything.
-        </p>
+        {tab === "accounts" ? (
+          <p className="game-fw-foot">
+            The same accounts must add up across sectors: a budget deficit is borrowed (fiscal) at a spread set by markets (external), a weaker currency raises inflation (prices) and foreign-currency debt (fiscal), and every demand push shows up in output and jobs (real). That is why one lever moves everything.
+          </p>
+        ) : null}
+        </div>
       </div>
     </div>
   );
@@ -204,7 +208,7 @@ function SectorCard({ sector, actual, forecast, untouched, clock, end, touched, 
               <span className="sr-only">Path</span>
             </th>
             <th scope="col">Now</th>
-            <th scope="col" title="Change on the previous quarter">Δ qtr</th>
+            <th scope="col" className="game-fw-dq" title="Change on the previous quarter">Δ qtr</th>
             <th scope="col" title={`Forecast for ${forecast[end].label}`}>{forecast[end].label}</th>
             <th scope="col" title="Forecast with your policies minus forecast had you changed nothing">Your policies</th>
           </tr>
@@ -237,11 +241,11 @@ function Row({ row, actual, forecast, untouched, clock, end, touched, shown, pre
         {fmt(v, row.digits)}
         <span className="game-fw-unit">{unitTail(row.unit)}</span>
       </td>
-      <td className={`tabular-nums ${Math.abs(dq) < 0.5 * Math.pow(10, -row.digits) ? "is-flat" : ""}`}>
+      <td className={`tabular-nums game-fw-dq ${Math.abs(dq) < 0.5 * Math.pow(10, -row.digits) ? "is-flat" : ""}`}>
         {signed(dq, row.digits)}
       </td>
       <td className="tabular-nums">{fmt(endV, row.digits)}</td>
-      <td className={`tabular-nums game-fw-effect ${!touched || Math.abs(effect) < 0.5 * Math.pow(10, -row.digits) ? "is-flat" : effect > 0 ? "is-up" : "is-down"}`}>
+      <td className={`tabular-nums game-fw-effect ${!touched || Math.abs(effect) < 0.5 * Math.pow(10, -row.digits) ? "is-flat" : `${effect > 0 ? "is-up" : "is-down"} ${row.good ? (Math.sign(effect) === row.good ? "is-good" : "is-bad") : ""}`}`} title={row.good ? (row.good > 0 ? "Higher is better" : "Lower is better") : "Neither direction is good in itself"}>
         {touched ? (
           <>
             {Math.abs(effect) >= 0.5 * Math.pow(10, -row.digits) ? (effect > 0 ? "▲ " : "▼ ") : ""}

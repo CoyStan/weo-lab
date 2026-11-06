@@ -114,7 +114,7 @@ export function MissionSelect() {
                   <button type="button" className={`game-mission ${open ? "" : "is-locked"}`} disabled={!open} onClick={() => startMission(m.id)}>
                     <span className="flex items-center justify-between gap-2">
                       <span className="game-mission-number">Mission {m.number}</span>
-                      <Stars n={progress.stars[m.id] ?? 0} />
+                      {open ? <Stars n={progress.stars[m.id] ?? 0} /> : <LockIcon />}
                     </span>
                     <span className="game-mission-title">{m.title}</span>
                     <span className="game-mission-meta">{preset.name} · {preset.archetype} · {m.quarters} quarters</span>
@@ -200,6 +200,15 @@ function ContagionTab() {
         </button>
       </span>
     </div>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg className="game-lock" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-label="Locked">
+      <rect x="3" y="7" width="10" height="7" rx="1.5" />
+      <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
+    </svg>
   );
 }
 

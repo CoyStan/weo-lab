@@ -202,13 +202,13 @@ function OutlookChart({ metric, objectives, actual, forecast, ghost, clock, end,
       {years.map((t) => (
         <g key={t}>
           <line x1={x(t)} x2={x(t)} y1={H - PAD.b} y2={H - PAD.b + 3} stroke="var(--lab-line-strong)" />
-          <text x={x(t) + 2} y={H - 4} fontSize={8} fill="var(--lab-ink-2)">
+          <text x={x(t) + 2} y={H - 4} fontSize={10} fill="var(--lab-ink-2)">
             {getStartYear() + (t - 1) / 4}
           </text>
         </g>
       ))}
-      <text x={PAD.l - 4} y={y(hi - pad) + 3} fontSize={8} textAnchor="end" fill="var(--lab-ink-2)">{fmtNum(hi - pad, meta.digits >= 1 ? 1 : 0)}</text>
-      <text x={PAD.l - 4} y={y(lo + pad) + 3} fontSize={8} textAnchor="end" fill="var(--lab-ink-2)">{fmtNum(lo + pad, meta.digits >= 1 ? 1 : 0)}</text>
+      <text x={PAD.l - 4} y={y(hi - pad) + 3} fontSize={10} textAnchor="end" fill="var(--lab-ink-2)">{fmtNum(hi - pad, meta.digits >= 1 ? 1 : 0)}</text>
+      <text x={PAD.l - 4} y={y(lo + pad) + 3} fontSize={10} textAnchor="end" fill="var(--lab-ink-2)">{fmtNum(lo + pad, meta.digits >= 1 ? 1 : 0)}</text>
       {comp.length ? <path d={line(comp, 0)} fill="none" stroke="var(--lab-ink)" strokeOpacity={0.3} strokeWidth={2} strokeLinejoin="round" /> : null}
       {ghostDiffers ? <path d={line(gh, clock)} fill="none" stroke="var(--lab-ink-2)" strokeOpacity={0.45} strokeWidth={1.5} strokeDasharray="1.5 3" strokeLinecap="round" /> : null}
       {fut.length ? <path d={line(fut, clock)} fill="none" stroke="var(--lab-scenario)" strokeWidth={2} strokeDasharray="5 3.5" strokeLinecap="round" className="game-forecast-line" /> : null}
