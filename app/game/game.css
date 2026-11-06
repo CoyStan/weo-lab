@@ -2553,3 +2553,174 @@
     display: none;
   }
 }
+
+/* ---- Design council, round 3 prep ---------------------------------------- */
+
+/* One key for every goal chart. */
+.game-goal-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.8rem;
+  font-size: 0.75rem;
+  color: var(--lab-ink-2);
+}
+
+.game-goal-key i {
+  display: inline-block;
+  width: 1.1rem;
+  height: 0;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+  border-top: 2.2px solid var(--lab-ink);
+}
+
+.game-goal-key i.is-forecast {
+  border-top: 2px dashed var(--lab-scenario);
+}
+
+.game-goal-key i.is-ghost {
+  border-top: 2px dotted color-mix(in srgb, var(--lab-ink-2) 60%, transparent);
+}
+
+.game-goal-key i.is-comp {
+  border-top: 2px solid color-mix(in srgb, var(--lab-ink) 30%, transparent);
+}
+
+.game-goal-key i.is-goal {
+  border-top: 1.5px solid var(--lab-alert);
+}
+
+/* Channel bars use the decomposition's palette: instruments blue, shocks amber, confidence neutral. */
+.game-fw-channel.is-policy .game-why-bar {
+  background: var(--dc-1);
+}
+
+.game-fw-channel.is-env .game-why-bar {
+  background: var(--dc-4);
+}
+
+.game-fw-channel.is-mixed .game-why-bar {
+  background: var(--dc-momentum);
+}
+
+/* Focus: a clean outline, no ring at rest on pointer sessions. */
+.game .lab-btn-primary:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+.game .lab-btn-primary:focus-visible {
+  outline: 2px solid var(--lab-focus);
+  outline-offset: 3px;
+  box-shadow: none;
+}
+
+/* ---- Design council, round 3 ---------------------------------------------- */
+
+.game-outcome.is-good {
+  background: color-mix(in srgb, var(--lab-good-mark) 16%, transparent);
+  color: var(--lab-good);
+}
+
+.game-outcome.is-bad {
+  background: color-mix(in srgb, var(--lab-alert) 12%, transparent);
+  color: var(--lab-bad);
+}
+
+.game-fw-valence {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.game-fw-valence b {
+  border-radius: var(--game-r-sm);
+  padding: 0.05rem 0.45rem;
+  font-weight: 700;
+}
+
+.game-fw-valence .is-good {
+  background: color-mix(in srgb, var(--lab-good-mark) 16%, transparent);
+  color: var(--lab-good);
+}
+
+.game-fw-valence .is-bad {
+  background: color-mix(in srgb, var(--lab-alert) 12%, transparent);
+  color: var(--lab-bad);
+}
+
+.game-fw-valence .is-neutral {
+  background: color-mix(in srgb, var(--lab-scenario) 10%, transparent);
+  color: var(--lab-scenario);
+}
+
+/* The frame keeps its top edge; short tabs don't leave a wall of blank paper. */
+.game-fw {
+  height: auto;
+  min-height: min(70dvh, 620px);
+  max-height: min(92dvh, 940px);
+}
+
+/* Phones: the slider must be on the first screen of the lever panel. */
+@media (max-width: 760px) {
+  .game-coach {
+    display: none;
+  }
+  .game-scene {
+    max-height: 34vh;
+    min-height: 240px;
+  }
+  .game-fw-table td:last-child,
+  .game-fw-table th:last-child {
+    padding-right: 0.6rem;
+  }
+}
+
+/* Side columns: links settle at the bottom instead of leaving a hole. */
+@media (min-width: 1180px) {
+  .game-col {
+    display: flex;
+    flex-direction: column;
+  }
+  .game-col .game-hint-box,
+  .game-col .game-freeplay {
+    margin-top: auto;
+  }
+}
+
+@media (max-width: 1179px) {
+  .game-col-levers {
+    display: flex;
+    flex-direction: column;
+  }
+  .game-col-levers > .game-agenda-top {
+    order: 2;
+    margin: 0.75rem 0 0;
+  }
+  .game-col-levers > .game-hint-box {
+    order: 3;
+  }
+}
+
+@media (max-width: 640px) {
+  .game-fw-tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.25rem;
+  }
+  .game-fw-tabs button {
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.4rem 0.25rem;
+    text-align: center;
+  }
+  .game-fw-tabs strong {
+    font-size: 0.75rem;
+  }
+  .game-fw-tab-n {
+    width: 1.3rem;
+    height: 1.3rem;
+  }
+  .game-fw-head > div > p {
+    display: none;
+  }
+}

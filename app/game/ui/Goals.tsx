@@ -22,12 +22,13 @@ export default function Goals() {
 
   return (
     <div className="flex flex-col gap-2.5">
-      {comparisonLabel ? (
-        <p className="flex items-center gap-2 text-[0.75rem] text-[var(--lab-ink-2)]">
-          <span className="inline-block h-0 w-5 border-t-2 border-[color-mix(in_srgb,var(--lab-ink)_35%,transparent)]" /> {comparisonLabel}
-          <span className="inline-block h-0 w-5 border-t-2 border-dashed border-[var(--lab-scenario)]" /> Your forecast
-        </p>
-      ) : null}
+      <p className="game-goal-key">
+        <span><i className="is-actual" /> So far</span>
+        <span><i className="is-forecast" /> Your forecast</span>
+        <span><i className="is-ghost" /> Before this quarter&rsquo;s changes</span>
+        {comparisonLabel ? <span><i className="is-comp" /> {comparisonLabel}</span> : null}
+        <span><i className="is-goal" /> Goal line</span>
+      </p>
       {metrics.map((metric) => {
         const objectives = mission.objectives.filter((o) => o.metric === metric);
         return (

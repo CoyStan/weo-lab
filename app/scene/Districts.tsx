@@ -288,7 +288,7 @@ function Thermometer({ reducedMotion }: { reducedMotion: boolean }) {
   });
   const targetY = 0.55 + tube * clamp(policy.inflationTarget / scaleMax, 0, 1);
   return (
-    <District focusKey="infl" pad={1.0} position={DISTRICT_POS.infl!} labelY={1.3} labelX={2.7} title="Campus · inflation" value={`${fmt(current.infl, 1)}% (target ${fmt(policy.inflationTarget, 1)})`} bad={Math.abs(dev) > 3} tilt={1.5} reducedMotion={reducedMotion}>
+    <District focusKey="infl" pad={1.0} position={DISTRICT_POS.infl!} labelY={0.6} labelX={3.1} title="Campus · inflation" value={`${fmt(current.infl, 1)}% (target ${fmt(policy.inflationTarget, 1)})`} bad={Math.abs(dev) > 3} tilt={1.5} reducedMotion={reducedMotion}>
       <mesh position-y={0.2} receiveShadow>
         <cylinderGeometry args={[0.7, 0.8, 0.4, 8]} />
         <meshStandardMaterial color={P.stone} roughness={1} flatShading={P.flat} />

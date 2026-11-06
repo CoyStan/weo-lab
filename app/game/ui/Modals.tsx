@@ -194,10 +194,9 @@ function ShockCard({ ids }: { ids: string[] }) {
         It hits in {quarterLabel(main.quarter)}. {options.length ? `How do you respond? Each option shows what it does to your goals by ${quarterLabel(mission.quarters)}, against holding policy.` : "Your tools are on the left."}
       </p>
       <div className="mt-3 flex flex-col gap-1.5">
-        {options.map((o, i) => (
+        {options.map((o) => (
           <button
             key={o.id}
-            ref={i === 0 ? primary : undefined}
             type="button"
             className="game-choice"
             onClick={() => {
@@ -213,7 +212,7 @@ function ShockCard({ ids }: { ids: string[] }) {
             <span>{o.detail}</span>
           </button>
         ))}
-        <button ref={options.length ? undefined : primary} type="button" className="game-choice is-plain" onClick={close}>
+        <button ref={primary} type="button" className="game-choice is-plain" onClick={close}>
           <strong>I&rsquo;ll decide myself</strong>
           <span>Close this and use the levers. You can see each one&rsquo;s effect before you commit.</span>
         </button>
@@ -383,7 +382,8 @@ function OutcomeChips({ mission, config, clock, changes }: { mission: Mission; c
   return (
     <span className="game-outcomes" title={`Effect by ${quarterLabel(end)}, against holding policy`}>
       {parts.map((p) => (
-        <span key={p.m} className="game-outcome">
+        <span key={p.m} className={`game-outcome ${outcomeTone(mission, p.m, p.d)}`}>
+          {p.d > 0 ? "▲ " : "▼ "}
           {GAME_METRICS[p.m].label} {fmtNum(p.d, GAME_METRICS[p.m].digits, true)}
           {deltaUnit(GAME_METRICS[p.m].unit)}
         </span>
@@ -398,4 +398,10 @@ function verdict(mission: Mission, metric: string, d: number): string {
   if (!o || Math.abs(d) < 0.05) return "text-[var(--lab-ink-2)]";
   const good = o.op === "<=" ? d < 0 : d > 0;
   return good ? "text-[var(--lab-good)]" : "text-[var(--lab-bad)]";
+}
+
+function outcomeTone(mission: Mission, metric: string, d: number): string {
+  const o = mission.objectives.find((x) => x.metric === metric && !x.bonus) ?? mission.objectives.find((x) => x.metric === metric);
+  if (!o) return "";
+  return (o.op === "<=" ? d < 0 : d > 0) ? "is-good" : "is-bad";
 }

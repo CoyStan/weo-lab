@@ -48,3 +48,19 @@ Return: `{ "reviewer": "...", "scores": { ...8 categories }, "overall": n,
 "top_fixes": [{ "severity": "high|medium|low", "screen": "...", "problem":
 "...", "fix": "concrete change, naming selectors or tokens" }] }` with at most
 ten fixes.
+
+## History
+
+First run (November 2026), reviewers opus, sonnet and fable, target 8.5:
+
+| Round | opus | sonnet | fable |
+|---|---|---|---|
+| 1 | 6.0 | 6.0 | 5.0 |
+| 2 | 6.5 | 7.0 | 6.0 |
+| 3 | 7.0 | 7.5 | 6.5 |
+
+Stopped after three rounds; the round-3 findings were then fixed but not
+re-scored. Open items the reviewers keep raising: the island callouts should
+dock to the edges with leader lines and react when a lever moves (game feel),
+the mission list uses only the top of the screen, the recap repeats the
+advisors' text, and phone map chips can still touch.

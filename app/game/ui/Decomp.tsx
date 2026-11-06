@@ -27,7 +27,7 @@ const fmt = (v: number, d: number) => {
 
 const W_MAX = 760;
 const H = 250;
-const PAD = { l: 40, r: 10, t: 26, b: 26 };
+const PAD = { l: 40, r: 44, t: 26, b: 26 };
 
 /** Stacked contributions to the change in one variable, quarter by quarter. */
 export default function Decomp() {
@@ -169,7 +169,7 @@ export default function Decomp() {
           {Array.from({ length: end }, (_, i) => i + 1).map((t) => (
             <circle key={t} cx={x(t) + band / 2} cy={y(total(t))} r={t === at ? 4.5 : 2.5} fill="var(--lab-ink)" stroke="var(--lab-paper)" strokeWidth={1.5} />
           ))}
-          <text x={x(end) + band / 2} y={y(total(end)) - 9} fontSize={13} fontWeight={700} textAnchor="middle" fill="var(--lab-ink)" paintOrder="stroke" stroke="var(--lab-paper)" strokeWidth={4}>
+          <text x={x(end) + band / 2 + 8} y={y(total(end)) + 4} fontSize={13} fontWeight={700} textAnchor="start" fill="var(--lab-ink)" paintOrder="stroke" stroke="var(--lab-paper)" strokeWidth={4}>
             {fmt(total(end), meta.digits)}
           </text>
           {Array.from({ length: end }, (_, i) => i + 1).map((t) => (
