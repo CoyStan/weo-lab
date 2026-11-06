@@ -19,6 +19,14 @@ const ICONS: Record<IconName, React.ReactNode> = {
   drop: <path d="M8 2.5S4 7.2 4 9.7a4 4 0 0 0 8 0C12 7.2 8 2.5 8 2.5Z" />,
 };
 
+/** Docked banners leave the island and pin to a corner of the canvas (phones). */
+export type LabelDock = "top-right" | "bottom-left";
+const DOCK_INSET = 10;
+const DOCK_AT: Record<LabelDock, (el: unknown, camera: unknown, size: { width: number; height: number }) => number[]> = {
+  "top-right": (_el, _camera, size) => [size.width - DOCK_INSET, DOCK_INSET],
+  "bottom-left": (_el, _camera, size) => [DOCK_INSET, size.height - DOCK_INSET],
+};
+
 /**
  * District banner pinned in 3D, in the style of strategy-game city banners:
  * a coloured emblem, the district name and its live reading, with a pointer
@@ -38,6 +46,7 @@ export default function Label({
   icon,
   capital = false,
   next,
+  dock,
 }: {
   position: [number, number, number];
   title: string;
@@ -52,13 +61,15 @@ export default function Label({
   capital?: boolean;
   /** A decision taken this quarter that hasn't played out yet, shown as "→ next". */
   next?: string;
+  /** Pin the banner to a corner of the canvas instead of the building (phones). */
+  dock?: LabelDock;
 }) {
   return (
-    <Html position={position} center zIndexRange={[8, 0]} style={{ pointerEvents: "none" }} portal={labelLayer as React.RefObject<HTMLElement>}>
+    <Html position={position} center={!dock} calculatePosition={dock ? DOCK_AT[dock] : undefined} zIndexRange={[8, 0]} style={{ pointerEvents: "none" }} portal={labelLayer as React.RefObject<HTMLElement>}>
       <div
         aria-hidden={hidden}
-        className={`lab-scene-label ${capital ? "is-capital" : ""} ${next ? "is-pending" : ""} ${bad ? "is-bad" : ""} ${focus ? "is-focus" : ""}`}
-        style={{ transform: `rotate(${tilt * 0.4}deg)`, opacity: hidden ? 0 : 1, transition: "opacity 160ms ease", ["--label-accent" as string]: accent ?? "var(--lab-scenario)" }}
+        className={`lab-scene-label ${capital ? "is-capital" : ""} ${next ? "is-pending" : ""} ${bad ? "is-bad" : ""} ${focus ? "is-focus" : ""} ${dock ? `is-docked is-docked-${dock}` : ""}`}
+        style={{ transform: dock ? undefined : `rotate(${tilt * 0.4}deg)`, opacity: hidden ? 0 : 1, transition: "opacity 160ms ease", ["--label-accent" as string]: accent ?? "var(--lab-scenario)" }}
       >
         {icon ? (
           <span className="lab-banner-icon" aria-hidden="true">

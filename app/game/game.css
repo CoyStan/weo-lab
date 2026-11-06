@@ -3643,3 +3643,25 @@ html:not(.is-kbd) .game button:focus-visible {
 .game-move-chip {
   animation-duration: var(--dur);
 }
+
+/* Island, phones: a pending decision's banner pins to the canvas's top-right corner and the
+   capital's to the bottom-left, so neither covers the debt tower; the bank's pulsing ring
+   still marks the building, and the quarter's news drops below the pinned banner. */
+.lab-scene-label.is-docked {
+  transform: none !important;
+}
+.lab-scene-label.is-docked-top-right {
+  transform: translateX(-100%) !important;
+}
+.lab-scene-label.is-docked-bottom-left {
+  transform: translateY(-100%) !important;
+}
+.game-scene:has(.lab-scene-label.is-docked-top-right) .game-scene-news {
+  top: 4.25rem;
+}
+.lab-scene-label.is-docked::after {
+  display: none;
+}
+.lab-scene-label.is-docked .lab-banner-icon {
+  display: inline-grid;
+}
