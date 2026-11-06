@@ -1,6 +1,6 @@
 // Screenshots of the key screens, for design review.
 //
-//   npm run build && node scripts/design-shots.mjs <out-dir>
+//   npm run build && node scripts/design-shots.mjs <out-dir> [theme-id]
 //
 // Serves the static build from out/ on a free port, drives the game with
 // Playwright through the screens a player sees most, and writes PNGs (desktop
@@ -16,6 +16,8 @@ const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
 
 const outDir = resolve(process.argv[2] ?? "design-shots");
+/** Optional theme id: shoots the game in that design (?theme=<id>). */
+const themeId = process.argv[3] ?? "";
 const root = resolve("out");
 if (!existsSync(root)) {
   console.error("No out/ folder: run `npm run build` first.");
@@ -34,7 +36,7 @@ const server = createServer((req, res) => {
   res.writeHead(200, { "content-type": TYPES[extname(path)] ?? "application/octet-stream" }).end(readFileSync(path));
 });
 await new Promise((r) => server.listen(0, r));
-const url = `http://localhost:${server.address().port}/`;
+const url = `http://localhost:${server.address().port}/${themeId ? `?theme=${themeId}` : ""}`;
 
 const browser = await chromium.launch();
 const errors = [];

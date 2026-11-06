@@ -10,6 +10,16 @@ independently against one rubric, fix what they agree on, and repeat until every
 reviewer scores it at the target. Reviewers never edit code; one agent (you)
 implements.
 
+## Exploring directions
+
+Before polishing, when the look itself is in question, explore first: brief
+several cheap designers (for example five haiku agents) to each write one
+complete theme file (`app/themes/<id>.ts`) in a distinct, named direction,
+shoot every theme with `node scripts/design-shots.mjs <dir> <theme-id>`, give
+each designer its own screenshots for one revision, then have fresh reviewers
+rank all directions (including the current one) before choosing what to
+polish.
+
 ## Loop
 
 1. **Shoot.** `npm run build && node scripts/design-shots.mjs <scratch>/roundN`
@@ -43,6 +53,13 @@ implements.
 - Components and polish: buttons, cards, radii, borders, shadows, consistency.
 - Game feel: does it feel like a game people want to keep playing?
 - Mobile: the phone screenshots.
+- Originality: does it look designed by a person with a point of view, or
+  generated? Penalise the stock AI tells: pastel pills for every status,
+  tinted callouts with a coloured left border, gradient buttons with glow,
+  tiny uppercase tracked labels everywhere, the default serif-plus-Inter
+  pairing, same-radius soft-shadow cards nested in cards, unicode arrows as
+  icons, washed pastel tints, decorative gimmicks. A fix that adds another
+  generic component should lose points here even if it helps elsewhere.
 
 Return: `{ "reviewer": "...", "scores": { ...8 categories }, "overall": n,
 "top_fixes": [{ "severity": "high|medium|low", "screen": "...", "problem":
