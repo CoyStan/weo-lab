@@ -15,7 +15,7 @@ export default function AssumptionsPanel() {
 
   return (
     <div>
-      <p className="mb-2 rounded-lg bg-[color-mix(in_srgb,var(--lab-ink)_6%,transparent)] px-3 py-2 text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">
+      <p className="mb-2 rounded-lg bg-[color-mix(in_srgb,var(--lab-ink)_6%,transparent)] px-3 py-2 text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">
         The reference path keeps the WEO assumptions below (orange ticks). Move one here to test how much the projection depends on it. {changed.length ? <strong className="text-[var(--lab-ink)]">{changed.length} changed.</strong> : null}
       </p>
       <div className="mb-2 flex items-center justify-between">
@@ -38,7 +38,7 @@ export default function AssumptionsPanel() {
       <SectionLabel>Country structure</SectionLabel>
       <Slider label="Potential growth" value={a.potentialGrowth} min={-1} max={8} step={0.1} format={(v) => `${v.toFixed(1)}%`} reference={ref.potentialGrowth} onChange={(v) => setAssumption("potentialGrowth", v)} hint={`WEO: ${ref.potentialGrowth}%. Trend growth before reforms, investment and debt overhang.`} />
       <div className="lab-field">
-        <span className="mb-1 block text-[0.78rem] font-medium">Real exchange rate</span>
+        <span className="mb-1 block text-(length:--t-xs) font-medium">Real exchange rate</span>
         <Segmented<RerConvention>
           ariaLabel="Real exchange rate convention"
           options={[
@@ -48,7 +48,7 @@ export default function AssumptionsPanel() {
           value={a.rerConvention}
           onChange={(v) => setAssumption("rerConvention", v)}
         />
-        <span className="mt-1 block text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">
+        <span className="mt-1 block text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">
           WEO projections hold the real exchange rate constant for floaters. Switching it on lets interest differentials, the current account and capital flows move it, which changes competitiveness, pass-through and FX debt.
         </span>
       </div>

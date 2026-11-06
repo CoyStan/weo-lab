@@ -631,6 +631,10 @@ const theme: LabTheme = {
   font-size: var(--t-sm);
   font-weight: var(--w-bold);
 }
+.lab[data-theme="ledger"] .lab-segmented button.is-active,
+.lab[data-theme="ledger"] .is-active {
+  box-shadow: none;
+}
 .lab[data-theme="ledger"] .lab-segmented button.is-active {
   background: var(--lab-ink);
   color: var(--lab-paper);
@@ -771,22 +775,21 @@ const theme: LabTheme = {
   background: var(--lab-paper);
 }
 .lab[data-theme="ledger"] .game-mission {
-  border: 0;
-  border-top: 1px solid var(--lab-ink);
-  background: transparent;
-  padding: 0.9rem 0.2rem 0.6rem;
+  border: 1px solid var(--lab-ink);
+  border-top-width: 3px;
+  background: var(--lab-paper);
+  padding: 0.9rem 0.7rem 0.6rem;
 }
 .lab[data-theme="ledger"] .game-mission:not(:disabled):hover {
   transform: none;
   border-top-color: var(--lab-scenario);
-  box-shadow: inset 0 3px 0 var(--lab-scenario);
 }
-/* Locked missions: a dashed outline, the text still readable. */
+/* Locked missions: a hairline dashed outline on no paper, so the playable
+   ones read as the stronger cards; the text stays readable. */
 .lab[data-theme="ledger"] .game-mission.is-locked {
   opacity: 1;
-  border: 1px dashed var(--lab-ink-2);
+  border: 1px dashed var(--lab-line-strong);
   background: transparent;
-  padding: 0.9rem 0.7rem 0.6rem;
 }
 .lab[data-theme="ledger"] .game-mission.is-locked .game-mission-title {
   color: var(--lab-ink-2);
@@ -1013,27 +1016,16 @@ const theme: LabTheme = {
   .lab[data-theme="ledger"] .lab-segmented button {
     font-size: var(--t-xs);
   }
+  /* The recap headline steps down one size so the card fits a phone screen. */
+  .lab[data-theme="ledger"] .game-headline {
+    font-size: var(--t-lg);
+  }
 }
 @media (max-width: 480px) {
-  .lab[data-theme="ledger"] .game-progress > div:first-child b {
-    display: none;
-  }
-  .lab[data-theme="ledger"] .game-progress > div:first-child > span {
-    white-space: nowrap;
-  }
   .lab[data-theme="ledger"] .game-stamp-row {
     flex-direction: column-reverse;
     align-items: flex-start;
     gap: 0.25rem;
-  }
-}
-/* Phones and tablets: the end-turn dock is a full-width strip under a double rule. */
-@media (max-width: 1179px) {
-  .lab[data-theme="ledger"] .game-end {
-    left: 0;
-    right: 0;
-    bottom: 0;
-    padding: 0.5rem 0.6rem 0.75rem;
   }
 }
 
@@ -1063,6 +1055,29 @@ const theme: LabTheme = {
   font-family: var(--lab-font-ui);
   font-size: var(--t-xs);
   font-weight: var(--w-bold);
+}
+
+/* Free play: the same flat newsprint as the campaign. */
+.lab[data-theme="ledger"] .lab-topbar-logo img {
+  filter: grayscale(1) contrast(1.3);
+}
+.lab[data-theme="ledger"] .lab-desk-note {
+  border-top: 1px solid var(--lab-ink);
+  background: transparent;
+  padding-inline: 0;
+}
+/* Status words (Illustrative, Sustainable, Watch): plain bold type, no chip. */
+.lab[data-theme="ledger"] .lab-stamp {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Contagion: plain paper, no haze. */
+.lab[data-theme="ledger"] .ctg {
+  background: var(--lab-bg);
 }
 
 /* Tables and tiles in the lab: ruled, not boxed */

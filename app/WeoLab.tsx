@@ -20,12 +20,12 @@ import { getPreset } from "./model/presets";
 import { SHOCKS } from "./model/shocks";
 import { STORYLINES } from "./model/storylines";
 import { decodeConfig, loadSavedConfig, saveConfig, useLab } from "./store";
-import { getTheme, THEMES } from "./themes";
+import { getTheme, THEME_STORAGE_KEY, THEMES } from "./themes";
 
 const IslandScene = dynamic(() => import("./scene/IslandScene"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full w-full items-center justify-center text-[0.78rem] text-[var(--lab-ink-2)]" role="status">
+    <div className="flex h-full w-full items-center justify-center text-(length:--t-xs) text-[var(--lab-ink-2)]" role="status">
       Building the island…
     </div>
   ),
@@ -63,7 +63,7 @@ export default function WeoLab({ restoreSaved = true }: { restoreSaved?: boolean
     const params = new URLSearchParams(window.location.search);
     let savedTheme: string | null = null;
     try {
-      savedTheme = window.localStorage.getItem("palari.weo-lab.theme");
+      savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
     } catch {
       // Storage blocked: fall back to the URL or the default.
     }
@@ -76,7 +76,8 @@ export default function WeoLab({ restoreSaved = true }: { restoreSaved?: boolean
   useEffect(() => {
     if (!hydrated) return;
     try {
-      window.localStorage.setItem("palari.weo-lab.theme", themeId);
+      if (themeId === THEMES[0].id) window.localStorage.removeItem(THEME_STORAGE_KEY);
+      else window.localStorage.setItem(THEME_STORAGE_KEY, themeId);
     } catch {
       // ignore
     }
@@ -233,18 +234,18 @@ function SceneOverlay() {
       <div className="absolute left-3 top-3 flex max-w-[60%] flex-col gap-1.5">
         <div className="rounded-lg border border-[color-mix(in_srgb,var(--lab-ink)_12%,transparent)] bg-[color-mix(in_srgb,var(--lab-paper)_90%,transparent)] px-2.5 py-1.5 backdrop-blur">
           <div className="flex items-baseline gap-2">
-            <span className="font-display text-[1rem] font-semibold leading-none">{preset.name}</span>
-            <span className="text-[0.66rem] text-[var(--lab-ink-2)]">{preset.archetype}</span>
+            <span className="font-display text-(length:--t-md) font-semibold leading-none">{preset.name}</span>
+            <span className="text-(length:--t-xs) text-[var(--lab-ink-2)]">{preset.archetype}</span>
           </div>
         </div>
         {story && briefOpen ? (
           <div className="max-w-[22rem] rounded-lg border border-[color-mix(in_srgb,var(--lab-info-mark)_45%,transparent)] bg-[color-mix(in_srgb,var(--lab-paper)_95%,transparent)] px-2.5 py-2 shadow-sm backdrop-blur">
             <div className="flex items-start justify-between gap-2">
-              <span className="text-[0.6rem] font-bold uppercase tracking-[0.14em] text-[var(--lab-info)]">Exercise</span>
-              <button type="button" onClick={() => setBriefOpen(false)} aria-label="Hide exercise brief" className="-mt-0.5 text-[0.9rem] leading-none text-[var(--lab-ink-2)] hover:text-[var(--lab-ink)]">×</button>
+              <span className="text-(length:--t-xs) font-bold uppercase tracking-[0.14em] text-[var(--lab-info)]">Exercise</span>
+              <button type="button" onClick={() => setBriefOpen(false)} aria-label="Hide exercise brief" className="-mt-0.5 text-(length:--t-sm) leading-none text-[var(--lab-ink-2)] hover:text-[var(--lab-ink)]">×</button>
             </div>
-            <div className="text-[0.8rem] font-semibold leading-tight">{story.title}</div>
-            <p className="mt-0.5 text-[0.68rem] leading-snug text-[var(--lab-ink-2)] max-2xl:line-clamp-2" title={story.brief}>{story.brief}</p>
+            <div className="text-(length:--t-xs) font-semibold leading-tight">{story.title}</div>
+            <p className="mt-0.5 text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)] max-2xl:line-clamp-2" title={story.brief}>{story.brief}</p>
           </div>
         ) : null}
         {focus ? (
@@ -257,13 +258,13 @@ function SceneOverlay() {
       <div className="absolute right-3 top-3 flex max-w-[46%] flex-col items-end gap-1.5">
         {now.map((e, i) => (
           <div key={`${e.quarter}-${e.title}-${i}`} className={`lab-toast rounded-lg border px-2.5 py-1.5 text-right shadow-md backdrop-blur ${e.severity === "bad" ? "border-[color-mix(in_srgb,var(--lab-alert)_50%,transparent)] bg-[var(--lab-bad-surface)]" : e.severity === "good" ? "border-[color-mix(in_srgb,var(--lab-good-mark)_40%,transparent)] bg-[var(--lab-good-surface)]" : "border-[color-mix(in_srgb,var(--lab-ink)_15%,transparent)] bg-[color-mix(in_srgb,var(--lab-paper)_95%,transparent)]"}`} role="status">
-            <div className="text-[0.76rem] font-semibold leading-tight">{e.title}</div>
-            <div className="text-[0.64rem] leading-snug text-[var(--lab-ink-2)]">{e.detail}</div>
+            <div className="text-(length:--t-xs) font-semibold leading-tight">{e.title}</div>
+            <div className="text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">{e.detail}</div>
           </div>
         ))}
       </div>
       {hint ? (
-        <div className="absolute bottom-14 left-3 flex max-w-[min(34rem,70%)] items-center gap-2 rounded-lg border border-[color-mix(in_srgb,var(--lab-ink)_12%,transparent)] bg-[color-mix(in_srgb,var(--lab-paper)_90%,transparent)] px-2.5 py-1.5 text-[0.66rem] leading-snug text-[var(--lab-ink-2)] backdrop-blur">
+        <div className="absolute bottom-14 left-3 flex max-w-[min(34rem,70%)] items-center gap-2 rounded-lg border border-[color-mix(in_srgb,var(--lab-ink)_12%,transparent)] bg-[color-mix(in_srgb,var(--lab-paper)_90%,transparent)] px-2.5 py-1.5 text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)] backdrop-blur">
           <span>
             Drag to orbit, scroll to zoom, click a building to focus it. Buildings resize as quarters pass; storms mark shocks. Keys: <kbd className="lab-kbd">Space</kbd> play, <kbd className="lab-kbd">←</kbd><kbd className="lab-kbd">→</kbd> step, <kbd className="lab-kbd">⌘Z</kbd> undo.
           </span>
@@ -281,7 +282,7 @@ function SceneOverlay() {
           ]}
         />
         <Btn size="xs" variant="ghost" onClick={homeCamera} title="Fly the camera back to the overview">Reset view</Btn>
-        <span className="px-1.5 text-[0.72rem] font-semibold tabular-nums">{quarterLabel(clock)}</span>
+        <span className="px-1.5 text-(length:--t-xs) font-semibold tabular-nums">{quarterLabel(clock)}</span>
       </div>
     </div>
   );

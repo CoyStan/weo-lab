@@ -236,7 +236,7 @@ export function Briefing() {
       <div className="game-card game-briefing" role="dialog" aria-labelledby="briefing-title">
         <p className="game-eyebrow">{mission.number ? `Mission ${mission.number} of ${MISSIONS.length} · ${preset.name}, ${preset.archetype.toLowerCase()}` : mission.comparison?.story ? `History · ${mission.kicker}` : `World today · ${preset.name}`}</p>
         <h1 id="briefing-title" className="game-title is-small">{mission.title}</h1>
-        <div className="mt-2 flex flex-col gap-2 text-(length:--t-xs) leading-relaxed">
+        <div className="mt-2 flex flex-col gap-2 text-(length:--t-sm) leading-relaxed">
           {mission.briefing.map((p) => (
             <p key={p}>{p}</p>
           ))}
@@ -245,13 +245,13 @@ export function Briefing() {
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
             <h2 className="game-section">To win</h2>
-            <ul className="flex flex-col gap-1 text-(length:--t-xs)">
+            <ul className="flex flex-col gap-1 text-(length:--t-sm)">
               {primary.map((o) => (
                 <li key={o.id} className="game-bullet">{o.label}</li>
               ))}
             </ul>
             <h2 className="game-section mt-2">For extra stars</h2>
-            <ul className="flex flex-col gap-1 text-(length:--t-xs)">
+            <ul className="flex flex-col gap-1 text-(length:--t-sm)">
               {bonus.map((o) => (
                 <li key={o.id} className="game-bullet is-star">{o.label}</li>
               ))}

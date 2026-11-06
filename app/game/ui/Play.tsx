@@ -130,7 +130,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
 
       <main id="main-content" className="game-grid">
         <aside className="game-col game-col-levers" aria-label="Your levers">
-          <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="game-levers-head mb-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
             <h2 className="game-col-title !mb-0">{panel === "levers" ? "Your levers" : "Reforms"}</h2>
             <Segmented
               ariaLabel="Levers or reforms"

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Segmented, Slider, Toggle } from "../../components/ui";
 import { useLab } from "../../store";
-import { THEMES } from "../../themes";
+import { THEME_STORAGE_KEY, THEMES } from "../../themes";
 import { sound } from "../audio";
 import { TRACKS, useSettings } from "../settings";
 import { useGame } from "../store";
@@ -126,7 +126,8 @@ function DisplaySettings() {
               onClick={() => {
                 setTheme(t.id);
                 try {
-                  window.localStorage.setItem("palari.weo-lab.theme", t.id);
+                  if (t.id === THEMES[0].id) window.localStorage.removeItem(THEME_STORAGE_KEY);
+                  else window.localStorage.setItem(THEME_STORAGE_KEY, t.id);
                 } catch {
                   // ignore
                 }

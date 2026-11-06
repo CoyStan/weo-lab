@@ -95,6 +95,7 @@
 
 .game-cta {
   padding-inline: 1.25rem;
+  font-size: var(--t-md);
 }
 
 .game-title-points {
@@ -247,13 +248,21 @@
   inset: 0;
   z-index: 50;
   display: flex;
-  align-items: center;
+  /* safe: a card taller than the screen starts at the top and scrolls,
+     instead of losing its top edge above the viewport. */
+  align-items: safe center;
   justify-content: center;
   padding: 1rem;
   background: color-mix(in srgb, var(--lab-ink) 28%, transparent);
   backdrop-filter: blur(3px);
   animation: game-fade 0.3s ease both;
   overflow-y: auto;
+}
+
+/* Auto block margins centre the card while it fits and fall back to the
+   top edge when it does not, so the whole card can be scrolled to. */
+.game-modal-backdrop > * {
+  margin-block: auto;
 }
 
 .game-recap {
@@ -335,7 +344,7 @@
 }
 
 .game-choice strong {
-  font-size: var(--t-xs);
+  font-size: var(--t-sm);
 }
 
 .game-choice span {
@@ -1733,7 +1742,7 @@
   border-radius: 0.8rem;
   background: var(--lab-paper);
   padding: 0.5rem 0.9rem;
-  font-size: var(--t-xs);
+  font-size: var(--t-sm);
   font-weight: 600;
   color: var(--lab-ink);
   transition: background 0.15s ease;
@@ -1807,7 +1816,7 @@
   flex-direction: column;
   gap: 0.2rem;
   margin-top: 0.5rem;
-  font-size: var(--t-xs);
+  font-size: var(--t-sm);
   line-height: 1.35;
 }
 
@@ -2151,7 +2160,7 @@
 /* Decomposition: legend labels wrap instead of truncating; momentum is hatched. */
 .game-dc-group button {
   grid-template-columns: 0.85rem minmax(0, 1fr) 3rem 3.2rem;
-  font-size: var(--t-xs);
+  font-size: var(--t-sm);
   align-items: start;
 }
 
@@ -2239,7 +2248,7 @@
 /* Agenda reads from across the room. */
 .game-agenda {
   max-width: 20rem;
-  font-size: var(--t-xs);
+  font-size: var(--t-sm);
   padding: 0.55rem 0.75rem;
 }
 
@@ -2284,7 +2293,7 @@
 }
 
 .game-advice-text {
-  font-size: var(--t-xs);
+  font-size: var(--t-sm);
 }
 
 @media (max-width: 760px) {
@@ -2915,7 +2924,7 @@
   align-items: center;
   gap: 0.4rem;
   margin-top: 0.9rem;
-  font-size: var(--t-xs);
+  font-size: var(--t-sm);
   color: var(--lab-ink-2);
 }
 
@@ -3060,7 +3069,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  font-size: var(--t-xs);
+  font-size: var(--t-sm);
   line-height: 1.35;
 }
 
@@ -3072,7 +3081,7 @@
 }
 
 .game-log p {
-  font-size: var(--t-xs);
+  font-size: var(--t-sm);
   color: var(--lab-ink-2);
 }
 
@@ -3133,7 +3142,7 @@
     font-size: 0;
   }
   .lab-scene-label:not(.is-pending):not(.is-capital):not(.is-focus) .lab-banner-text strong {
-    font-size: 12px;
+    font-size: var(--t-xs);
   }
 }
 
@@ -3306,7 +3315,8 @@ html:not(.is-kbd) .game button:focus-visible {
 
 @media (min-width: 1180px) {
   .game-grid {
-    grid-template-columns: 290px minmax(0, 1fr) 330px;
+    /* rem, so the side columns grow with the big-screen scale-up. */
+    grid-template-columns: 18.125rem minmax(0, 1fr) 20.625rem;
   }
 }
 
@@ -3332,7 +3342,7 @@ html:not(.is-kbd) .game button:focus-visible {
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  font-size: var(--t-xs) !important;
+  font-size: var(--t-sm) !important;
 }
 
 /* Advisors: steady is a stance too. */
@@ -3489,7 +3499,7 @@ html:not(.is-kbd) .game button:focus-visible {
 }
 
 .game-stamp-note {
-  font-size: var(--t-xs);
+  font-size: var(--t-sm);
   font-weight: 600;
   color: var(--lab-ink-2);
 }
@@ -3544,4 +3554,47 @@ html:not(.is-kbd) .game button:focus-visible {
 
 .game-fw-valence b.is-neutral {
   color: var(--lab-ink-2);
+}
+
+/* Typography fixes shared by every theme. */
+.lab :is(strong, b) {
+  font-weight: var(--w-bold);
+}
+@media (max-width: 640px) {
+  .game-headline {
+    font-size: var(--t-lg);
+  }
+}
+
+/* Phones, every theme: the dock is a full-width strip, so nothing shows
+   beneath it, and the turn counter keeps to one line. */
+@media (max-width: 1179px) {
+  .game-end {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-width: 1px 0 0;
+    border-radius: 1.1rem 1.1rem 0 0;
+    padding: 0.5rem 0.6rem 0.75rem;
+  }
+}
+@media (max-width: 480px) {
+  .game-progress > div:first-child b {
+    display: none;
+  }
+  .game-progress > div:first-child > span {
+    white-space: nowrap;
+  }
+}
+/* The levers header: the title stays on one line; the tabs drop below it
+   when the column is too narrow for both. */
+.game-levers-head h2 {
+  white-space: nowrap;
+}
+/* Narrow phones: sector table headers may wrap so the table fits. */
+@media (max-width: 400px) {
+  .game-fw-table thead th {
+    white-space: normal;
+    vertical-align: bottom;
+  }
 }

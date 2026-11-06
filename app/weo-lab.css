@@ -260,7 +260,7 @@ input:focus-visible + .lab-toggle {
 }
 .lab-btn-md {
   padding: 0.55rem 1rem;
-  font-size: var(--t-xs);
+  font-size: var(--t-sm);
 }
 .lab-btn-primary {
   background: linear-gradient(135deg, var(--lab-accent-from), var(--lab-accent-to));
@@ -571,7 +571,7 @@ input:focus-visible + .lab-toggle {
   background: color-mix(in srgb, var(--lab-paper) 95%, transparent);
   box-shadow: 0 4px 12px color-mix(in srgb, var(--lab-ink) 22%, transparent);
   padding: 0.2rem 0.5rem 0.2rem 0.22rem;
-  font-size: 10.5px;
+  font-size: var(--t-xs);
   line-height: 1.2;
   color: var(--lab-ink);
   transform: translate(-50%, -100%) rotate(var(--tilt, 0deg));
@@ -603,7 +603,7 @@ input:focus-visible + .lab-toggle {
   display: block;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-size: 9px;
+  font-size: var(--t-xs);
   font-weight: 700;
   color: var(--lab-ink-2);
 }
@@ -629,12 +629,12 @@ input:focus-visible + .lab-toggle {
 .lab .lab-scene .lab-scene-label.is-capital .lab-banner-text strong {
   color: var(--lab-paper);
   font-family: var(--lab-font-display);
-  font-size: 14px;
+  font-size: var(--t-sm);
   letter-spacing: 0.04em;
 }
 .lab-scene-label strong {
   display: block;
-  font-size: 12px;
+  font-size: var(--t-xs);
   font-variant-numeric: tabular-nums;
 }
 .lab-scene-label.is-bad {

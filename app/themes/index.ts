@@ -22,3 +22,10 @@ export const THEMES: LabTheme[] = [ledger, palari, institutional, nordic, broads
 export function getTheme(id: string | null | undefined): LabTheme {
   return THEMES.find((t) => t.id === id) ?? THEMES[0];
 }
+
+/**
+ * localStorage key for a design the player picked. Versioned: the old key was
+ * written automatically on every visit, so a stale "palari" there would hide
+ * the new default; only an explicit choice of a non-default design is kept.
+ */
+export const THEME_STORAGE_KEY = "palari.weo-lab.theme.v2";

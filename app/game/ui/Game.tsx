@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import "../../weo-lab.css";
 import "../game.css";
 import { useLab } from "../../store";
-import { getTheme } from "../../themes";
+import { getTheme, THEME_STORAGE_KEY } from "../../themes";
 import WeoLab from "../../WeoLab";
 import { sound } from "../audio";
 import { useSettings } from "../settings";
@@ -62,7 +62,7 @@ export default function Game() {
     if (/[#&]s=/.test(window.location.hash) || params.get("mode") === "sandbox") setScreen("sandbox");
     let saved: string | null = null;
     try {
-      saved = window.localStorage.getItem("palari.weo-lab.theme");
+      saved = window.localStorage.getItem(THEME_STORAGE_KEY);
     } catch {
       // Storage blocked: keep the default design.
     }

@@ -223,7 +223,7 @@ function ChannelCard({ channel: c }: { channel: Channel }) {
   return (
     <article className={`game-fw-channel is-${c.status} ${c.id === "world" ? "is-env" : c.id === "confidence" || c.id === "currency" || c.status === "idle" || c.status === "blocked" ? "is-mixed" : "is-policy"}`}>
       <header className="flex items-start justify-between gap-2">
-        <h4 className="text-(length:--t-xs) font-semibold leading-tight">{c.title}</h4>
+        <h4 className="text-(length:--t-sm) font-semibold leading-tight">{c.title}</h4>
         <span className={`game-fw-pill is-${c.status}`}>{STATUS_WORD[c.status]}</span>
       </header>
       <ol className="game-fw-chain" aria-label="Transmission chain">

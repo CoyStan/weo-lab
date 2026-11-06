@@ -200,7 +200,7 @@ function ShockCard({ ids }: { ids: string[] }) {
     <div ref={dialog} tabIndex={-1} className="game-card game-shock" role="dialog" aria-modal="true" aria-labelledby="shock-title">
       <span className="game-shock-kicker">{now && main.quarter > 1 ? "Breaking news" : "On your desk"}</span>
       <h2 id="shock-title" className="game-shock-title">{spec.name}</h2>
-      <p className="text-(length:--t-xs) leading-relaxed">{spec.description}</p>
+      <p className="text-(length:--t-sm) leading-relaxed">{spec.description}</p>
       <p className="mt-1 text-(length:--t-xs) text-[var(--lab-ink-2)]">
         It hits in {quarterLabel(main.quarter)}. {options.length ? `How do you respond? Each option shows what it does to your goals by ${quarterLabel(mission.quarters)}, against holding policy.` : "Your tools are on the left."}
       </p>
@@ -295,7 +295,7 @@ function DebriefCard() {
   return (
     <div className="game-card game-debrief is-lost" role="dialog" aria-modal="true" aria-labelledby="debrief-title">
       <h2 id="debrief-title" className="game-shock-title">Mission failed</h2>
-      <p className="text-(length:--t-xs) leading-relaxed">{outcome.reason}</p>
+      <p className="text-(length:--t-sm) leading-relaxed">{outcome.reason}</p>
       <p className="mt-2 text-(length:--t-xs) leading-relaxed text-[var(--lab-ink-2)]">Rewind one quarter to try a different decision, or start the mission again. The goal cards show where the forecast was heading before each choice.</p>
       <Comparison mission={mission} />
       <div className="mt-3 flex flex-wrap justify-end gap-2">
@@ -359,7 +359,7 @@ function Comparison({ mission }: { mission: Mission }) {
         <div className="mt-2">
           <h3 className="game-section">What actually happened</h3>
           {mission.comparison.story.map((p) => (
-            <p key={p} className="mb-1 text-(length:--t-xs) leading-relaxed">{p}</p>
+            <p key={p} className="mb-1 text-(length:--t-sm) leading-relaxed">{p}</p>
           ))}
         </div>
       ) : null}

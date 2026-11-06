@@ -97,7 +97,7 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
 
       <ul className="mt-1.5 flex flex-col gap-1">
         {objectives.map((o) => (
-          <li key={o.id} className="flex items-start gap-1.5 text-(length:--t-xs) leading-snug">
+          <li key={o.id} className="flex items-start gap-1.5 text-(length:--t-sm) leading-snug">
             <span className={`game-status is-${statuses[o.id]}`}>{STATUS_TEXT[statuses[o.id]]}</span>
             <span className="text-[var(--lab-ink)]">
               {o.bonus ? <span className="game-star-inline" aria-label="Bonus">★</span> : null}
@@ -156,7 +156,7 @@ function WhyBars({ metric, state, prev }: { metric: MetricKey; state: QuarterSta
   const max = Math.max(0.1, ...parts.map((p) => Math.abs(p.value)));
   return (
     <div className="game-why-panel">
-      <p className="mb-1.5 text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">
+      <p className="mb-1.5 text-(length:--t-sm) leading-snug text-[var(--lab-ink-2)]">
         {subject} moved {fmtNum(total, 2, true)} {unit} in {state.label}. What pushed it:
       </p>
       <ul className="flex flex-col gap-1">
@@ -170,7 +170,7 @@ function WhyBars({ metric, state, prev }: { metric: MetricKey; state: QuarterSta
           </li>
         ))}
       </ul>
-      {metric === "growth" ? <p className="mt-1.5 text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">Growth follows the output gap: when demand pushes output above its potential, growth runs faster than potential.</p> : null}
+      {metric === "growth" ? <p className="mt-1.5 text-(length:--t-sm) leading-snug text-[var(--lab-ink-2)]">Growth follows the output gap: when demand pushes output above its potential, growth runs faster than potential.</p> : null}
     </div>
   );
 }

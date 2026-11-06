@@ -1,4 +1,6 @@
-/* Contagion mode: a world map and the fund's desk, on the lab's theme tokens. */
+/* Contagion mode: a world map and the fund's desk, on the lab's theme tokens.
+   Text uses the lab's type scale (--t-*); the px sizes left below are labels
+   inside the map's SVG viewBox, which scale with the map, not the page. */
 
 .ctg {
   min-height: 100dvh;
@@ -21,14 +23,14 @@
 
 .ctg-eyebrow,
 .ctg-kicker {
-  font-size: 0.68rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   color: var(--lab-info);
 }
 
 .ctg-title {
   font-family: var(--lab-font-display);
-  font-size: clamp(1.3rem, 2.4vw, 1.75rem);
+  font-size: var(--t-lg);
   font-weight: 600;
   line-height: 1.05;
 }
@@ -193,7 +195,7 @@
 
 .ctg-hex-badge {
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   text-anchor: middle;
   dominant-baseline: middle;
   fill: #fff;
@@ -233,7 +235,7 @@
   flex-wrap: wrap;
   gap: 0.4rem 1rem;
   margin-top: 0.5rem;
-  font-size: 0.66rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
@@ -250,8 +252,8 @@
   height: 0.8rem;
   border-radius: 3px;
   font-style: normal;
-  font-weight: 800;
-  font-size: 0.7rem;
+  font-weight: 700;
+  font-size: var(--t-xs);
 }
 
 .ctg-legend i.is-ring {
@@ -264,7 +266,7 @@
 }
 
 .ctg-legend b {
-  font-size: 0.55rem;
+  font-size: var(--t-xs);
 }
 
 /* ---- Dashboard -------------------------------------------------------- */
@@ -287,13 +289,13 @@
 }
 
 .ctg-stat-label {
-  font-size: 0.62rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
 .ctg-stat-value {
   font-family: var(--lab-font-mono);
-  font-size: 1rem;
+  font-size: var(--t-md);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -367,18 +369,18 @@
 
 .ctg-country {
   font-family: var(--lab-font-display);
-  font-size: 1.45rem;
+  font-size: var(--t-lg);
   font-weight: 600;
   line-height: 1.1;
 }
 
 .ctg-h3 {
-  font-size: 0.78rem;
+  font-size: var(--t-xs);
   font-weight: 700;
 }
 
 .ctg-muted {
-  font-size: 0.66rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
@@ -387,7 +389,7 @@
   margin-top: 0.3rem;
   border-radius: 999px;
   padding: 0.1rem 0.55rem;
-  font-size: 0.66rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   background: var(--lab-good-bg);
   color: var(--lab-good);
@@ -407,7 +409,7 @@
   flex: none;
   border-radius: 999px;
   padding: 0.12rem 0.55rem;
-  font-size: 0.66rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   background: var(--lab-good-bg);
   color: var(--lab-good);
@@ -456,32 +458,32 @@
 }
 
 .ctg-facts dt {
-  font-size: 0.62rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
 .ctg-facts dd {
   font-family: var(--lab-font-mono);
-  font-size: 0.82rem;
+  font-size: var(--t-sm);
   font-weight: 600;
 }
 
 .ctg-note {
   margin-top: 0.8rem;
-  font-size: 0.78rem;
+  font-size: var(--t-xs);
   line-height: 1.45;
 }
 
 .ctg-protect {
   margin-top: 0.6rem;
-  font-size: 0.7rem;
+  font-size: var(--t-xs);
   color: var(--lab-info);
   font-weight: 600;
 }
 
 .ctg-warn {
   margin-top: 0.5rem;
-  font-size: 0.7rem;
+  font-size: var(--t-xs);
   color: var(--lab-warn);
 }
 
@@ -489,7 +491,7 @@
   display: grid;
   gap: 0.45rem;
   margin-top: 0.45rem;
-  font-size: 0.76rem;
+  font-size: var(--t-xs);
   line-height: 1.45;
 }
 
@@ -509,7 +511,7 @@
   background: var(--lab-surface, var(--lab-paper));
   padding: 0.5rem 0.65rem;
   text-align: left;
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
   line-height: 1.35;
   transition:
     border-color 0.2s ease,
@@ -518,7 +520,7 @@
 }
 
 .ctg-action strong {
-  font-size: 0.78rem;
+  font-size: var(--t-xs);
 }
 
 .ctg-action > span:last-child {
@@ -545,7 +547,7 @@
   display: inline-flex;
   gap: 0.35rem;
   font-family: var(--lab-font-mono);
-  font-size: 0.64rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
   white-space: nowrap;
 }
@@ -554,7 +556,7 @@
   margin-top: 0.55rem;
   border-left: 3px solid var(--lab-info);
   padding-left: 0.6rem;
-  font-size: 0.76rem;
+  font-size: var(--t-xs);
   line-height: 1.45;
 }
 
@@ -566,7 +568,7 @@
   display: grid;
   gap: 0.35rem;
   margin-top: 0.45rem;
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
   line-height: 1.4;
 }
 
@@ -596,7 +598,7 @@
 .ctg-news-q {
   margin-right: 0.4rem;
   font-family: var(--lab-font-mono);
-  font-size: 0.62rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
@@ -635,7 +637,7 @@
 .ctg-spark figcaption {
   display: flex;
   gap: 1rem;
-  font-size: 0.64rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
@@ -649,7 +651,7 @@
 
 .ctg-lesson {
   margin-top: 0.8rem;
-  font-size: 0.78rem;
+  font-size: var(--t-xs);
   line-height: 1.5;
   font-style: italic;
 }
@@ -738,13 +740,13 @@
 
 .ctg-news-head {
   display: block;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.3;
 }
 
 .ctg-news-fact {
   display: block;
-  font-size: 0.64rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
@@ -754,7 +756,7 @@
 }
 
 .ctg-deputy {
-  font-size: 0.62rem;
+  font-size: var(--t-xs);
   font-weight: 700;
   color: var(--lab-info);
 }
@@ -767,7 +769,7 @@
 
 .ctg-verdict {
   margin-top: 0.25rem;
-  font-size: 0.86rem;
+  font-size: var(--t-sm);
   line-height: 1.45;
 }
 
@@ -786,7 +788,7 @@
   border-radius: min(var(--lab-radius-card), 14px);
   background: color-mix(in srgb, var(--lab-warn-mark) 10%, var(--lab-paper));
   padding: 0.45rem 0.65rem;
-  font-size: 0.74rem;
+  font-size: var(--t-xs);
   animation: ctg-badge 0.6s var(--game-ease) both;
 }
 
@@ -800,7 +802,7 @@
 
 .ctg-badges li > span:last-child {
   grid-column: 1 / -1;
-  font-size: 0.66rem;
+  font-size: var(--t-xs);
   color: var(--lab-ink-2);
 }
 
@@ -809,8 +811,8 @@
   border-radius: 999px;
   background: var(--lab-warn-mark);
   padding: 0 0.45rem;
-  font-size: 0.58rem;
-  font-weight: 800;
+  font-size: var(--t-xs);
+  font-weight: 700;
   color: #fff;
 }
 
@@ -840,7 +842,7 @@
   border-radius: min(var(--lab-radius-card), 14px);
   background: var(--lab-info-bg);
   padding: 0.4rem 0.65rem;
-  font-size: 0.72rem;
+  font-size: var(--t-xs);
   font-weight: 600;
   color: var(--lab-info);
 }

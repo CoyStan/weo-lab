@@ -33,7 +33,7 @@ export default function EventFeed() {
   return (
     <Panel title="Log" subtitle="What has happened so far, newest first.">
       {items.length === 0 ? (
-        <p className="text-[0.75rem] text-[var(--lab-ink-2)]">Quiet so far. Press play, or move a lever.</p>
+        <p className="text-(length:--t-xs) text-[var(--lab-ink-2)]">Quiet so far. Press play, or move a lever.</p>
       ) : (
         <ol className="max-h-64 overflow-y-auto pr-1">
           {items.map((e, i) => (
@@ -41,10 +41,10 @@ export default function EventFeed() {
               <span className="mt-1"><StatusDot tone={e.severity === "bad" ? "bad" : e.severity === "warn" ? "warn" : e.severity === "good" ? "good" : "info"} /></span>
               <span>
                 <span className="flex items-baseline gap-2">
-                  <span className="text-[0.75rem] font-semibold text-[var(--lab-ink)]">{e.title}</span>
-                  <span className="text-[0.75rem] tabular-nums text-[var(--lab-ink-2)]">{quarterLabel(e.quarter)}</span>
+                  <span className="text-(length:--t-xs) font-semibold text-[var(--lab-ink)]">{e.title}</span>
+                  <span className="text-(length:--t-xs) tabular-nums text-[var(--lab-ink-2)]">{quarterLabel(e.quarter)}</span>
                 </span>
-                <span className="block text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">{e.detail}</span>
+                <span className="block text-(length:--t-xs) leading-snug text-[var(--lab-ink-2)]">{e.detail}</span>
               </span>
             </li>
           ))}

@@ -547,18 +547,18 @@ function Debrief() {
     <div className="game-modal-backdrop" role="presentation">
       <div className={`game-card game-debrief ${won ? "" : "is-lost"}`} role="dialog" aria-modal="true" aria-labelledby="ctg-debrief-title">
         <p className="game-eyebrow">Contagion · started in {WEO.countries[world.origin].name}</p>
-        <h2 id="ctg-debrief-title" className="font-display text-[1.7rem] font-semibold leading-tight">
+        <h2 id="ctg-debrief-title" className="font-display text-(length:--t-lg) font-semibold leading-tight">
           {title.title}
         </h2>
         <p className="ctg-verdict">{won ? "Contained. " : "It got away. "}{title.line}</p>
         {won ? (
-          <p className="game-mission-stars mt-1 text-[1.3rem]" aria-label={`${result.stars} of 3 stars`}>
+          <p className="game-mission-stars mt-1 text-(length:--t-lg)" aria-label={`${result.stars} of 3 stars`}>
             {[1, 2, 3].map((k) => (
               <span key={k} className={k <= result.stars ? "is-on" : ""}>★</span>
             ))}
           </p>
         ) : (
-          <p className="mt-1 text-[0.9rem]">{result.kind === "lost" ? result.reason : ""}</p>
+          <p className="mt-1 text-(length:--t-sm)">{result.kind === "lost" ? result.reason : ""}</p>
         )}
         <dl className="ctg-facts mt-3">
           <Fact label="Spread to" value={`${hit} ${hit === 1 ? "country" : "countries"}`} />
@@ -596,7 +596,7 @@ function Debrief() {
             Back to Play
           </button>
         </div>
-        <p className="mt-3 text-[0.75rem] text-[var(--lab-ink-2)]">A deliberately simple network model built on IMF WEO figures, for play and learning. Independent of the IMF.</p>
+        <p className="mt-3 text-(length:--t-xs) text-[var(--lab-ink-2)]">A deliberately simple network model built on IMF WEO figures, for play and learning. Independent of the IMF.</p>
       </div>
     </div>
   );
