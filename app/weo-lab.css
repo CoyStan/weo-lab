@@ -62,7 +62,7 @@
   --t-sm: 0.9rem; /* body copy, labels */
   --t-md: 1rem; /* lead text, buttons */
   --t-lg: 1.35rem; /* headings */
-  --t-xl: 2.4rem; /* big figures and headlines, read from the sofa */
+  --t-xl: 1.9rem; /* big figures (about 30px on a laptop) */
   --t-2xl: 3.4rem; /* the title screen only */
   --w-regular: 400;
   --w-semi: 600;

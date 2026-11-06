@@ -6,6 +6,9 @@ import institutional from "./institutional.ts";
 import mission from "./mission.ts";
 import nordic from "./nordic.ts";
 import palari from "./palari.ts";
+import palariTidy from "./palari-tidy.ts";
+import palariCosy from "./palari-cosy.ts";
+import palariPlay from "./palari-play.ts";
 import swiss from "./swiss.ts";
 import ledger from "./ledger.ts";
 import consoleTheme from "./console.ts";
@@ -17,7 +20,7 @@ import toybox from "./toybox.ts";
 import type { LabTheme } from "./types.ts";
 
 /** The default design (the Ledger) first, then the original Palari design and the other candidates. */
-export const THEMES: LabTheme[] = [ledger, palari, institutional, nordic, broadsheet, atlas, sunset, glass, toybox, brutalist, mission, terminal, swiss, consoleTheme, tabletop, dossier];
+export const THEMES: LabTheme[] = [palariTidy, palari, palariCosy, palariPlay, ledger, institutional, nordic, broadsheet, atlas, sunset, glass, toybox, brutalist, mission, terminal, swiss, consoleTheme, tabletop, dossier];
 
 export function getTheme(id: string | null | undefined): LabTheme {
   return THEMES.find((t) => t.id === id) ?? THEMES[0];
