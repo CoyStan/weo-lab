@@ -755,3 +755,25 @@ input:focus-visible + .lab-toggle {
   text-align: center;
   color: var(--lab-ink);
 }
+
+/* District place names ("Campus", "Port") show while the label layer is naming districts,
+   and on a tag that carries a cue or a news card's pointer. */
+.lab-banner-place,
+.lab-banner-sep {
+  display: none;
+}
+.is-naming .lab-banner-place,
+.is-naming .lab-banner-sep,
+.lab-scene-label.has-cue .lab-banner-place,
+.lab-scene-label.is-shocked .lab-banner-place,
+.lab-scene-label.is-shocked .lab-banner-sep {
+  display: inline;
+}
+.lab-scene-label.has-cue .lab-banner-sep {
+  display: inline;
+}
+/* A pending decision's tag names its building, so the callout is anchored to a place. */
+.lab-scene-label.is-pending:not(.is-docked) .lab-banner-place,
+.lab-scene-label.is-pending:not(.is-docked) .lab-banner-sep {
+  display: inline;
+}

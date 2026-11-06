@@ -8,7 +8,7 @@ import * as THREE from "three";
 import { fmt } from "../components/format";
 import { getPreset, WEO_REFERENCE } from "../model/presets";
 import { selectCurrent, selectPolicyNow, useLab, type FocusKey } from "../store";
-import Label, { type IconName } from "./Label";
+import Label, { PLACE, type IconName } from "./Label";
 import { HEX, TOP } from "./hexmap";
 import { WORLD } from "./world";
 import { clamp, useSmooth } from "./useSmooth";
@@ -146,6 +146,8 @@ function District({ focusKey, position, labelY, labelX = 0, pendingLabel, dockPe
   const breachedNow = useBreachedNow();
   const breached = (BREACH_MAP[focusKey] ?? []).some((v) => breachedNow.has(v));
   const goalStatus = useLab((s) => s.districtStatus[focusKey]);
+  const cue = useLab((s) => s.sceneCue[focusKey]);
+  const shocked = useLab((s) => s.shockFocus === focusKey);
   const [hover, setHover] = useState(false);
   const group = useRef<THREE.Group>(null);
   const focused = focus === focusKey;
@@ -154,7 +156,7 @@ function District({ focusKey, position, labelY, labelX = 0, pendingLabel, dockPe
   // so a tag stays on the island only where something is happening: a pending decision, a
   // district in trouble, or the one under the pointer. Free play keeps its spotlight tags.
   const inGame = labels === "focus";
-  const showLabel = labels === "all" || active || breached || (spotlit && !inGame) || Boolean(goalStatus);
+  const showLabel = labels === "all" || active || breached || (spotlit && !inGame) || Boolean(goalStatus) || (inGame && (Boolean(cue) || shocked));
   const narrow = useNarrowCanvas();
   const dock = next && dockPending && narrow ? "top-right" : undefined;
   // A pending banner can ride somewhere else so it clears its neighbours; once the camera
@@ -200,8 +202,10 @@ function District({ focusKey, position, labelY, labelX = 0, pendingLabel, dockPe
     }
     const g = group.current;
     if (!g) return;
-    // A decision waiting to play out makes its building breathe and send out a ring.
-    const pulse = next && !reducedMotion ? 0.035 * (0.5 + 0.5 * Math.sin(clock.elapsedTime * 4)) : 0;
+    // A decision waiting to play out makes its building breathe and send out a ring; the
+    // district a news card points at breathes harder.
+    const amp = shocked ? 0.1 : next ? 0.035 : 0;
+    const pulse = amp && !reducedMotion ? amp * (0.5 + 0.5 * Math.sin(clock.elapsedTime * (shocked ? 3 : 4))) : 0;
     const target = (active ? 1.06 : 1) + pulse;
     const k = reducedMotion ? 1 : Math.min(1, dt * 8);
     const s = g.scale.x + (target - g.scale.x) * k;
@@ -210,7 +214,7 @@ function District({ focusKey, position, labelY, labelX = 0, pendingLabel, dockPe
     if (r) {
       const phase = reducedMotion ? 0.5 : (clock.elapsedTime * 0.7) % 1;
       r.scale.setScalar(1 + phase * 1.4);
-      (r.material as THREE.MeshBasicMaterial).opacity = next ? 0.55 * (1 - phase) : 0;
+      (r.material as THREE.MeshBasicMaterial).opacity = next || shocked ? (shocked ? 0.85 : 0.55) * (1 - phase) : 0;
     }
   });
 
@@ -235,11 +239,11 @@ function District({ focusKey, position, labelY, labelX = 0, pendingLabel, dockPe
         <circleGeometry args={[2.3, 48]} />
         <meshBasicMaterial color={bad || breached ? "#d9534f" : "#3f9a5f"} transparent opacity={0} depthWrite={false} />
       </mesh>
-      <mesh ref={ring} rotation-x={-Math.PI / 2} position-y={0.35} visible={Boolean(next)}>
+      <mesh ref={ring} rotation-x={-Math.PI / 2} position-y={0.35} visible={Boolean(next) || shocked}>
         <ringGeometry args={[2.1, 2.45, 48]} />
         <meshBasicMaterial color={color} transparent opacity={0} depthWrite={false} />
       </mesh>
-      <Label position={labelPos} title={breached ? `${title} · constraint breached` : title} value={dock && dockValue ? dockValue : value} next={next} delta={delta} bad={bad || breached} focus={active || Boolean(next)} tilt={tilt} hidden={!showLabel && !next} accent={color} icon={style.icon} dock={dock} status={goalStatus} />
+      <Label position={labelPos} title={breached ? `${title} · constraint breached` : title} value={dock && dockValue ? dockValue : value} next={next} delta={delta} bad={bad || breached} focus={active || Boolean(next)} tilt={tilt} hidden={!showLabel && !next} accent={color} icon={style.icon} dock={dock} status={goalStatus} place={PLACE[focusKey]} cue={inGame ? cue : undefined} shocked={shocked} />
     </group>
   );
 }

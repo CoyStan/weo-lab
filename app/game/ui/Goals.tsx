@@ -17,6 +17,8 @@ import { Valence, type Tone } from "./Valence";
 const DECOMPOSABLE = new Set<string>(DECOMP_METRICS.map((m) => m.key));
 
 const STATUS_TEXT: Record<ObjectiveStatus, string> = { met: "Met", failed: "Missed", "on-track": "On track", "at-risk": "At risk" };
+/** Worst first: the verdict a goal card leads with. */
+const STATUS_RANK: Record<ObjectiveStatus, number> = { failed: 0, "at-risk": 1, "on-track": 2, met: 3 };
 
 export default function Goals() {
   const { mission, actual, forecast, forecastStart, clock, statuses, comparison, comparisonLabel } = useTurn();
@@ -44,19 +46,18 @@ export default function Goals() {
           />
         );
       })}
-      <p className="game-goal-key">
-        <span><i className="is-actual" /> So far</span>
-        <span><i className="is-forecast" /> Your forecast</span>
-        {comparisonLabel ? <span><i className="is-comp" /> {comparisonLabel}</span> : null}
-        <span><i className="is-goal" /> Goal</span>
-      </p>
+      {comparisonLabel ? (
+        <p className="game-goal-key">
+          <span><i className="is-comp" /> {comparisonLabel}</span>
+        </p>
+      ) : null}
     </div>
   );
 }
 
 /** The objective a card is judged on: the first non-bonus one, else the first. */
 const mainObjective = (objectives: Objective[]) => objectives.find((o) => !o.bonus) ?? objectives[0];
-const goalText = (o: Objective | undefined, digits: number) => (o ? `goal ${o.op === "<=" ? "≤" : "≥"}${fmtNum(o.threshold, digits)}` : "");
+const goalText = (o: Objective | undefined, digits: number) => (o ? `goal\u00a0${o.op === "<=" ? "≤" : "≥"}\u00a0${fmtNum(o.threshold, digits)}` : "");
 
 function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock, end, probeDelta, comparison, comparisonLabel }: { metric: MetricKey; objectives: Objective[]; statuses: Record<string, ObjectiveStatus>; actual: QuarterState[]; forecast: QuarterState[]; ghost: QuarterState[]; clock: number; end: number; probeDelta: number | null; comparison: QuarterState[] | null; comparisonLabel: string | null }) {
   const meta = GAME_METRICS[metric];
@@ -71,13 +72,19 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
   const stars = objectives.filter((o) => o.bonus);
   const moveDelta = clock < end ? forecast[end][metric] - ghost[end][metric] : 0;
 
+  const verdict: ObjectiveStatus | undefined = judged.length ? (judged.map((o) => statuses[o.id]).sort((a, b) => STATUS_RANK[a] - STATUS_RANK[b])[0]) : undefined;
+
   return (
     <section className={`game-goal is-${worst}`} aria-label={meta.label}>
-      <h3 className="game-goal-title" title={meta.plain}>{meta.label}</h3>
+      {/* One verdict per goal, first: the status word and its square. Everything under it is subordinate. */}
+      <div className="game-goal-head">
+        <h3 className="game-goal-title" title={meta.plain}>{meta.label}</h3>
+        {verdict ? <span className={`game-status game-goal-verdict is-${verdict}`}>{STATUS_TEXT[verdict]}</span> : null}
+      </div>
       <div className="game-goal-figures">
         {clock < end ? (
           <span className="game-goal-fc">
-            <small>{quarterLabel(end)} forecast</small>
+            <small>{quarterLabel(end)}&nbsp;forecast</small>
             <span className="game-goal-value is-hero tabular-nums"><TweenNum value={endValue} digits={meta.digits} /></span>
             <span className="game-goal-unit">{unit}</span>
           </span>
@@ -86,46 +93,42 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
           {main ? <span className="game-goal-target">{goalText(main, meta.digits)}</span> : null}
           <span className="game-goal-now">
             <small>Now</small> <span className="tabular-nums"><TweenNum value={now} digits={meta.digits} /></span>
-            {unit === "%" ? "%" : ` ${unit}`}
+            {unit === "%" ? "%" : `\u00a0${unit}`}
           </span>
         </span>
       </div>
-      <div className="game-goal-move" aria-live="polite">
-        {probeDelta !== null ? (
-          Math.abs(probeDelta) >= 0.05 ? (
-            <span className={`game-probe-chip ${moveTone(objectives, probeDelta)}`} title="Effect of the lever under your pointer, by the end of the mission">
-              <small>Try it</small>
-              <Glyph name={probeDelta > 0 ? "up" : "down"} /> {fmtNum(Math.abs(probeDelta), meta.digits)}
-              {deltaUnit(meta.unit)}
-              <Valence tone={toneOf(objectives, probeDelta)} />
-            </span>
-          ) : (
-            <span className="game-probe-chip is-neutral"><small>Try it</small> no change</span>
-          )
-        ) : clock < end && Math.abs(moveDelta) >= 0.05 ? (
-          <MoveChip metric={metric} objectives={objectives} delta={moveDelta} end={end} />
-        ) : null}
-      </div>
 
-      <ul className="game-goal-lines">
-        {judged.map((o) => (
-          <li key={o.id} title={o.label}>
-            <span className={`game-status is-${statuses[o.id]}`}>{STATUS_TEXT[statuses[o.id]]}</span>
-            <span className={judged.length > 1 ? "game-goal-label" : "sr-only"}>{o.label}</span>
+      <ul className="game-goal-sub">
+        {judged.length > 1
+          ? judged.map((o) => (
+              <li key={o.id} className="game-goal-part" title={o.label}>
+                <span className={`game-goal-star-state is-${statuses[o.id]}`}>{STATUS_TEXT[statuses[o.id]].toLowerCase()}</span> {o.label}
+              </li>
+            ))
+          : null}
+        {stars.map((o) => (
+          <li key={o.id} className={`game-goal-bonus is-${statuses[o.id]}`}>
+            <Glyph name="star" label="Extra star" /> Bonus: {o.label.charAt(0).toLowerCase() + o.label.slice(1)}:{" "}
+            <span className="game-goal-star-state">{STATUS_TEXT[statuses[o.id]].toLowerCase()}</span>
           </li>
         ))}
+        <li className="game-goal-move" aria-live="polite">
+          {probeDelta !== null ? (
+            Math.abs(probeDelta) >= 0.05 ? (
+              <span className={`game-probe-chip ${moveTone(objectives, probeDelta)}`} title="Effect of the lever under your pointer, by the end of the mission">
+                <small>Try it</small>
+                <Glyph name={probeDelta > 0 ? "up" : "down"} /> {fmtNum(Math.abs(probeDelta), meta.digits)}
+                {deltaUnit(meta.unit)}
+                <Valence tone={toneOf(objectives, probeDelta)} />
+              </span>
+            ) : (
+              <span className="game-probe-chip is-neutral"><small>Try it</small> no change</span>
+            )
+          ) : clock < end && Math.abs(moveDelta) >= 0.05 ? (
+            <MoveChip metric={metric} objectives={objectives} delta={moveDelta} end={end} />
+          ) : null}
+        </li>
       </ul>
-      {stars.length ? (
-        <ul className="game-goal-stars" aria-label="Extra stars">
-          {stars.map((o) => (
-            <li key={o.id} className={`is-${statuses[o.id]}`}>
-              <Glyph name="star" label="Extra star" />
-              <span className="game-goal-star-state">{STATUS_TEXT[statuses[o.id]].toLowerCase()}</span>
-              <span>{o.label}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
 
       <OutlookChart metric={metric} objectives={objectives} actual={actual} forecast={forecast} ghost={ghost} clock={clock} end={end} comparison={comparison} />
       {comparison && comparisonLabel ? (
@@ -258,10 +261,11 @@ function WhyBars({ metric, state, prev }: { metric: MetricKey; state: QuarterSta
   );
 }
 
-const W = 300;
-const H = 108;
-const PAD = { l: 30, r: 44, t: 10, b: 22 };
-const FONT = 15;
+const H = 84;
+const PAD = { l: 28, r: 94, t: 8, b: 20 };
+const FONT = 14;
+/** Words at the line ends, in place of a legend; "no change" is the framework's "had you changed nothing". */
+const GUTTER_GAP = 15;
 
 /** Two or three round ticks across [lo, hi] (4, 6, 8 rather than the series' own extremes). */
 function niceTicks(lo: number, hi: number): number[] {
@@ -274,7 +278,24 @@ function niceTicks(lo: number, hi: number): number[] {
   return [lo, hi];
 }
 
-function OutlookChart({ metric, objectives, actual, forecast, ghost, clock, end, comparison }: { metric: MetricKey; objectives: Objective[]; actual: QuarterState[]; forecast: QuarterState[]; ghost: QuarterState[]; clock: number; end: number; comparison: QuarterState[] | null }) {
+/** Spread labels in a column so no two sit closer than `gap`, keeping each near its own line. */
+function dodge<T extends { y: number }>(items: T[], gap: number, lo: number, hi: number): T[] {
+  const out = items.map((it) => ({ ...it })).sort((a, b) => a.y - b.y);
+  for (let i = 1; i < out.length; i++) if (out[i].y - out[i - 1].y < gap) out[i].y = out[i - 1].y + gap;
+  const over = out.length ? out[out.length - 1].y - hi : 0;
+  if (over > 0) for (const it of out) it.y -= over;
+  for (let i = 0; i < out.length; i++) out[i].y = Math.max(lo + i * gap, out[i].y);
+  return out;
+}
+
+/** A goal's chart outside the goal column (the recap): reads the turn itself. */
+export function GoalChart({ metric, width = 300 }: { metric: MetricKey; width?: number }) {
+  const { mission, actual, forecast, forecastStart, clock, comparison } = useTurn();
+  const objectives = mission.objectives.filter((o) => o.metric === metric);
+  return <OutlookChart metric={metric} objectives={objectives} actual={actual} forecast={forecast} ghost={forecastStart} clock={clock} end={mission.quarters} comparison={comparison} width={width} />;
+}
+
+function OutlookChart({ metric, objectives, actual, forecast, ghost, clock, end, comparison, width: W = 300 }: { metric: MetricKey; objectives: Objective[]; actual: QuarterState[]; forecast: QuarterState[]; ghost: QuarterState[]; clock: number; end: number; comparison: QuarterState[] | null; width?: number }) {
   const meta = GAME_METRICS[metric];
   const past = actual.slice(0, clock + 1).map((s) => s[metric]);
   const fut = clock < end ? forecast.slice(clock, end + 1).map((s) => s[metric]) : [];
@@ -300,58 +321,61 @@ function OutlookChart({ metric, objectives, actual, forecast, ghost, clock, end,
   const tickDigits = ticks.some((t) => Math.abs(t - Math.round(t)) > 1e-6) ? 1 : 0;
   const last = fut.length ? fut[fut.length - 1] : past[past.length - 1];
   const main = mainObjective(objectives);
-  // The end label sits on the side of the line away from the goal, so the two never touch.
-  const labelAbove = main ? last >= main.threshold : true;
+  const judged = objectives.filter((o) => !o.bonus);
+  // Words at the right-hand ends of the lines, dodged so they never collide.
+  const gutter = dodge(
+    [
+      ...judged.slice(0, 1).map((o) => ({ key: "goal", y: y(o.threshold) + 5, text: `goal ${o.op === "<=" ? "≤" : "≥"} ${fmtNum(o.threshold, meta.digits)}`, fill: "var(--lab-ink)", weight: 700 })),
+      ...(fut.length ? [{ key: "fc", y: y(last) + 5, text: fmtNum(last, meta.digits), sub: " forecast", fill: "var(--lab-scenario)", weight: 700 }] : []),
+      ...(ghostDiffers ? [{ key: "gh", y: y(gh[gh.length - 1]) + 5, text: "no change", fill: "var(--lab-ink-2)", weight: 400 }] : []),
+    ],
+    GUTTER_GAP,
+    PAD.t + 10,
+    H - PAD.b + 4,
+  );
+  const lastPast = past[past.length - 1];
+  // "so far" above the past line's end, or under it when the forecast leaves upward.
+  const soFarBelow = fut.length > 1 && fut[1] > lastPast;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="game-outlook mt-1.5 block w-full" role="img" aria-label={`${meta.label}: outturn so far and forecast to ${quarterLabel(end)}, ending at ${fmtNum(last, meta.digits)}`}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="game-outlook mt-1.5 block w-full" role="img" aria-label={`${meta.label}: outturn so far and forecast to ${quarterLabel(end)}, ending at ${fmtNum(last, meta.digits)}${main ? `; ${goalText(main, meta.digits)}` : ""}`}>
       {ticks.map((t) => (
         <g key={t}>
           <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} stroke="var(--lab-line)" strokeWidth={1} />
-          <text x={PAD.l - 5} y={y(t) + 5} fontSize={FONT} textAnchor="end" fill="var(--lab-ink-2)">{fmtNum(t, tickDigits)}</text>
+          <text x={PAD.l - 5} y={y(t) + 5} fontSize={FONT - 1} textAnchor="end" fill="var(--lab-ink-2)">{fmtNum(t, tickDigits)}</text>
         </g>
       ))}
       {objectives.map((o) => {
-        const yq = o.when === "year" ? ((o.year ?? 0) - getStartYear()) * 4 + 1 : 0;
-        const from = o.when === "end" ? end - 1 : o.when === "year" ? Math.max(0.5, yq - 0.5) : Math.max(0.5, (o.from ?? 1) - 0.5);
-        const to = o.when === "year" ? Math.min(end, yq + 3.5) : end;
         const yT = y(o.threshold);
-        return (
-          <g key={o.id}>
-            {/* The goal: a faint hairline across the chart, solid where it is judged. */}
-            <line x1={PAD.l} x2={W - PAD.r} y1={yT} y2={yT} stroke="var(--lab-ink)" strokeOpacity={0.35} strokeWidth={1} strokeDasharray={o.bonus ? "2 3" : undefined} />
-            {!o.bonus ? <line x1={x(from)} x2={x(to) + 4} y1={yT} y2={yT} stroke="var(--lab-ink)" strokeWidth={1.5} /> : null}
-            {!o.bonus ? (
-              <text x={W - PAD.r + 6} y={yT + 5} fontSize={FONT} fontWeight={700} textAnchor="start" fill="var(--lab-ink)">
-                {o.op === "<=" ? "≤" : "≥"}
-                {fmtNum(o.threshold, meta.digits)}
-              </text>
-            ) : null}
-          </g>
-        );
+        // The goal: a solid ink rule across the chart, labelled in the gutter; a bonus target is dotted.
+        return <line key={o.id} x1={PAD.l} x2={W - PAD.r + 2} y1={yT} y2={yT} stroke="var(--lab-ink)" strokeOpacity={o.bonus ? 0.45 : 1} strokeWidth={o.bonus ? 1 : 1.5} strokeDasharray={o.bonus ? "2 3" : undefined} />;
       })}
       <line x1={PAD.l} x2={W - PAD.r} y1={H - PAD.b} y2={H - PAD.b} stroke="var(--lab-ink)" strokeWidth={1} />
       {years.map((t) => (
         <g key={t}>
           <line x1={x(t)} x2={x(t)} y1={H - PAD.b} y2={H - PAD.b + 4} stroke="var(--lab-ink)" />
-          <text x={x(t) + 3} y={H - 4} fontSize={FONT} fill="var(--lab-ink-2)">
+          <text x={x(t) + 3} y={H - 4} fontSize={FONT - 1} fill="var(--lab-ink-2)">
             {getStartYear() + (t - 1) / 4}
           </text>
         </g>
       ))}
       {comp.length ? <path d={line(comp, 0)} fill="none" stroke="var(--lab-ink)" strokeOpacity={0.3} strokeWidth={2} strokeLinejoin="round" /> : null}
-      {ghostDiffers ? <path d={line(gh, clock)} fill="none" stroke="var(--lab-ink)" strokeOpacity={0.3} strokeWidth={1} /> : null}
-      {fut.length ? <path d={line(fut, clock)} fill="none" stroke="var(--lab-scenario)" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" className="game-forecast-line" /> : null}
+      {ghostDiffers ? <path d={line(gh, clock)} fill="none" stroke="var(--lab-ink-2)" strokeWidth={1.25} strokeDasharray="1.5 3" strokeLinecap="round" /> : null}
+      {fut.length ? <path d={line(fut, clock)} fill="none" stroke="var(--lab-scenario)" strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" className="game-forecast-line" /> : null}
       <path d={line(past, 0)} fill="none" stroke="var(--lab-ink)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={x(clock)} cy={y(past[past.length - 1])} r={3.5} fill="var(--lab-ink)" stroke="var(--lab-paper)" strokeWidth={1.5} />
-      {fut.length ? (
-        <>
-          <circle cx={x(end)} cy={y(last)} r={3.5} fill="var(--lab-scenario)" stroke="var(--lab-paper)" strokeWidth={1.5} />
-          <text x={x(end) - 6} y={Math.min(H - PAD.b - 4, Math.max(PAD.t + 12, labelAbove ? y(last) - 8 : y(last) + 18))} fontSize={FONT} fontWeight={700} textAnchor="end" fill="var(--lab-scenario)" stroke="var(--lab-paper)" strokeWidth={3} paintOrder="stroke">
-            {fmtNum(last, meta.digits)}
-          </text>
-        </>
+      <circle cx={x(clock)} cy={y(lastPast)} r={3.5} fill="var(--lab-ink)" stroke="var(--lab-paper)" strokeWidth={1.5} />
+      {clock >= 2 ? (
+        <text x={clock / end < 0.3 ? x(clock) + 6 : clock >= end ? x(clock) - 6 : x(clock)} y={soFarBelow ? Math.min(H - PAD.b - 3, y(lastPast) + 15) : Math.max(PAD.t + 9, y(lastPast) - 7)} fontSize={FONT - 1} textAnchor={clock / end < 0.3 ? "start" : clock >= end ? "end" : "middle"} fill="var(--lab-ink)" stroke="var(--lab-paper)" strokeWidth={3} paintOrder="stroke">
+          so far
+        </text>
       ) : null}
+      {fut.length ? <circle cx={x(end)} cy={y(last)} r={4} fill="var(--lab-scenario)" stroke="var(--lab-paper)" strokeWidth={1.5} /> : null}
+      {gutter.map((g) => (
+        <text key={g.key} x={W - PAD.r + 8} y={g.y} fontSize={FONT} fontWeight={g.weight} textAnchor="start" fill={g.fill}>
+          {g.text}
+          {"sub" in g && g.sub ? <tspan fontWeight={400}>{g.sub}</tspan> : null}
+        </text>
+      ))}
     </svg>
   );
 }

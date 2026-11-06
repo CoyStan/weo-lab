@@ -122,7 +122,7 @@ export function MissionSelect() {
         </div>
 
         {tab === "campaign" ? (
-          <ol className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+          <ol className="game-mission-grid grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
             {MISSIONS.map((m) => {
               const open = missionUnlocked(m, progress);
               const preset = getPreset(m.presetId);

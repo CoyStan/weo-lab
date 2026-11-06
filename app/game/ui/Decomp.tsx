@@ -208,7 +208,7 @@ export default function Decomp() {
         </tbody>
       </table>
       <p className="game-dc-note">
-        How it is measured: shocks are switched on one by one under the policy you inherited; then your instruments are switched on with the shocks in place, so each instrument shows how much it offset or added to them. Click a legend item to hide it from the chart.
+        <strong>How it is measured:</strong> shocks are switched on one by one under the policy you inherited; then your instruments are switched on with the shocks in place, so each instrument shows how much it offset or added to them. Click a legend item to hide it from the chart.
       </p>
       </div>
     </div>

@@ -4432,3 +4432,66 @@ html:not(.is-kbd) .game button:focus-visible {
   align-items: baseline;
   gap: 0.25em;
 }
+
+/* Goal cards: the verdict leads, in the title row; the star and "Your move" sit under it. */
+.game-goal-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.1rem 0.6rem;
+}
+.game-goal-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0.3rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-xs);
+}
+.game-goal-sub .game-goal-move {
+  min-height: 1.35em;
+}
+
+/* Shock responses: numbered buttons with a key on the left and "Choose" on the right. */
+.game-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.game-choices .game-choice {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+}
+.game-choice .game-choice-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.game-choice .game-choice-key {
+  flex: none;
+  min-width: 1.6rem;
+  text-align: center;
+  font-weight: 700;
+}
+.game-choice .game-choice-go {
+  flex: none;
+  font-weight: 600;
+  color: var(--lab-ink);
+}
+.game-recap-chart {
+  display: block;
+}
+.game-recap-goal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}

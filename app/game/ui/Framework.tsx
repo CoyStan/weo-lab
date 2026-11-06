@@ -136,7 +136,7 @@ function FrameworkPanel() {
                       {shown[key].toFixed(row.digits)}
                       <small>{unitTail(row.unit)}</small>
                     </span>
-                    <Spark rowKey={key} actual={actual} forecast={forecast} untouched={touched ? untouched : null} clock={clock} end={end} />
+                    <Spark rowKey={key} actual={actual} forecast={forecast} untouched={touched ? untouched : null} clock={clock} end={end} digits={row.digits} />
                     <span className="game-fw-tile-ends">
                       <span>{actual[0].label} {actual[0][key].toFixed(row.digits)}</span> <Glyph name="arrow" /> <span>{forecast[end].label} <b>{forecast[end][key].toFixed(row.digits)}</b></span>
                     </span>
@@ -181,10 +181,10 @@ function FrameworkPanel() {
               <div className="game-fw-channel-scale">
                 <span>Channel</span>
                 <span>How it travels</span>
-                <ChannelAxis max={chanMax} />
+                <span>What flowed (each on its own scale)</span>
               </div>
               {chans.map((c) => (
-                <ChannelCard key={c.id} channel={c} max={chanMax} />
+                <ChannelCard key={c.id} channel={c} />
               ))}
             </div>
           </section>
@@ -262,12 +262,16 @@ function PaletteKey() {
   );
 }
 
-function ChannelCard({ channel: c, max }: { channel: Channel; max: number }) {
+function ChannelCard({ channel: c }: { channel: Channel }) {
   const flowing = c.links.filter((l) => Math.abs(l.value) >= 0.005);
+  // Each channel on its own scale: ±1 when every push is under 1, else the next whole number,
+  // so a -0.06 is read as a bar, not a sliver beside the shock's +1.98.
+  const biggest = Math.max(0, ...flowing.map((l) => Math.abs(l.value)));
+  const max = biggest < 1 ? 1 : Math.ceil(biggest);
   // With no structural change, a budget bar can only be the cycle moving revenues: say so.
   const status = c.id === "budget" && c.status === "idle" && flowing.length ? "Passive (automatic stabilisers)" : STATUS_WORD[c.status];
   return (
-    <article className={`game-fw-channel is-${c.status} ${c.id === "world" ? "is-env" : c.id === "confidence" || c.id === "currency" || c.status === "idle" || c.status === "blocked" ? "is-mixed" : "is-policy"}`}>
+    <article style={{ ["--tick" as string]: `${50 / max}%` }} className={`game-fw-channel is-${c.status} ${c.id === "world" ? "is-env" : c.id === "confidence" || c.id === "currency" || c.status === "idle" || c.status === "blocked" ? "is-mixed" : "is-policy"}`}>
       <header className="game-fw-channel-head">
         <h4 className="text-(length:--t-sm) font-semibold leading-tight">{c.title}</h4>
         <span className={`game-fw-pill is-${c.status}`}>{status}</span>
@@ -320,9 +324,9 @@ function AxisBar({ value, max }: { value: number; max: number }) {
 function ChannelAxis({ max, row = false }: { max: number; row?: boolean }) {
   return (
     <div className={`game-fw-axis ${row ? "is-row" : ""}`} aria-hidden="true">
-      <span>−{max.toFixed(1)}</span>
+      <span>−{max.toFixed(0)}</span>
       <span>0</span>
-      <span>+{max.toFixed(1)}</span>
+      <span>+{max.toFixed(0)}</span>
     </div>
   );
 }
@@ -388,7 +392,7 @@ function Row({ row, actual, forecast, untouched, clock, end, touched, shown, pre
         {row.label}
       </th>
       <td className="game-fw-spark-col">
-        <Spark rowKey={row.key} actual={actual} forecast={forecast} untouched={touched ? untouched : null} clock={clock} end={end} />
+        <Spark rowKey={row.key} actual={actual} forecast={forecast} untouched={touched ? untouched : null} clock={clock} end={end} compact />
       </td>
       <td className="tabular-nums">
         {fmt(v, row.digits)}
@@ -414,10 +418,15 @@ function Row({ row, actual, forecast, untouched, clock, end, touched, shown, pre
   );
 }
 
-const SW = 96;
-const SH = 26;
+const SW_TILE = 260;
+const SH_TILE = 104;
+const SPAD_TILE = { l: 4, r: 46, t: 10, b: 8 };
 
-function Spark({ rowKey, actual, forecast, untouched, clock, end }: { rowKey: RowMeta["key"]; actual: QuarterState[]; forecast: QuarterState[]; untouched: QuarterState[] | null; clock: number; end: number }) {
+/** A Why tile's chart: outturn, your forecast to its end dot and value, and the no-change path. */
+function Spark({ rowKey, actual, forecast, untouched, clock, end, digits = 1, compact = false }: { rowKey: RowMeta["key"]; actual: QuarterState[]; forecast: QuarterState[]; untouched: QuarterState[] | null; clock: number; end: number; digits?: number; compact?: boolean }) {
+  const SW = compact ? 96 : SW_TILE;
+  const SH = compact ? 26 : SH_TILE;
+  const SPAD = compact ? { l: 2, r: 6, t: 3, b: 3 } : SPAD_TILE;
   const past = actual.slice(0, clock + 1).map((s) => s[rowKey]);
   const fut = forecast.slice(clock, end + 1).map((s) => s[rowKey]);
   const un = untouched ? untouched.slice(0, end + 1).map((s) => s[rowKey]) : [];
@@ -429,16 +438,21 @@ function Spark({ rowKey, actual, forecast, untouched, clock, end }: { rowKey: Ro
     lo -= 0.5;
     hi += 0.5;
   }
-  const x = (t: number) => 2 + (t / end) * (SW - 4);
-  const y = (v: number) => 2 + (1 - (v - lo) / (hi - lo)) * (SH - 4);
+  const x = (t: number) => SPAD.l + (t / end) * (SW - SPAD.l - SPAD.r);
+  const y = (v: number) => SPAD.t + (1 - (v - lo) / (hi - lo)) * (SH - SPAD.t - SPAD.b);
   const line = (vals: number[], from: number) => vals.map((v, i) => `${i === 0 ? "M" : "L"}${x(from + i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const last = fut.length ? fut[fut.length - 1] : past[past.length - 1];
   return (
-    <svg viewBox={`0 0 ${SW} ${SH}`} width={SW} height={SH} className="block" aria-hidden="true">
-      <line x1={0} x2={SW} y1={y(past[0])} y2={y(past[0])} stroke="var(--lab-ink)" strokeOpacity={0.35} />
-      {differs ? <path d={line(un, 0)} fill="none" stroke="var(--lab-ink-2)" strokeOpacity={0.6} strokeWidth={1.4} strokeDasharray="1.2 2.4" strokeLinecap="round" /> : null}
-      {fut.length > 1 ? <path d={line(fut, clock)} fill="none" stroke="var(--lab-scenario)" strokeWidth={1.6} strokeDasharray="4 2.5" /> : null}
-      <path d={line(past, 0)} fill="none" stroke="var(--lab-ink)" strokeWidth={1.7} strokeLinejoin="round" />
-      <circle cx={x(clock)} cy={y(past[past.length - 1])} r={2} fill="var(--lab-ink)" />
+    <svg viewBox={`0 0 ${SW} ${SH}`} width={compact ? SW : undefined} height={compact ? SH : undefined} className={compact ? "block" : "game-fw-spark block w-full"} aria-hidden="true">
+      <line x1={SPAD.l} x2={SW - SPAD.r} y1={y(past[0])} y2={y(past[0])} stroke="var(--lab-ink)" strokeOpacity={0.35} />
+      {differs ? <path d={line(un, 0)} fill="none" stroke="var(--lab-ink-2)" strokeWidth={1.5} strokeDasharray="1.5 3" strokeLinecap="round" /> : null}
+      {fut.length > 1 ? <path d={line(fut, clock)} fill="none" stroke="var(--lab-scenario)" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" /> : null}
+      <path d={line(past, 0)} fill="none" stroke="var(--lab-ink)" strokeWidth={2} strokeLinejoin="round" />
+      <circle cx={x(clock)} cy={y(past[past.length - 1])} r={3} fill="var(--lab-ink)" />
+      {compact ? null : <circle cx={x(end)} cy={y(last)} r={3.5} fill="var(--lab-scenario)" stroke="var(--lab-paper)" strokeWidth={1.5} />}
+      {compact ? null : <text x={x(end) + 7} y={Math.min(SH - 2, Math.max(14, y(last) + 5))} fontSize={15} fontWeight={700} fill="var(--lab-scenario)">
+        {last.toFixed(digits)}
+      </text>}
     </svg>
   );
 }

@@ -3,6 +3,8 @@
 import { Html } from "@react-three/drei";
 import Glyph from "../game/ui/Glyph";
 import { labelLayer } from "./labelLayer";
+import type { SceneCue } from "../store";
+export { PLACE } from "./places";
 
 export type IconName = "crown" | "scroll" | "bank" | "gauge" | "factory" | "anchor" | "coins" | "house" | "beacon" | "drop";
 
@@ -50,6 +52,9 @@ export default function Label({
   delta,
   dock,
   status,
+  place,
+  cue,
+  shocked = false,
 }: {
   position: [number, number, number];
   title: string;
@@ -70,12 +75,19 @@ export default function Label({
   dock?: LabelDock;
   /** The district's goal is in trouble: shown as the goal cards show it, a square and a word. */
   status?: "at-risk" | "failed";
+  /** The district's place name on the map: "Campus", "Port". */
+  place?: string;
+  /** What moved most here last quarter, pinned through the recap. */
+  cue?: SceneCue;
+  /** A news card points here. */
+  shocked?: boolean;
 }) {
+  const plain = !next && !status;
   return (
     <Html position={position} center={!dock} calculatePosition={dock ? DOCK_AT[dock] : undefined} zIndexRange={[8, 0]} style={{ pointerEvents: "none" }} portal={labelLayer as React.RefObject<HTMLElement>}>
       <div
         aria-hidden={hidden}
-        className={`lab-scene-label ${capital ? "is-capital" : ""} ${next ? "is-pending" : ""} ${bad ? "is-bad" : ""} ${focus ? "is-focus" : ""} ${status ? `has-status is-${status}` : ""} ${dock ? `is-docked is-docked-${dock}` : ""}`}
+        className={`lab-scene-label ${capital ? "is-capital" : ""} ${next ? "is-pending" : ""} ${bad ? "is-bad" : ""} ${focus ? "is-focus" : ""} ${status ? `has-status is-${status}` : ""} ${dock ? `is-docked is-docked-${dock}` : ""} ${cue && plain ? "has-cue" : ""} ${shocked ? "is-shocked" : ""}`}
         style={{ transform: dock ? undefined : `rotate(${tilt * 0.4}deg)`, opacity: hidden ? 0 : 1, transition: "opacity 160ms ease", ["--label-accent" as string]: accent ?? "var(--lab-scenario)" }}
       >
         {icon ? (
@@ -86,6 +98,20 @@ export default function Label({
           </span>
         ) : null}
         <span className="lab-banner-text">
+          {/* The place name shows while the layer is naming districts (see labelLayer), or
+              with a cue or a news card; CSS decides, so naming costs no React work. */}
+          {place ? (
+            <>
+              <span className="lab-banner-place">{place}</span>
+              <span className="lab-banner-sep" aria-hidden="true"> · </span>
+            </>
+          ) : null}
+          {cue && plain ? (
+            <span className="lab-banner-cue">
+              {cue.label} <Glyph name={cue.up ? "up" : "down"} /> <strong>{cue.size}</strong>
+            </span>
+          ) : (
+            <>
           <span className="lab-banner-title">{title}</span>{" "}
           {next ? (
             <>
@@ -101,6 +127,8 @@ export default function Label({
               <Glyph name="arrow" /> <span className="lab-banner-word">next</span> <strong>{next}</strong>
             </span>
           ) : null}
+            </>
+          )}
         </span>
         {next && delta ? (
           <span key={`${delta}:${next}`} className="lab-banner-delta">

@@ -19,8 +19,9 @@ import Advisors from "./Advisors";
 import Goals from "./Goals";
 import Levers from "./Levers";
 import { attention } from "../pacing";
-import { useLab, type FocusKey } from "../../store";
-import { fmtNum, GAME_METRICS, unitShort } from "../metrics";
+import { useLab, type FocusKey, type SceneCue } from "../../store";
+import { nameDistricts } from "../../scene/labelLayer";
+import { deltaUnit, fmtNum, GAME_METRICS, unitShort } from "../metrics";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -53,6 +54,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
     useLab.setState({ districtStatus: out });
     return () => useLab.setState({ districtStatus: {} });
   }, [troubleKey]);
+  useSceneCues();
   const endQuarter = useGame((s) => s.endQuarter);
   const modal = useGame((s) => s.modal);
   const setScreen = useGame((s) => s.setScreen);
@@ -144,7 +146,8 @@ export default function Play({ scene }: { scene: ReactNode }) {
                   className={`${i < clock ? "is-done" : i === clock ? "is-now" : ""} ${shock ? "has-shock" : ""} ${election ? "has-election" : ""}`}
                   style={i >= sweep.from && i < clock && sweepStep ? ({ "--sweep-delay": `${Math.round((i - sweep.from) * sweepStep)}ms` } as CSSProperties) : undefined}
                   title={`${quarterLabel(q)}${shock ? " · known shock" : ""}${election ? " · election" : ""}`}>
-                  {(q - 1) % 4 === 0 ? <em>{quarterLabel(q).slice(0, 4)}</em> : null}
+                  {(q - 1) % 4 === 0 && i !== clock && i !== clock - 1 ? <em>{quarterLabel(q).slice(0, 4)}</em> : null}
+                  {i === clock ? <em className="is-code">{(q - 1) % 4 === 0 ? quarterLabel(q).replace("Q", " Q") : quarterLabel(q).slice(4)}</em> : null}
                 </span>
               );
             })}
@@ -184,6 +187,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
               <Levers />
               <DecisionLog />
               <Hint text={mission.hint} />
+              <FreePlayLink />
             </>
           ) : (
             <Reforms />
@@ -229,11 +233,76 @@ export default function Play({ scene }: { scene: ReactNode }) {
         <aside className="game-col game-col-goals" aria-label="Goals">
           <h2 className="game-col-title">Goals</h2>
           <Goals />
-          <FreePlayLink />
         </aside>
       </main>
     </div>
   );
+}
+
+/**
+ * The island names its districts while a lever moves and for a few seconds after a quarter
+ * ends, and pins a delta tag to the district whose goal figure moved most; the tag stays up
+ * through the recap and goes when the group starts planning again.
+ */
+function useSceneCues() {
+  const { mission, actual, clock } = useTurn();
+  const modal = useGame((s) => s.modal);
+  const lastClock = useRef(clock);
+  const hadModal = useRef(Boolean(modal));
+
+  useEffect(() => {
+    const isLever = (t: EventTarget | null) => t instanceof Element && Boolean(t.closest(".game-col-levers .lab-range, .game-col-levers .lab-step"));
+    let dragging = false;
+    const down = (e: PointerEvent) => {
+      if (!isLever(e.target)) return;
+      dragging = true;
+      nameDistricts("hold");
+    };
+    const up = () => {
+      if (!dragging) return;
+      dragging = false;
+      nameDistricts(1500);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (isLever(e.target) && e.key.startsWith("Arrow")) nameDistricts(2000);
+    };
+    window.addEventListener("pointerdown", down);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("keydown", key);
+    return () => {
+      window.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("keydown", key);
+      nameDistricts("off");
+      useLab.setState({ sceneCue: {} });
+    };
+  }, []);
+
+  useEffect(() => {
+    const prev = lastClock.current;
+    lastClock.current = clock;
+    if (clock <= prev || !actual[prev]) {
+      if (clock < prev) useLab.setState({ sceneCue: {} });
+      return;
+    }
+    nameDistricts(3000);
+    const judged = Array.from(new Set(mission.objectives.filter((o) => !o.bonus).map((o) => o.metric)));
+    const moves = judged
+      .map((m) => ({ m, d: actual[clock][m] - actual[prev][m] }))
+      .filter((x) => Math.abs(x.d) >= 0.1)
+      .sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+    const cue: Partial<Record<FocusKey, SceneCue>> = {};
+    for (const { m, d } of moves.slice(0, 1)) {
+      const meta = GAME_METRICS[m];
+      cue[m as FocusKey] = { label: meta.label.toLowerCase(), up: d > 0, size: `${fmtNum(Math.abs(d), meta.digits)}${deltaUnit(meta.unit)}` };
+    }
+    useLab.setState({ sceneCue: cue });
+  }, [clock, actual, mission]);
+
+  useEffect(() => {
+    if (hadModal.current && !modal) useLab.setState({ sceneCue: {} });
+    hadModal.current = Boolean(modal);
+  }, [modal]);
 }
 
 /**
@@ -291,13 +360,15 @@ function DecisionLog() {
   const turns = useGame((s) => s.turns);
   const config = useLab((s) => s.config);
   const clock = useLab((s) => s.clock);
+  // Wide screens have the room: the record starts open in the lever column.
+  const wide = useWide();
   const start = turns[0];
   if (!start) return null;
   const inherited = new Set(start.decisions.map((d) => JSON.stringify(d)));
   const inheritedText = start.decisions.filter((d) => d.quarter === 0).map((d) => describeChanges(d.changes)).join(" · ");
   const mine = config.decisions.filter((d) => d.quarter >= 1 && d.quarter <= clock && !inherited.has(JSON.stringify(d))).sort((a, b) => b.quarter - a.quarter);
   return (
-    <details className="game-log">
+    <details className="game-log" open={wide || undefined}>
       <summary>Your decisions so far{mine.length ? ` · ${mine.length}` : ""}</summary>
       <table className="game-log-table">
         <thead>
@@ -321,6 +392,13 @@ function DecisionLog() {
       </table>
     </details>
   );
+}
+
+/** True on screens wide enough for the three-column table (read once, after mount). */
+function useWide(query = "(min-width: 1180px) and (min-height: 760px)") {
+  const [wide, setWide] = useState(false);
+  useEffect(() => setWide(window.matchMedia(query).matches), [query]);
+  return wide;
 }
 
 /** Everything that isn't the turn: the framework (phones), sound, settings, missions, restart. */

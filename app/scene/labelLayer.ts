@@ -31,11 +31,12 @@ export function startLabelDodge(root: HTMLElement): () => void {
     raf = requestAnimationFrame(tick);
     if (++frame % 4) return;
     const list = root.querySelectorAll<HTMLElement>(".lab-scene-label");
+    const naming = root.classList.contains("is-naming");
     let n = 0;
     for (let i = 0; i < list.length && n < MAX; i++) {
       const el = list[i];
       const anchor = el.parentElement;
-      if (!anchor || el.classList.contains("is-docked") || el.getAttribute("aria-hidden") === "true" || el.offsetParent === null) {
+      if (!anchor || el.classList.contains("is-docked") || (!naming && el.getAttribute("aria-hidden") === "true") || el.offsetParent === null) {
         if (el.style.getPropertyValue("--dodge")) el.style.removeProperty("--dodge");
         continue;
       }
@@ -82,4 +83,17 @@ export function startLabelDodge(root: HTMLElement): () => void {
   };
   raf = requestAnimationFrame(tick);
   return () => cancelAnimationFrame(raf);
+}
+
+/**
+ * Name every district on the island for a while (a lever moving, a quarter just ended):
+ * a class on the label layer that CSS reads, so it costs no React render.
+ */
+let namingTimer: ReturnType<typeof setTimeout> | undefined;
+export function nameDistricts(ms: number | "hold" | "off") {
+  clearTimeout(namingTimer);
+  const el = labelLayer.current;
+  if (!el) return;
+  el.classList.toggle("is-naming", ms !== "off");
+  if (typeof ms === "number") namingTimer = setTimeout(() => labelLayer.current?.classList.remove("is-naming"), ms);
 }
