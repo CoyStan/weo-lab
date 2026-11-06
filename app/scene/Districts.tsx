@@ -1,7 +1,7 @@
 "use client";
 
 import { P, SC } from "./palette";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ConstraintVar } from "../model/types";
 import * as THREE from "three";
@@ -23,7 +23,11 @@ const SKYBLUE = SC.cool;
 
 const site = (k: keyof typeof WORLD.sites): [number, number, number] => [WORLD.sites[k].x, TOP, WORLD.sites[k].z];
 
-/** Each district stands on its own hex; the tanker anchors offshore. */
+/**
+ * Each district stands on its own hex; the tanker anchors offshore, in open
+ * water north-east of the island where the home view is widest, so its hull
+ * stays inside the canvas at 1440x900 and on phones (checked against the hex map).
+ */
 export const DISTRICT_POS: Partial<Record<FocusKey, [number, number, number]>> = {
   debt: site("debt"),
   rate: site("rate"),
@@ -33,7 +37,7 @@ export const DISTRICT_POS: Partial<Record<FocusKey, [number, number, number]>> =
   reserves: site("reserves"),
   unemp: site("unemp"),
   cred: site("cred"),
-  oil: [15.5, 0, 5.5],
+  oil: [12.2, 0, -12.2],
 };
 
 /** District type: colour slot in the palette, emblem, and scale that fits the model on one hex. */
@@ -104,7 +108,34 @@ function HexBadge({ color, active, breached, reducedMotion, scale }: { color: st
   );
 }
 
-function District({ focusKey, position, labelY, labelX = 0, title, value, next, bad, tilt, children, reducedMotion }: { focusKey: FocusKey; position: [number, number, number]; labelY: number; labelX?: number; title: string; value: string; next?: string; bad?: boolean; tilt?: number; children: ReactNode; reducedMotion: boolean; pad?: number }) {
+/**
+ * Below this canvas width (phones) the island is too small for banners over the
+ * buildings near the town: the capital's banner and a pending decision's banner
+ * pin to the canvas corners instead, so the debt tower stays in view.
+ */
+const NARROW_CANVAS = 560;
+const useNarrowCanvas = () => useThree((s) => s.size.width < NARROW_CANVAS);
+
+function District({ focusKey, position, labelY, labelX = 0, pendingLabel, dockPending = false, dockValue, title, value, next, bad, tilt, children, reducedMotion }: {
+  focusKey: FocusKey;
+  position: [number, number, number];
+  labelY: number;
+  labelX?: number;
+  /** [y, x] of the banner while a decision is pending and the district is not focused. */
+  pendingLabel?: [number, number];
+  /** On a narrow canvas, pin the pending banner to the canvas corner instead of the building. */
+  dockPending?: boolean;
+  /** A shorter reading for the docked banner, so it stays clear of the buildings below it. */
+  dockValue?: string;
+  title: string;
+  value: string;
+  next?: string;
+  bad?: boolean;
+  tilt?: number;
+  children: ReactNode;
+  reducedMotion: boolean;
+  pad?: number;
+}) {
   const style = DISTRICT_STYLE[focusKey] ?? { slot: 0, icon: "scroll" as IconName, scale: 1 };
   const color = P.districts[style.slot % P.districts.length];
   const focus = useLab((s) => s.focus);
@@ -115,13 +146,19 @@ function District({ focusKey, position, labelY, labelX = 0, title, value, next, 
   const breached = (BREACH_MAP[focusKey] ?? []).some((v) => breachedNow.has(v));
   const [hover, setHover] = useState(false);
   const group = useRef<THREE.Group>(null);
-  const active = hover || focus === focusKey;
+  const focused = focus === focusKey;
+  const active = hover || focused;
   const showLabel = labels === "all" || active || breached || spotlit;
+  const narrow = useNarrowCanvas();
+  const dock = next && dockPending && narrow ? "top-right" : undefined;
+  // A pending banner can ride somewhere else so it clears its neighbours; once the camera
+  // flies in to the district it comes back down by the building, or it would leave the frame.
+  const [ly, lx] = next && pendingLabel && !focused ? pendingLabel : [labelY, labelX];
   // Value pills sit outward from the island's centre, so they don't pile up over the town;
   // a pending decision keeps its banner right by its building.
   const out = Math.hypot(position[0], position[2]) || 1;
   const push = next || active || focusKey === "oil" ? 0 : 2.6 / style.scale;
-  const labelPos: [number, number, number] = [labelX + (position[0] / out) * push, labelY, (position[2] / out) * push];
+  const labelPos: [number, number, number] = [lx + (position[0] / out) * push, ly, (position[2] / out) * push];
 
   useEffect(() => {
     if (!hover) return;
@@ -196,7 +233,7 @@ function District({ focusKey, position, labelY, labelX = 0, title, value, next, 
         <ringGeometry args={[2.1, 2.45, 48]} />
         <meshBasicMaterial color={color} transparent opacity={0} depthWrite={false} />
       </mesh>
-      <Label position={labelPos} title={breached ? `${title} · constraint breached` : title} value={value} next={next} bad={bad || breached} focus={active || Boolean(next)} tilt={tilt} hidden={!showLabel && !next} accent={color} icon={style.icon} />
+      <Label position={labelPos} title={breached ? `${title} · constraint breached` : title} value={dock && dockValue ? dockValue : value} next={next} bad={bad || breached} focus={active || Boolean(next)} tilt={tilt} hidden={!showLabel && !next} accent={color} icon={style.icon} dock={dock} />
     </group>
   );
 }
@@ -354,10 +391,10 @@ function CentralBank({ reducedMotion }: { reducedMotion: boolean }) {
   });
   const stanceWord = stance > 0.33 ? "tight" : stance < -0.33 ? "loose" : "neutral";
   const next = policy.rateMode === "manual" && current.regime !== "peg" && Math.abs(policy.manualRate - current.rate) > 0.01 ? `${fmt(policy.manualRate, 2)}%` : undefined;
-  // A pending decision pins the banner by the building; it rides high and to the
-  // right of the dome so it never covers the top of the debt tower next door.
+  // A pending decision rides high and to the right of the dome so it never covers the
+  // top of the debt tower next door; on a phone it pins to the canvas corner instead.
   return (
-    <District focusKey="rate" pad={2.35} position={DISTRICT_POS.rate!} labelY={next ? 9.6 : 6.1} labelX={next ? 3.0 : -1.5} title={`Central bank · ${stanceWord}`} value={`${fmt(current.rate, 2)}% · ${regimeName(current.regime)}`} next={next} tilt={0.8} reducedMotion={reducedMotion}>
+    <District focusKey="rate" pad={2.35} position={DISTRICT_POS.rate!} labelY={6.1} labelX={-1.5} pendingLabel={[9.6, 3.0]} dockPending dockValue={`${fmt(current.rate, 2)}%`} title={`Central bank · ${stanceWord}`} value={`${fmt(current.rate, 2)}% · ${regimeName(current.regime)}`} next={next} tilt={0.8} reducedMotion={reducedMotion}>
       <mesh position-y={0.15} receiveShadow castShadow>
         <cylinderGeometry args={[2.0, 2.1, 0.3, 8]} />
         <meshStandardMaterial color={P.stone} roughness={1} flatShading={P.flat} />
@@ -751,9 +788,11 @@ function Freighter({ shipRef, cargo }: { shipRef: (el: THREE.Group | null) => vo
 }
 
 /**
- * Harbour: export (good) and import (bad) container stacks follow the
- * current account; freighters at anchor follow export volume, a mix of the
- * current account and how competitive the currency is.
+ * Harbour: export (brand ink) and import (rust brown) container stacks
+ * follow the current account; the difference is in their height, not in a
+ * good/bad colour, since imports are not a bad thing in themselves.
+ * Freighters at anchor follow export volume, a mix of the current account
+ * and how competitive the currency is.
  */
 function Port({ reducedMotion }: { reducedMotion: boolean }) {
   const current = useLab(selectCurrent);
@@ -767,11 +806,11 @@ function Port({ reducedMotion }: { reducedMotion: boolean }) {
   const anchored = useRef<(THREE.Group | null)[]>([]);
   const shades = useMemo(() => {
     const out: THREE.Color[] = [];
-    for (let i = 0; i < MAX_CONTAINERS * 2; i++) out.push(new THREE.Color(i < MAX_CONTAINERS ? P.good : P.bad).multiplyScalar(0.86 + ((i * 5) % 3) * 0.07));
+    for (let i = 0; i < MAX_CONTAINERS * 2; i++) out.push(new THREE.Color(i < MAX_CONTAINERS ? P.accent : P.trunk).multiplyScalar(0.86 + ((i * 5) % 3) * 0.07));
     return out;
   }, []);
   const last = useRef({ e: -1, m: -1 });
-  useLayoutEffect(() => primeInstances(boxes.current, P.good), []);
+  useLayoutEffect(() => primeInstances(boxes.current, P.accent), []);
 
   useFrame((state) => {
     const { exportsCount: e, importsCount: m, ships: n } = sm.current;
@@ -1148,7 +1187,7 @@ function Tanker({ reducedMotion }: { reducedMotion: boolean }) {
   });
   return (
     <District focusKey="oil" position={DISTRICT_POS.oil!} labelY={2.2} title="Tanker · oil" value={`$${fmt(current.oil, 0)}${Math.abs(dev) > 0.05 ? ` (${fmt(dev * 100, 0, true)}%)` : ""}`} bad={dev > 0.3} tilt={1.2} reducedMotion={reducedMotion}>
-      <group ref={group} rotation-y={-0.5}>
+      <group ref={group} rotation-y={-0.3}>
         <mesh castShadow>
           <boxGeometry args={[4.2, 0.7, 1.3]} />
           <meshStandardMaterial color={P.hull} roughness={0.7} flatShading={P.flat} />
@@ -1172,8 +1211,9 @@ function Tanker({ reducedMotion }: { reducedMotion: boolean }) {
 function CityBanner() {
   const presetId = useLab((s) => s.config.presetId);
   const gdp = useLab((s) => Math.round(s.result.path[Math.min(s.clock, s.result.path.length - 1)].gdpLevel));
+  const narrow = useNarrowCanvas();
   const { x, z } = WORLD.sites.center;
-  return <Label position={[x - 0.8, TOP + 1.5, z]} title="Capital · GDP index" value={`${getPreset(presetId).name} · ${gdp}`} accent={P.border} icon="crown" capital />;
+  return <Label position={[x - 0.8, TOP + 1.5, z]} title="Capital · GDP index" value={`${getPreset(presetId).name} · ${gdp}`} accent={P.border} icon="crown" capital dock={narrow ? "bottom-left" : undefined} />;
 }
 
 export default function Districts({ reducedMotion }: { reducedMotion: boolean }) {
