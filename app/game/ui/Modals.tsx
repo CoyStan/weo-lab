@@ -102,7 +102,10 @@ function RecapCard({ recap }: { recap: Recap }) {
           const d = recap.now[m] - recap.prev[m];
           return (
             <div key={m} className="game-recap-stat">
-              <span className="text-[0.75rem] font-semibold text-[var(--lab-ink-2)]">{meta.label}</span>
+              <span className="flex items-center justify-between gap-2 text-[0.75rem] font-semibold text-[var(--lab-ink-2)]">
+                {meta.label}
+                <StatusPill status={worstStatus(mission, recap, m)} />
+              </span>
               <span className="game-recap-value font-display text-[1.7rem] font-semibold leading-none tabular-nums">
                 {fmtNum(recap.now[m], meta.digits)}
                 <span className="text-[0.75rem] font-normal">{unitShort(meta.unit)}</span>
@@ -155,7 +158,7 @@ function RecapCard({ recap }: { recap: Recap }) {
       </div>
 
       <h3 className="mt-3 mb-1 text-[0.75rem] font-semibold text-[var(--lab-ink-2)]">Your advisors on the quarter ahead</h3>
-      <AdviceList advice={recap.advice} compact />
+      <AdviceList advice={recap.advice.map((a) => ({ ...a, text: firstSentence(a.text) }))} compact />
 
       <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
         <button type="button" className="lab-btn lab-btn-ghost lab-btn-md" onClick={() => setFramework(true)} title="Every sector, every channel, and why things moved">
@@ -404,4 +407,20 @@ function outcomeTone(mission: Mission, metric: string, d: number): string {
   const o = mission.objectives.find((x) => x.metric === metric && !x.bonus) ?? mission.objectives.find((x) => x.metric === metric);
   if (!o) return "";
   return (o.op === "<=" ? d < 0 : d > 0) ? "is-good" : "is-bad";
+}
+
+function firstSentence(text: string): string {
+  const m = text.match(/^.*?[.!?](\s|$)/);
+  return m ? m[0].trim() : text;
+}
+
+function worstStatus(mission: Mission, recap: Recap, metric: string): ObjectiveStatus | null {
+  const order: ObjectiveStatus[] = ["failed", "at-risk", "on-track", "met"];
+  const list = recap.statuses.filter((s) => mission.objectives.find((o) => o.id === s.id && o.metric === metric && !o.bonus)).map((s) => s.after);
+  return order.find((o) => list.includes(o)) ?? null;
+}
+
+function StatusPill({ status }: { status: ObjectiveStatus | null }) {
+  if (!status) return null;
+  return <span className={`game-status is-${status}`}>{STATUS_WORD[status].charAt(0).toUpperCase() + STATUS_WORD[status].slice(1)}</span>;
 }

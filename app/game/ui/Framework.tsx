@@ -16,6 +16,14 @@ const TABS: { id: FrameworkTab; label: string; sub: string }[] = [
   { id: "accounts", label: "Sector accounts", sub: "Every indicator, every sector" },
 ];
 
+/** One headline indicator per sector for the overview. */
+const OVERVIEW: { sector: Sector["id"]; key: RowMeta["key"] }[] = [
+  { sector: "real", key: "growth" },
+  { sector: "prices", key: "infl" },
+  { sector: "fiscal", key: "debt" },
+  { sector: "external", key: "ca" },
+];
+
 const STATUS_WORD: Record<ChannelStatus, string> = { active: "Working", weak: "Muted", blocked: "Blocked", idle: "Idle" };
 
 const fmt = (v: number, d: number) => (Math.abs(v) < 0.5 * Math.pow(10, -d) ? (0).toFixed(d) : v.toFixed(d));
@@ -107,8 +115,35 @@ function FrameworkPanel() {
                 ))}
               </ul>
             ) : (
-              <p className="game-fw-sub">Nothing unusual: the economy is responding the way the channels below suggest.</p>
+              <p className="game-fw-sub">Nothing unusual: the economy is responding the way the channels suggest.</p>
             )}
+            <div className="game-fw-overview">
+              {OVERVIEW.map(({ sector, key }) => {
+                const row = SECTORS.find((x) => x.id === sector)!.rows.find((r) => r.key === key)!;
+                const effect = forecast[end][key] - untouched[end][key];
+                return (
+                  <button key={key} type="button" className="game-fw-tile" onClick={() => setTab("accounts")} title="Open the sector accounts">
+                    <span className="game-fw-tile-sector">{SECTORS.find((x) => x.id === sector)!.title}</span>
+                    <span className="game-fw-tile-label">{row.label}</span>
+                    <span className="game-fw-tile-value">
+                      {shown[key].toFixed(row.digits)}
+                      <small>{unitTail(row.unit)}</small>
+                    </span>
+                    <Spark rowKey={key} actual={actual} forecast={forecast} untouched={touched ? untouched : null} clock={clock} end={end} />
+                    <span className="game-fw-tile-foot">
+                      {forecast[end].label}: {forecast[end][key].toFixed(row.digits)}
+                      {touched && Math.abs(effect) >= 0.05 ? <b className={row.good ? (Math.sign(effect) === row.good ? "is-good" : "is-bad") : ""}> · yours {effect > 0 ? "+" : ""}{effect.toFixed(row.digits)}</b> : null}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="game-fw-next">
+              <span>Dig deeper:</span>
+              <button type="button" onClick={() => setTab("path")}>2 · What caused the path</button>
+              <button type="button" onClick={() => setTab("channels")}>3 · How your levers reach the economy</button>
+              <button type="button" onClick={() => setTab("accounts")}>4 · Every indicator</button>
+            </div>
           </section>
         ) : null}
 

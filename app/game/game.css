@@ -2724,3 +2724,218 @@
     display: none;
   }
 }
+
+/* ---- Design council, round 4 prep: game feel and the empty places -------- */
+
+/* The island answers a decision before it plays out. */
+.lab-scene-label.is-pending {
+  border-color: var(--lab-scenario);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--lab-scenario) 22%, transparent), 0 6px 16px color-mix(in srgb, var(--lab-ink) 16%, transparent);
+}
+
+.lab-banner-value {
+  animation: game-label-pop 0.45s var(--game-ease) both;
+}
+
+.lab-banner-next {
+  font-style: normal;
+  color: var(--lab-scenario);
+}
+
+@keyframes game-label-pop {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.4;
+  }
+  60% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.is-reduced .lab-banner-value {
+  animation: none;
+}
+
+/* Goal cards: what this quarter's change does, in the card's corner. */
+.game-move-chip {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.55rem;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  border-radius: var(--game-r-sm);
+  padding: 0.15rem 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--lab-scenario) 10%, transparent);
+  color: var(--lab-scenario);
+  animation: game-label-pop 0.4s var(--game-ease) both;
+}
+
+.game-move-chip small {
+  font-size: 0.75rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.game-move-chip.is-good {
+  background: color-mix(in srgb, var(--lab-good-mark) 16%, transparent);
+  color: var(--lab-good);
+}
+
+.game-move-chip.is-bad {
+  background: color-mix(in srgb, var(--lab-alert) 12%, transparent);
+  color: var(--lab-bad);
+}
+
+/* Turn track: thicker, so time passing reads from across the room. */
+.game-progress-track {
+  gap: 4px;
+}
+
+.game-progress-track span {
+  height: 9px;
+  border-radius: 5px;
+}
+
+/* Title: a paper panel keeps the copy legible over the island. */
+.game-title-card {
+  border: 1px solid color-mix(in srgb, var(--lab-line) 70%, transparent);
+  border-radius: var(--game-r-lg);
+  background: color-mix(in srgb, var(--lab-paper) 90%, transparent);
+  padding: clamp(1.25rem, 3vw, 2.25rem);
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--lab-ink) 14%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+/* Mission list: uses the screen, cards with presence. */
+.game-overlay.is-scroll {
+  align-items: safe center;
+}
+
+.game-mission {
+  min-height: 10.5rem;
+  padding: 1.1rem 1.2rem;
+  gap: 0.35rem;
+}
+
+.game-mission-title {
+  font-size: 1.45rem;
+}
+
+.game-mission-kicker {
+  font-size: 0.9rem;
+}
+
+.game-mission-meta {
+  font-size: 0.8rem;
+}
+
+/* Framework "Why": a four-number overview and onward links. */
+.game-fw-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+.game-fw-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  border: 1px solid var(--lab-line);
+  border-radius: var(--game-r-md);
+  background: var(--lab-paper);
+  padding: 0.75rem 0.85rem;
+  text-align: left;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.game-fw-tile:hover {
+  border-color: var(--lab-scenario);
+  transform: translateY(-2px);
+}
+
+.game-fw-tile svg {
+  width: 100%;
+  height: 34px;
+}
+
+.game-fw-tile-sector {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--lab-ink-2);
+}
+
+.game-fw-tile-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.game-fw-tile-value {
+  font-family: var(--lab-font-display);
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.game-fw-tile-value small {
+  margin-left: 0.15rem;
+  font-family: var(--lab-font-ui);
+  font-size: 0.8rem;
+  color: var(--lab-ink-2);
+}
+
+.game-fw-tile-foot {
+  font-size: 0.8rem;
+  color: var(--lab-ink-2);
+}
+
+.game-fw-tile-foot .is-good {
+  color: var(--lab-good);
+}
+
+.game-fw-tile-foot .is-bad {
+  color: var(--lab-bad);
+}
+
+.game-fw-next {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+  font-size: 0.85rem;
+  color: var(--lab-ink-2);
+}
+
+.game-fw-next button {
+  border: 1px solid var(--lab-line);
+  border-radius: var(--game-r-sm);
+  padding: 0.3rem 0.65rem;
+  font-weight: 600;
+  color: var(--lab-ink);
+}
+
+.game-fw-next button:hover {
+  border-color: var(--lab-scenario);
+  color: var(--lab-scenario);
+}
+
+@media (max-width: 760px) {
+  .game-fw-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .lab-scene-label {
+    transform: scale(0.88) !important;
+  }
+}

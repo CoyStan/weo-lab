@@ -37,6 +37,7 @@ export default function Label({
   accent,
   icon,
   capital = false,
+  next,
 }: {
   position: [number, number, number];
   title: string;
@@ -49,12 +50,14 @@ export default function Label({
   icon?: IconName;
   /** The capital's banner: larger, ink-filled. */
   capital?: boolean;
+  /** A decision taken this quarter that hasn't played out yet, shown as "→ next". */
+  next?: string;
 }) {
   return (
     <Html position={position} center zIndexRange={[8, 0]} style={{ pointerEvents: "none" }} portal={labelLayer as React.RefObject<HTMLElement>}>
       <div
         aria-hidden={hidden}
-        className={`lab-scene-label ${capital ? "is-capital" : ""} ${bad ? "is-bad" : ""} ${focus ? "is-focus" : ""}`}
+        className={`lab-scene-label ${capital ? "is-capital" : ""} ${next ? "is-pending" : ""} ${bad ? "is-bad" : ""} ${focus ? "is-focus" : ""}`}
         style={{ transform: `rotate(${tilt * 0.4}deg)`, opacity: hidden ? 0 : 1, transition: "opacity 160ms ease", ["--label-accent" as string]: accent ?? "var(--lab-scenario)" }}
       >
         {icon ? (
@@ -66,7 +69,10 @@ export default function Label({
         ) : null}
         <span className="lab-banner-text">
           {title}
-          <strong>{value}</strong>
+          <strong key={value} className="lab-banner-value">
+            {value}
+            {next ? <em className="lab-banner-next"> → {next}</em> : null}
+          </strong>
         </span>
       </div>
     </Html>

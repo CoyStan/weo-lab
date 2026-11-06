@@ -103,7 +103,7 @@ function HexBadge({ color, active, breached, reducedMotion, scale }: { color: st
   );
 }
 
-function District({ focusKey, position, labelY, labelX = 0, title, value, bad, tilt, children, reducedMotion }: { focusKey: FocusKey; position: [number, number, number]; labelY: number; labelX?: number; title: string; value: string; bad?: boolean; tilt?: number; children: ReactNode; reducedMotion: boolean; pad?: number }) {
+function District({ focusKey, position, labelY, labelX = 0, title, value, next, bad, tilt, children, reducedMotion }: { focusKey: FocusKey; position: [number, number, number]; labelY: number; labelX?: number; title: string; value: string; next?: string; bad?: boolean; tilt?: number; children: ReactNode; reducedMotion: boolean; pad?: number }) {
   const style = DISTRICT_STYLE[focusKey] ?? { slot: 0, icon: "scroll" as IconName, scale: 1 };
   const color = P.districts[style.slot % P.districts.length];
   const focus = useLab((s) => s.focus);
@@ -151,7 +151,7 @@ function District({ focusKey, position, labelY, labelX = 0, title, value, bad, t
       >
         {children}
       </group>
-      <Label position={[labelX, labelY, 0]} title={breached ? `${title} · constraint breached` : title} value={value} bad={bad || breached} focus={active} tilt={tilt} hidden={!showLabel} accent={color} icon={style.icon} />
+      <Label position={[labelX, labelY, 0]} title={breached ? `${title} · constraint breached` : title} value={value} next={next} bad={bad || breached} focus={active || Boolean(next)} tilt={tilt} hidden={!showLabel && !next} accent={color} icon={style.icon} />
     </group>
   );
 }
@@ -233,7 +233,7 @@ function CentralBank({ reducedMotion }: { reducedMotion: boolean }) {
   });
   const stanceWord = stance > 0.33 ? "tight" : stance < -0.33 ? "loose" : "neutral";
   return (
-    <District focusKey="rate" pad={2.35} position={DISTRICT_POS.rate!} labelY={6.1} labelX={-1.5} title={`Central bank · ${stanceWord}`} value={`${fmt(current.rate, 2)}% · ${regimeName(current.regime)}`} tilt={0.8} reducedMotion={reducedMotion}>
+    <District focusKey="rate" pad={2.35} position={DISTRICT_POS.rate!} labelY={6.1} labelX={-1.5} title={`Central bank · ${stanceWord}`} value={`${fmt(current.rate, 2)}% · ${regimeName(current.regime)}`} next={policy.rateMode === "manual" && current.regime !== "peg" && Math.abs(policy.manualRate - current.rate) > 0.01 ? `${fmt(policy.manualRate, 2)}%` : undefined} tilt={0.8} reducedMotion={reducedMotion}>
       <mesh position-y={0.15} receiveShadow castShadow>
         <cylinderGeometry args={[2.0, 2.1, 0.3, 8]} />
         <meshStandardMaterial color={P.stone} roughness={1} flatShading={P.flat} />

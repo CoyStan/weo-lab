@@ -76,6 +76,13 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
             ) : null}
           </div>
         </div>
+        {probeDelta === null && clock < end && Math.abs(forecast[end][metric] - ghost[end][metric]) >= 0.05 ? (
+          <span className={`game-move-chip ${moveTone(objectives, forecast[end][metric] - ghost[end][metric])}`} title={`What this quarter's changes do to ${meta.label.toLowerCase()} by ${quarterLabel(end)}`}>
+            <small>Your move</small>
+            {forecast[end][metric] - ghost[end][metric] > 0 ? "▲" : "▼"} {fmtNum(forecast[end][metric] - ghost[end][metric], meta.digits, true)}
+            {deltaUnit(meta.unit)}
+          </span>
+        ) : null}
         {probeDelta !== null && Math.abs(probeDelta) >= 0.05 ? (
           <span className={`game-probe-chip ${probeDelta > 0 ? "is-up" : "is-down"}`} title="Effect of the lever under your pointer, by the end of the mission">
             {probeDelta > 0 ? "▲" : "▼"} {fmtNum(probeDelta, meta.digits, true)}
@@ -129,6 +136,12 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
       ) : null}
     </section>
   );
+}
+
+function moveTone(objectives: Objective[], d: number): string {
+  const o = objectives.find((x) => !x.bonus) ?? objectives[0];
+  if (!o) return "";
+  return (o.op === "<=" ? d < 0 : d > 0) ? "is-good" : "is-bad";
 }
 
 function WhyBars({ metric, state, prev }: { metric: MetricKey; state: QuarterState; prev: QuarterState }) {
