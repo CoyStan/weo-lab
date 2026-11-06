@@ -342,7 +342,7 @@ const theme: LabTheme = {
   letter-spacing: 0;
   text-transform: none;
   transform: translateY(0);
-  transition: transform 0.08s linear, box-shadow 0.08s linear;
+  transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 .lab[data-theme="console"] .game-end-btn:not(:disabled):hover {
   transform: translateY(0);

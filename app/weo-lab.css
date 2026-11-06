@@ -5,6 +5,14 @@
  * variables; a theme (see themes/) overrides them on .lab[data-theme="id"].
  */
 .lab {
+  /* Motion: one easing curve (quick start, settles with no overshoot) and
+     three durations, shared by the lab and the game. useTween.ts mirrors
+     these values for numbers that count. */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-fast: 150ms;
+  --dur: 250ms;
+  --dur-slow: 400ms;
+
   /* Page and surfaces */
   --lab-bg: #f7f5f2;
   --lab-paper: #fffdf8;
@@ -182,7 +190,7 @@
   color: var(--lab-ink-2);
   line-height: 1;
   white-space: nowrap;
-  transition: background-color 140ms ease, color 140ms ease;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 .lab-segmented-md button {
   padding: 0.42rem 0.8rem;
@@ -205,7 +213,7 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--lab-ink) 18%, transparent);
   position: relative;
-  transition: background-color 140ms ease;
+  transition: background-color var(--dur-fast) var(--ease);
 }
 .lab-toggle::after {
   content: "";
@@ -217,7 +225,7 @@
   border-radius: 50%;
   background: var(--lab-surface);
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
-  transition: transform 140ms ease;
+  transition: transform var(--dur-fast) var(--ease);
 }
 /* The toggle follows its visually hidden checkbox. */
 input:checked + .lab-toggle {
@@ -239,7 +247,7 @@ input:focus-visible + .lab-toggle {
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
-  transition: background-color 140ms ease, color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
   border: 1px solid transparent;
 }
 .lab-btn:disabled {
@@ -384,7 +392,7 @@ input:focus-visible + .lab-toggle {
   border-radius: var(--lab-radius-card);
   background: var(--lab-surface);
   padding: 0.55rem 0.65rem 0.5rem;
-  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
 .lab-tile:hover {
   border-color: var(--lab-line-strong);
@@ -409,7 +417,7 @@ input:focus-visible + .lab-toggle {
   padding: 0.45rem 0.55rem 0.35rem;
   scroll-snap-align: start;
   min-width: 0;
-  transition: border-color 140ms ease, box-shadow 140ms ease;
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 .lab-chart.is-focus {
   border-color: var(--lab-scenario);
@@ -532,7 +540,7 @@ input:focus-visible + .lab-toggle {
   }
 }
 .lab-toast {
-  animation: lab-toast-in 220ms ease-out both;
+  animation: lab-toast-in var(--dur) var(--ease) both;
 }
 
 /* Scene chrome */
@@ -672,7 +680,7 @@ input:focus-visible + .lab-toggle {
   height: 100%;
   border-radius: 999px;
   background: var(--lab-scenario);
-  transition: width 200ms ease;
+  transition: width var(--dur) var(--ease);
 }
 
 @media (prefers-reduced-motion: reduce) {

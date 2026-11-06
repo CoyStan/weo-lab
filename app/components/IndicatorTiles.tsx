@@ -18,6 +18,7 @@ export default function IndicatorTiles() {
   const focus = useLab((s) => s.focus);
   const setFocus = useLab((s) => s.setFocus);
   const compare = useLab((s) => s.compare);
+  const reduceMotion = useLab((s) => s.reduceMotion);
 
   const breachedNow = useMemo(() => {
     const set = new Set<ConstraintVar>();
@@ -45,7 +46,8 @@ export default function IndicatorTiles() {
               type="button"
               onClick={() => {
                 setFocus(focus === key ? null : key);
-                document.getElementById(`chart-${key}`)?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+                const still = reduceMotion || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                document.getElementById(`chart-${key}`)?.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "nearest", inline: "center" });
               }}
               className={`lab-tile ${focus === key ? "is-focus" : ""} ${breached ? "is-breach" : ""}`}
               aria-pressed={focus === key}

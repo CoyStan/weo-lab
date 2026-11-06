@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { describeChanges, quarterLabel } from "../../model/economy";
 import { SHOCKS } from "../../model/shocks";
 import { getPreset } from "../../model/presets";
@@ -26,6 +26,11 @@ export default function Play({ scene }: { scene: ReactNode }) {
   const { mission, clock, deciding, events, changed, statuses } = useTurn();
   const tips = useSettings((s) => s.tips);
   const [panel, setPanel] = useState<"levers" | "reforms">("levers");
+  // Where the turn track's last fill started: when several quarters end at once
+  // (Skip quiet quarters) they fill one after another instead of all together.
+  const [sweep, setSweep] = useState({ clock, from: clock });
+  if (sweep.clock !== clock) setSweep({ clock, from: Math.min(sweep.clock, clock) });
+  const sweepStep = clock - sweep.from > 1 ? Math.min(60, 200 / (clock - sweep.from - 1)) : 0;
   const { books, config } = useTurn();
   const affordable = books
     ? mission.politics.institutions.filter((id) => canAdopt(id, mission.politics, config, { votes: books.votes, trust: books.trust }).ok).length
@@ -101,7 +106,11 @@ export default function Play({ scene }: { scene: ReactNode }) {
               const shock = config.shocks.some((s) => !s.id.startsWith("surprise") && s.quarter === q);
               const election = mission.politics.elections.includes(q);
               return (
-                <span key={i} className={`${i < clock ? "is-done" : i === clock ? "is-now" : ""} ${shock ? "has-shock" : ""} ${election ? "has-election" : ""}`} title={`${quarterLabel(q)}${shock ? " · known shock" : ""}${election ? " · election" : ""}`}>
+                <span
+                  key={i}
+                  className={`${i < clock ? "is-done" : i === clock ? "is-now" : ""} ${shock ? "has-shock" : ""} ${election ? "has-election" : ""}`}
+                  style={i >= sweep.from && i < clock && sweepStep ? ({ "--sweep-delay": `${Math.round((i - sweep.from) * sweepStep)}ms` } as CSSProperties) : undefined}
+                  title={`${quarterLabel(q)}${shock ? " · known shock" : ""}${election ? " · election" : ""}`}>
                   {(q - 1) % 4 === 0 ? <em>{quarterLabel(q).slice(0, 4)}</em> : null}
                 </span>
               );

@@ -10,7 +10,7 @@ import type { MetricKey, Objective, ObjectiveStatus } from "../missions";
 import { useProbeEffect, useTurn } from "../useTurn";
 import { useGame } from "../store";
 import { DECOMP_METRICS, type DecompMetric } from "../decompose";
-import { useTween } from "./useTween";
+import { DUR, useTween } from "./useTween";
 
 const DECOMPOSABLE = new Set<string>(DECOMP_METRICS.map((m) => m.key));
 
@@ -144,14 +144,20 @@ function TweenNum({ value, digits }: { value: number; digits: number }) {
   return <>{fmtNum(useTween(value), digits)}</>;
 }
 
-/** "Your move": what this quarter's changes do by the end; the number eases as a lever moves. */
+/**
+ * "Your move": what this quarter's changes do by the end. The number counts in
+ * from 0 when the chip appears and eases as a lever moves, in step with the
+ * goal figures. Arrow and colour both follow the target, so they never disagree.
+ */
 function MoveChip({ metric, objectives, delta, end }: { metric: MetricKey; objectives: Objective[]; delta: number; end: number }) {
   const meta = GAME_METRICS[metric];
-  const shown = useTween(delta);
+  const tween = useTween(delta, DUR, 0);
+  // While a sign flip eases through zero, never show a number on the wrong side of the arrow.
+  const shown = Math.sign(tween) === Math.sign(delta) ? tween : 0;
   return (
     <span className={`game-move-chip ${moveTone(objectives, delta)}`} title={`What this quarter's changes do to ${meta.label.toLowerCase()} by ${quarterLabel(end)}`}>
       <small>Your move</small>
-      {shown > 0 ? "▲" : "▼"} {fmtNum(shown, meta.digits, true)}
+      {delta > 0 ? "▲" : "▼"} {fmtNum(shown, meta.digits, true)}
       {deltaUnit(meta.unit)}
     </span>
   );

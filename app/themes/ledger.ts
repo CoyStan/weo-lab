@@ -527,9 +527,9 @@ const theme: LabTheme = {
   transform: none;
   box-shadow: 0 6px 0 0 #000000;
   transition:
-    transform 70ms ease-out,
-    box-shadow 70ms ease-out,
-    background-color 120ms;
+    transform var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease);
 }
 .lab[data-theme="ledger"] .game-end-btn:not(:disabled):hover {
   background: var(--lab-scenario);

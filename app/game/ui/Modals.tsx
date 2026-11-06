@@ -15,7 +15,7 @@ import { TrustIcon, VotesIcon } from "./Capital";
 import { annual } from "../calibrate";
 import { getStartYear, simulate } from "../../model/economy";
 import type { Mission } from "../missions";
-import { useTween } from "./useTween";
+import { DUR_SLOW, useTween } from "./useTween";
 
 /** Focus the primary action when a card opens, and let Enter press it. */
 function usePrimary() {
@@ -179,9 +179,18 @@ function RecapCard({ recap }: { recap: Recap }) {
   );
 }
 
-/** Counts a recap figure up from last quarter's value to this one's. */
+/**
+ * Counts a recap figure up from last quarter's value to this one's. The moving
+ * text is hidden from screen readers, which read the final value instead.
+ */
 function CountUp({ from, to, digits }: { from: number; to: number; digits: number }) {
-  return <>{fmtNum(useTween(to, 400, from), digits)}</>;
+  const shown = useTween(to, DUR_SLOW, from);
+  return (
+    <>
+      <span aria-hidden="true">{fmtNum(shown, digits)}</span>
+      <span className="sr-only">{fmtNum(to, digits)}</span>
+    </>
+  );
 }
 
 function ShockCard({ ids }: { ids: string[] }) {
@@ -256,7 +265,7 @@ function DebriefCard() {
       <div className="game-card game-debrief is-won" role="dialog" aria-modal="true" aria-labelledby="debrief-title">
         <div className="game-stars" aria-label={`${outcome.stars} of 3 stars`}>
           {[1, 2, 3].map((n) => (
-            <span key={n} className={n <= outcome.stars ? "is-on" : ""} style={{ animationDelay: `${n * 180}ms` }}>
+            <span key={n} className={n <= outcome.stars ? "is-on" : ""} style={{ animationDelay: `${n * 120}ms` }}>
               ★
             </span>
           ))}

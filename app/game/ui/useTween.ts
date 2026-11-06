@@ -4,10 +4,15 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useSettings } from "../settings";
 
 /**
- * The game's one easing curve, mirrored from the `--ease` token in game.css
+ * The one easing curve, mirrored from the `--ease` token on .lab in weo-lab.css
  * (cubic-bezier(0.2, 0.7, 0.2, 1)): a quick start that settles with no overshoot.
  */
-const EASE: [number, number, number, number] = [0.2, 0.7, 0.2, 1];
+export const EASE: [number, number, number, number] = [0.2, 0.7, 0.2, 1];
+
+/** The three durations in ms, mirrored from --dur-fast, --dur and --dur-slow. */
+export const DUR_FAST = 150;
+export const DUR = 250;
+export const DUR_SLOW = 400;
 
 /** Standard cubic-bezier timing function: solve x(t) = p by Newton steps, then return y(t). */
 function bezier([x1, y1, x2, y2]: [number, number, number, number]) {
@@ -35,11 +40,20 @@ function bezier([x1, y1, x2, y2]: [number, number, number, number]) {
 
 export const ease = bezier(EASE);
 
-const QUERY = "(prefers-reduced-motion: reduce)";
+/** One shared MediaQueryList, created on first use (never during SSR). */
+let mql: MediaQueryList | null = null;
+function query(): MediaQueryList {
+  return (mql ??= window.matchMedia("(prefers-reduced-motion: reduce)"));
+}
 function subscribe(cb: () => void) {
-  const mq = window.matchMedia(QUERY);
+  const mq = query();
   mq.addEventListener("change", cb);
   return () => mq.removeEventListener("change", cb);
+}
+
+/** The system reduced-motion preference, for code outside a hook (e.g. click handlers). */
+export function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && query().matches;
 }
 
 /** True when the player chose reduced motion in settings or the system asks for it. */
@@ -47,7 +61,7 @@ export function useReducedMotion(): boolean {
   const chosen = useSettings((s) => s.reducedMotion);
   const system = useSyncExternalStore(
     subscribe,
-    () => window.matchMedia(QUERY).matches,
+    () => query().matches,
     () => false,
   );
   return chosen || system;
@@ -58,7 +72,7 @@ export function useReducedMotion(): boolean {
  * With `from`, the first render starts there and counts up to `target`.
  * Reduced motion returns `target` at once.
  */
-export function useTween(target: number, duration = 300, from?: number): number {
+export function useTween(target: number, duration = DUR, from?: number): number {
   const reduced = useReducedMotion();
   const [value, setValue] = useState(from ?? target);
   const shown = useRef(from ?? target);
