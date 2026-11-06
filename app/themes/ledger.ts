@@ -4,7 +4,7 @@ import type { LabTheme } from "./types.ts";
 const theme: LabTheme = {
   id: "ledger",
   name: "The Ledger",
-  description: "A financial newspaper's front page: off-white newsprint, true black ink, double rules and column dividers, one oxblood accent and an engraved island.",
+  description: "A financial newspaper's front page: off-white newsprint, true black ink, double rules and column dividers, one ink-blue accent, clear green, amber and red for goals, and the island in full colour.",
   scheme: "light",
   vars: {
     // Page and surfaces: newsprint, a shade lighter for panels
@@ -17,23 +17,24 @@ const theme: LabTheme = {
     "--lab-ink-2": "#4a4540",
     "--lab-line": "color-mix(in srgb, #111010 22%, transparent)",
     "--lab-line-strong": "color-mix(in srgb, #111010 62%, transparent)",
-    // Primary buttons are black slabs; oxblood is the single accent (focus, scenario line)
+    // Primary buttons are black slabs; ink blue is the single accent (focus, your forecast line).
+    // Blue, not red: red only ever means "hurts a goal".
     "--lab-accent-from": "#111010",
     "--lab-accent-to": "#111010",
     "--lab-on-accent": "#f5f1e5",
-    "--lab-focus": "#7a1c1c",
-    // Data series: oxblood scenario, slate reference, ochre pinned
-    "--lab-scenario": "#7a1c1c",
+    "--lab-focus": "#1d5aa6",
+    // Data series: ink-blue scenario, slate reference, ochre pinned
+    "--lab-scenario": "#1d5aa6",
     "--lab-reference": "#5d6b73",
     "--lab-pinned": "#9a7418",
     // Status: text-only ink colours, no tinted fills
-    "--lab-good": "#1f6b3b",
-    "--lab-warn": "#7d5a0b",
-    "--lab-bad": "#a3231b",
+    "--lab-good": "#1b7a45",
+    "--lab-warn": "#8f6400",
+    "--lab-bad": "#9b1c1c",
     "--lab-info": "#2e4a5f",
-    "--lab-good-mark": "#2d7a45",
-    "--lab-warn-mark": "#b98a1f",
-    "--lab-alert": "#a3231b",
+    "--lab-good-mark": "#1b7a45",
+    "--lab-warn-mark": "#b77d00",
+    "--lab-alert": "#9b1c1c",
     "--lab-info-mark": "#2e4a5f",
     "--lab-bad-surface": "#f5f1e5",
     "--lab-good-surface": "#f5f1e5",
@@ -722,84 +723,35 @@ const theme: LabTheme = {
   letter-spacing: 0.03em;
 }
 
-/* Decomposition chart: engraving inks; instruments slate-blue, shocks ochre, momentum grey */
+/* Decomposition chart: the validated bright palette (amber shocks, blue instruments), so
+   cause and effect read from across a room; only the momentum grey is warmed to the paper. */
 .lab[data-theme="ledger"].game {
-  --dc-1: #2e4a5f;
-  --dc-2: #7a1c1c;
-  --dc-3: #2d6e44;
-  --dc-4: #b08a2e;
-  --dc-5: #6b5b7a;
-  --dc-6: #5b6447;
-  --dc-7: #8a6a4a;
-  --dc-8: #a3231b;
   --dc-momentum: #8c877c;
 }
 
-/* Keyboard focus: an oxblood outline everywhere */
+/* Status words carry a square marker, so they never rely on colour alone. */
+.lab[data-theme="ledger"] .game-status::before {
+  content: "";
+  display: inline-block;
+  width: 0.55em;
+  height: 0.55em;
+  margin-right: 0.35em;
+  vertical-align: 0.05em;
+  background: currentColor;
+}
+.lab[data-theme="ledger"] .game-status.is-at-risk::before {
+  background: var(--lab-warn-mark);
+}
+
+/* Keyboard focus: an ink-blue outline everywhere */
 .lab[data-theme="ledger"] button:focus-visible,
 .lab[data-theme="ledger"] .lab-btn:focus-visible {
   outline: 2px solid var(--lab-scenario);
   outline-offset: 2px;
 }
 `,
-  scene: {
-    // Muted engraving tones: a paper sky, slate water, sepia greens and stone
-    sky: "#e9e3d0",
-    skyStorm: "#8a8f94",
-    cloud: "#f7f3e6",
-    cloudStorm: "#5f625f",
-    rain: "#c9ccc6",
-    lightning: "#f3f0e4",
-    water: "#5d7079",
-    waterFar: "#4b5b63",
-    lagoon: "#8fa0a2",
-    foam: "#efeadb",
-    sand: "#d5c8a3",
-    grass: "#8e9370",
-    hill: "#7d8262",
-    leaf: "#5b6447",
-    trunk: "#4e3f30",
-    road: "#c9bb97",
-    plaza: "#dcd2b9",
-    pad: "#e1d8c2",
-    padRing: "#9c947b",
-    // Buildings: stone and sepia, slate roofs
-    cream: "#efe6cf",
-    stone: "#cdc4ae",
-    building2: "#6e6356",
-    vault: "#d3cab6",
-    dock: "#a79878",
-    chimney: "#6b625a",
-    smoke: "#ebe8dd",
-    window: "#5f6e75",
-    roof: "#3f4a52",
-    roofOff: "#7b8189",
-    houseOff: "#bcb5a4",
-    hull: "#2b2a28",
-    glass: "#f1efe4",
-    lampGlass: "#f6eed4",
-    lamp: "#e2cb8c",
-    beam: "#e4cf98",
-    pallet: "#896d4b",
-    gold: "#ad8b3b",
-    carGlass: "#d6d8d2",
-    cars: ["#7a1c1c", "#3f4a52", "#d9d0b8", "#2e4a5f"],
-    // Semantic accents
-    accent: "#7a1c1c",
-    good: "#2d6e44",
-    bad: "#a3231b",
-    warn: "#b08a2e",
-    cool: "#6f8796",
-    focus: "#7a1c1c",
-    // Flat, even light, like an engraving
-    ambient: 0.7,
-    hemiSky: "#efe9d8",
-    hemiGround: "#a39a84",
-    hemi: 0.7,
-    sunColor: "#fff8e8",
-    sun: 1.4,
-    flat: true,
-  },
+  // The island keeps its full colours: the page frames the map, it does not recolour it.
+  scene: {},
 };
 
 export default theme;
