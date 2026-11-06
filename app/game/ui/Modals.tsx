@@ -74,9 +74,7 @@ function RecapCard({ recap }: { recap: Recap }) {
         <h2 id="recap-title" className="game-headline">{recap.headline.text}</h2>
       </div>
       <div className="game-stamp-row">
-        <p className="game-stamp-note">
-          {recap.statuses.filter((st) => !mission.objectives.find((o) => o.id === st.id)?.bonus && (st.after === "on-track" || st.after === "met")).length} of {mission.objectives.filter((o) => !o.bonus).length} goals on track for {quarterLabel(mission.quarters)}
-        </p>
+        <StarNote mission={mission} recap={recap} />
         <Stamp mission={mission} recap={recap} />
       </div>
 
@@ -114,7 +112,7 @@ function RecapCard({ recap }: { recap: Recap }) {
               </span>
               <span className="game-recap-value font-display text-[1.7rem] font-semibold leading-none tabular-nums">
                 {fmtNum(recap.now[m], meta.digits)}
-                <span className="text-[0.75rem] font-normal">{unitShort(meta.unit)}</span>
+                <span className="ml-0.5 align-baseline text-[0.45em] font-semibold">{unitShort(meta.unit)}</span>
               </span>
               <span className={`whitespace-nowrap text-[0.8rem] font-semibold tabular-nums ${["on-track", "met"].includes(worstStatus(mission, recap, m) ?? "") ? "text-[var(--lab-ink-2)]" : verdict(mission, m, d)}`}>
                 {Math.abs(d) < 0.05 ? "unchanged" : `${d > 0 ? "▲" : "▼"} ${fmtNum(d, meta.digits, true)}${deltaUnit(meta.unit)}`}
@@ -461,5 +459,20 @@ function Stamp({ mission, recap }: { mission: Mission; recap: Recap }) {
     <span className={`game-stamp ${bad ? "is-bad" : "is-good"}`} aria-label={bad ? `${bad} goal${bad > 1 ? "s" : ""} at risk` : "All goals on track"}>
       {bad ? `${bad} goal${bad > 1 ? "s" : ""} at risk` : "All goals on track"}
     </span>
+  );
+}
+
+/** Next to the stamp: what's at stake for the stars, not a repeat of the verdict. */
+function StarNote({ mission, recap }: { mission: Mission; recap: Recap }) {
+  const bonus = mission.objectives.filter((o) => o.bonus);
+  const risky = bonus.filter((o) => {
+    const st = recap.statuses.find((x) => x.id === o.id)?.after;
+    return st === "at-risk" || st === "failed";
+  });
+  if (!bonus.length) return <span />;
+  return (
+    <p className="game-stamp-note">
+      {risky.length ? `★ ${risky.length} of ${bonus.length} bonus star${bonus.length > 1 ? "s" : ""} at risk: ${risky[0].label.charAt(0).toLowerCase()}${risky[0].label.slice(1)}` : `★ Every bonus star still in reach`}
+    </p>
   );
 }

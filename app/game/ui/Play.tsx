@@ -90,7 +90,10 @@ export default function Play({ scene }: { scene: ReactNode }) {
         <div className="game-progress" aria-label={`Quarter ${Math.min(clock + 1, mission.quarters)} of ${mission.quarters}`}>
           <div className="flex items-baseline justify-between gap-2 text-[0.75rem]">
             <span className="font-semibold">{done ? "Final quarter played" : `Deciding ${deciding}`}</span>
-            <span className="text-[var(--lab-ink-2)] tabular-nums">turn {Math.min(clock + 1, mission.quarters)} of {mission.quarters}</span>
+            <span className="text-[var(--lab-ink-2)] tabular-nums">
+              turn {Math.min(clock + 1, mission.quarters)} of {mission.quarters}
+              {mission.quarters - clock > 1 ? <b className="ml-1 font-semibold text-[var(--lab-ink)]">· {mission.quarters - clock - 1} left after this</b> : null}
+            </span>
           </div>
           <div className="game-progress-track">
             {Array.from({ length: mission.quarters }, (_, i) => {
