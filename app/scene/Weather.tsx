@@ -62,13 +62,14 @@ export default function Weather({ storm, reducedMotion }: { storm: number; reduc
     cloudMaterial.opacity = 0.75 + 0.25 * s;
     if (cloudGroup.current) {
       const t = state.clock.elapsedTime;
-      cloudGroup.current.children.forEach((c, i) => {
+      const clouds = cloudGroup.current.children;
+      for (let i = 0; i < clouds.length && i < CLOUDS.length; i++) {
+        const c = clouds[i];
         const spec = CLOUDS[i];
-        if (!spec) return;
         c.position.x = spec.x + (reducedMotion ? 0 : Math.sin(t * spec.speed + i) * 1.5);
         c.position.y = 7 - s * 1.5 + (reducedMotion ? 0 : Math.sin(t * 0.3 + i) * 0.15);
         c.scale.setScalar(spec.s * (1 + s * 0.35));
-      });
+      }
     }
     if (rain.current) {
       const visible = s > 0.45;
