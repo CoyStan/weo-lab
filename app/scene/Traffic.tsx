@@ -39,6 +39,8 @@ export default function Traffic({ reducedMotion }: { reducedMotion: boolean }) {
   const sm = useSmooth({ count, speed }, 1.5, reducedMotion);
   const tmp = useMemo(() => new THREE.Vector3(), []);
   const colors = useMemo(() => Array.from({ length: MAX_CARTS }, (_, i) => new THREE.Color(P.cars[i % P.cars.length])), []);
+  /** Under reduced motion the carts stand still: the fleet is written once, then only when the count changes. */
+  const still = useRef(-1);
 
   useLayoutEffect(() => {
     primeInstances(chassis.current, P.trunk);
@@ -54,6 +56,8 @@ export default function Traffic({ reducedMotion }: { reducedMotion: boolean }) {
     if (!c || !l) return;
     const n = sm.current.count;
     const v = sm.current.speed;
+    if (reducedMotion && still.current === n) return;
+    still.current = reducedMotion ? n : -1;
     for (let i = 0; i < MAX_CARTS; i++) {
       const route = routes[i % routes.length];
       if (!reducedMotion) progress[i] = (progress[i] + (dt * v * 4) / Math.max(1, route.total)) % 2;

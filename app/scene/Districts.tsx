@@ -203,9 +203,9 @@ function District({ focusKey, position, labelY, labelX = 0, title, value, next, 
 
 // ---- Treasury: debt tower --------------------------------------------------
 
-/** One floor per 5% of GDP of debt. */
-const MAX_SLABS = 40;
-const SLAB_PITCH = 0.3;
+/** One floor per 5% of GDP of debt, up to 160%; beyond that the mast grows into a coral spire. */
+const MAX_SLABS = 32;
+const SLAB_PITCH = 0.24;
 const PCT_PER_SLAB = 5;
 const TOWER_BASE = 1.0;
 
@@ -225,6 +225,8 @@ function DebtTower({ reducedMotion }: { reducedMotion: boolean }) {
   const shades = useMemo(() => ({ a: new THREE.Color(P.accent), b: new THREE.Color(P.accent).lerp(new THREE.Color(P.stone), 0.1) }), []);
   const glass = useMemo(() => mixHex(P.window, P.hull, 0.55), []);
   const floors = clamp(current.debt / PCT_PER_SLAB, 1, MAX_SLABS);
+  /** Debt beyond the tallest tower: 0 at 160% of GDP, 1 at 200% and above. */
+  const spire = clamp((current.debt - MAX_SLABS * PCT_PER_SLAB) / 40, 0, 1);
   const sm = useSmooth({ floors }, 3, reducedMotion);
   const thresholdFloors = threshold / PCT_PER_SLAB;
   const last = useRef(-1);
@@ -266,7 +268,7 @@ function DebtTower({ reducedMotion }: { reducedMotion: boolean }) {
   });
 
   const markY = TOWER_BASE + thresholdFloors * SLAB_PITCH;
-  const labelY = TOWER_BASE + floors * SLAB_PITCH + 1.5;
+  const labelY = TOWER_BASE + floors * SLAB_PITCH + 1.5 + spire;
   const bad = current.debt > threshold + 20;
   return (
     <District focusKey="debt" pad={1.9} position={DISTRICT_POS.debt!} labelY={labelY} labelX={-1.2} title="Treasury" value={`Debt ${fmt(current.debt, 0)}% GDP`} bad={bad} tilt={-1.2} reducedMotion={reducedMotion}>
@@ -321,6 +323,13 @@ function DebtTower({ reducedMotion }: { reducedMotion: boolean }) {
           <cylinderGeometry args={[0.025, 0.035, 0.6, 5]} />
           <meshStandardMaterial color={P.stone} roughness={0.6} />
         </mesh>
+        {/* Debt past the top floor: a coral spire instead of more floors, so the tower stays in frame */}
+        {spire > 0 ? (
+          <mesh position-y={0.55 + (0.4 + 0.9 * spire) / 2} rotation-y={Math.PI / 4}>
+            <coneGeometry args={[0.32, 0.4 + 0.9 * spire, 4]} />
+            <meshStandardMaterial color={CORAL} emissive={CORAL} emissiveIntensity={0.25} roughness={0.6} flatShading />
+          </mesh>
+        ) : null}
       </group>
     </District>
   );
@@ -344,8 +353,11 @@ function CentralBank({ reducedMotion }: { reducedMotion: boolean }) {
     beacon.current.emissive.copy(SCRATCH);
   });
   const stanceWord = stance > 0.33 ? "tight" : stance < -0.33 ? "loose" : "neutral";
+  const next = policy.rateMode === "manual" && current.regime !== "peg" && Math.abs(policy.manualRate - current.rate) > 0.01 ? `${fmt(policy.manualRate, 2)}%` : undefined;
+  // A pending decision pins the banner by the building; it rides high and to the
+  // right of the dome so it never covers the top of the debt tower next door.
   return (
-    <District focusKey="rate" pad={2.35} position={DISTRICT_POS.rate!} labelY={6.1} labelX={-1.5} title={`Central bank · ${stanceWord}`} value={`${fmt(current.rate, 2)}% · ${regimeName(current.regime)}`} next={policy.rateMode === "manual" && current.regime !== "peg" && Math.abs(policy.manualRate - current.rate) > 0.01 ? `${fmt(policy.manualRate, 2)}%` : undefined} tilt={0.8} reducedMotion={reducedMotion}>
+    <District focusKey="rate" pad={2.35} position={DISTRICT_POS.rate!} labelY={next ? 9.6 : 6.1} labelX={next ? 3.0 : -1.5} title={`Central bank · ${stanceWord}`} value={`${fmt(current.rate, 2)}% · ${regimeName(current.regime)}`} next={next} tilt={0.8} reducedMotion={reducedMotion}>
       <mesh position-y={0.15} receiveShadow castShadow>
         <cylinderGeometry args={[2.0, 2.1, 0.3, 8]} />
         <meshStandardMaterial color={P.stone} roughness={1} flatShading={P.flat} />
@@ -534,7 +546,8 @@ function Factories({ reducedMotion }: { reducedMotion: boolean }) {
   );
   const colors = useMemo(
     () => ({
-      lit: new THREE.Color(P.lamp),
+      // Warm lamplight, deep enough to stand out against the cream walls.
+      lit: new THREE.Color(mixHex(P.lamp, P.gold, 0.6)),
       dark: new THREE.Color(mixHex(P.building2, P.hull, 0.6)),
       smoke: new THREE.Color(P.smoke),
       soot: new THREE.Color(mixHex(P.smoke, P.chimney, 0.7)),
@@ -545,6 +558,8 @@ function Factories({ reducedMotion }: { reducedMotion: boolean }) {
   const order = useMemo(() => scatterOrder(FACTORY_X.length * PANES, 7), []);
   const phase = useMemo(() => new Float32Array(FACTORY_X.length), []);
   const last = useRef({ h: -1, a: -1 });
+  /** With reduced motion the smoke stands still: write it once, then only when activity moves. */
+  const smokeStill = useRef(false);
   useLayoutEffect(() => {
     primeInstances(teeth.current, colors.roof);
     primeInstances(skylights.current, colors.dark);
@@ -601,6 +616,8 @@ function Factories({ reducedMotion }: { reducedMotion: boolean }) {
     // Smoke rises faster and fuller the hotter the economy runs.
     const sm2 = smoke.current;
     if (!sm2) return;
+    if (reducedMotion && !changed && smokeStill.current) return;
+    smokeStill.current = reducedMotion;
     const speed = reducedMotion ? 0 : 0.1 + 0.32 * a;
     // The plume leans downwind (away from the district label above) and climbs higher when busy.
     const rise = 0.35 + 0.65 * a;
@@ -660,7 +677,7 @@ function Factories({ reducedMotion }: { reducedMotion: boolean }) {
             </mesh>
             <mesh position={[0.35, CHIMNEY - 0.16, -0.3]}>
               <cylinderGeometry args={[0.145, 0.15, 0.12, 7]} />
-              <meshStandardMaterial color={P.bad} roughness={0.8} flatShading={P.flat} />
+              <meshStandardMaterial color={P.accent} roughness={0.8} flatShading={P.flat} />
             </mesh>
           </group>
         </group>
@@ -673,7 +690,7 @@ function Factories({ reducedMotion }: { reducedMotion: boolean }) {
         <meshBasicMaterial toneMapped={false} />
       </instancedMesh>
       <instancedMesh ref={panes} args={[undefined, undefined, FACTORY_X.length * PANES]} frustumCulled={false}>
-        <planeGeometry args={[0.26, 0.3]} />
+        <planeGeometry args={[0.28, 0.32]} />
         <meshBasicMaterial toneMapped={false} />
       </instancedMesh>
       <instancedMesh ref={smoke} args={[undefined, undefined, FACTORY_X.length * PUFFS]} frustumCulled={false}>
@@ -687,11 +704,15 @@ function Factories({ reducedMotion }: { reducedMotion: boolean }) {
 // ---- Port: trade and the current account --------------------------------------
 
 const MAX_CONTAINERS = 8;
-/** Freighters waiting at anchor, in the port's local frame: x, z, heading. */
+/**
+ * Freighters waiting at anchor, in the port's local frame: x, z, heading.
+ * Close in on the water either side of the quay, so all three stay inside
+ * the camera's frame on desktop, big screens and phones (checked against the hex map).
+ */
 const ANCHORAGE: [number, number, number][] = [
-  [5.1, -3.4, 0.5],
-  [9.0, -0.9, -0.3],
-  [7.4, -6.6, 0.9],
+  [5.0, -3.0, -0.2],
+  [3.4, -6.5, 0.25],
+  [3.9, 6.3, -0.15],
 ];
 
 /** A low-poly freighter: hull with a pointed bow, bridge at the stern, boxes on deck. */
@@ -709,7 +730,7 @@ function Freighter({ shipRef, cargo }: { shipRef: (el: THREE.Group | null) => vo
       </mesh>
       <mesh position={[0.2, -0.12, 0]}>
         <boxGeometry args={[2.36, 0.08, 0.74]} />
-        <meshStandardMaterial color={P.bad} roughness={0.8} />
+        <meshStandardMaterial color={P.cream} roughness={0.8} />
       </mesh>
       <mesh position={[-0.55, 0.45, 0]} castShadow>
         <boxGeometry args={[0.38, 0.45, 0.56]} />
@@ -773,7 +794,7 @@ function Port({ reducedMotion }: { reducedMotion: boolean }) {
     const t = reducedMotion ? 0 : state.clock.elapsedTime;
     const main = ship.current;
     if (main) {
-      const x = 5.4 + Math.sin(t * 0.22) * 1.6;
+      const x = 4.8 + Math.sin(t * 0.22) * 1.2;
       main.position.set(x, -0.42 + (reducedMotion ? 0 : Math.sin(t * 1.3) * 0.04), 2.7);
       main.rotation.y = Math.cos(t * 0.22) >= 0 ? 0 : Math.PI;
       main.rotation.z = reducedMotion ? 0 : Math.sin(t * 0.9) * 0.03;
@@ -833,7 +854,7 @@ function Port({ reducedMotion }: { reducedMotion: boolean }) {
         </mesh>
         <mesh position={[0.2, 2.45, 1.2]} castShadow>
           <boxGeometry args={[0.18, 0.14, 4.2]} />
-          <meshStandardMaterial color={P.warn} roughness={0.7} flatShading={P.flat} />
+          <meshStandardMaterial color={P.cream} roughness={0.7} flatShading={P.flat} />
         </mesh>
         <mesh position={[0.2, 1.75, 2.4]}>
           <boxGeometry args={[0.02, 1.3, 0.02]} />
@@ -841,7 +862,7 @@ function Port({ reducedMotion }: { reducedMotion: boolean }) {
         </mesh>
         <mesh position={[0.2, 1.08, 2.4]}>
           <boxGeometry args={[0.5, 0.08, 0.3]} />
-          <meshStandardMaterial color={P.warn} roughness={0.7} />
+          <meshStandardMaterial color={P.hull} roughness={0.7} />
         </mesh>
       </group>
       <Freighter
@@ -1003,7 +1024,7 @@ function Housing({ reducedMotion }: { reducedMotion: boolean }) {
       roofOff: new THREE.Color(P.roofOff),
       body: new THREE.Color(P.cream),
       bodyOff: new THREE.Color(P.houseOff),
-      lamp: new THREE.Color(P.lamp),
+      lamp: new THREE.Color(mixHex(P.lamp, P.gold, 0.6)),
       dark: new THREE.Color(mixHex(P.houseOff, P.hull, 0.6)),
     }),
     [],
@@ -1034,7 +1055,7 @@ function Housing({ reducedMotion }: { reducedMotion: boolean }) {
         // Each window switches off in its own place in the order, with a short fade.
         const v = clamp((l * 1.1 - order[j]) * 12, 0, 1);
         on += v / WINDOWS_PER;
-        placeInstance(w, j, x + (k ? 0.14 : -0.14), h * 0.55, z + 0.315, 1);
+        placeInstance(w, j, x + (k ? 0.15 : -0.15), h * 0.55, z + 0.315, 1);
         w.setColorAt(j, TMP_COLOR.copy(colors.dark).lerp(colors.lamp, v));
       }
       placeInstance(b, i, x, h / 2, z, 1, h, 1);
@@ -1056,7 +1077,7 @@ function Housing({ reducedMotion }: { reducedMotion: boolean }) {
         <meshStandardMaterial roughness={0.95} flatShading />
       </instancedMesh>
       <instancedMesh ref={panes} args={[undefined, undefined, HOUSES * WINDOWS_PER]} frustumCulled={false}>
-        <planeGeometry args={[0.15, 0.17]} />
+        <planeGeometry args={[0.22, 0.25]} />
         <meshBasicMaterial toneMapped={false} />
       </instancedMesh>
     </District>

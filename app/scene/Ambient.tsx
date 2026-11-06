@@ -1,7 +1,7 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import * as THREE from "three";
 import { P } from "./palette";
 import { commitInstances, DUMMY, mixHex, placeInstance, primeInstances, prismGeometry, useGeometry } from "./shapes";
@@ -15,12 +15,20 @@ const LOOPS: [number, number, number][] = [
   [-21, -4, 1.8],
 ];
 const BIRDS = 7;
+/** The flock circles low over open sea all round the island (checked against the hex map), so the birds read against the water. */
+const FLOCK_CX = -1;
+const FLOCK_CZ = -1;
+const FLOCK_RX = 18;
+const FLOCK_RZ = 19;
+const FLOCK_Y = 3.2;
+const GULL_SCALE = 1.7;
 
 /**
  * Background life: sailing boats tacking slowly around the island and a small
  * flock of gulls circling overhead. It carries no data, so it stays quiet:
  * boats stand still and the gulls stay away when motion is reduced, and the
- * gulls take shelter in a storm.
+ * gulls take shelter in a storm. Decoration only, so no colour here borrows
+ * the island's good/bad/warning signal hues.
  */
 export default function Ambient({ reducedMotion, storm }: { reducedMotion: boolean; storm: number }) {
   const hulls = useRef<THREE.InstancedMesh>(null);
@@ -44,25 +52,42 @@ export default function Ambient({ reducedMotion, storm }: { reducedMotion: boole
       0, 0, 0.045, 0.14, 0.05, 0.015, 0, 0, -0.045,
       0.14, 0.05, 0.03, 0.31, -0.01, -0.08, 0.14, 0.05, -0.03,
     ], 3));
+    // Pale body and wings with a dark tip, like a gull seen from above.
+    const body = new THREE.Color(P.cream);
+    const tip = new THREE.Color(mixHex(P.hull, P.stone, 0.25));
+    // prettier-ignore
+    g.setAttribute("color", new THREE.Float32BufferAttribute([
+      ...body.toArray(), ...body.toArray(), ...body.toArray(),
+      ...body.toArray(), ...tip.toArray(), ...body.toArray(),
+    ], 3));
     g.computeVertexNormals();
     return g;
   });
-  // Dark enough to read as birds against both land and sea.
-  const gull = useMemo(() => mixHex(P.hull, P.stone, 0.3), []);
   const gone = useRef(0);
+  /** With reduced motion nothing moves: the boats are written once and the flock is hidden. */
+  const still = useRef(false);
 
   useLayoutEffect(() => {
     primeInstances(hulls.current, P.cream);
     primeInstances(sails.current, P.cream);
-    primeInstances(wings.current, gull);
+    primeInstances(wings.current, "#ffffff");
     const h = hulls.current;
     if (h) {
-      for (let i = 0; i < LOOPS.length; i++) h.setColorAt(i, new THREE.Color(i % 2 ? P.accent : P.bad));
+      // Painted and varnished-wood hulls: decoration, not a signal.
+      for (let i = 0; i < LOOPS.length; i++) h.setColorAt(i, new THREE.Color(i % 2 ? P.accent : P.trunk));
       commitInstances(h);
     }
-  }, [gull]);
+    still.current = false;
+  }, []);
 
   useFrame((state, dt) => {
+    const w = wings.current;
+    if (reducedMotion) {
+      gone.current = 0;
+      if (w) w.visible = false;
+      if (still.current) return;
+    }
+    still.current = reducedMotion;
     const t = reducedMotion ? 0 : state.clock.elapsedTime;
     const h = hulls.current;
     const s = sails.current;
@@ -88,31 +113,32 @@ export default function Ambient({ reducedMotion, storm }: { reducedMotion: boole
       commitInstances(s, false);
     }
 
-    const w = wings.current;
-    if (!w) return;
+    if (!w || reducedMotion) return;
     // The flock fades out in a storm and is not shown at all with reduced motion.
-    const target = reducedMotion ? 0 : clamp(1 - storm * 1.6, 0, 1);
+    const target = clamp(1 - storm * 1.6, 0, 1);
     gone.current += (target - gone.current) * Math.min(1, dt * 1.5);
     const show = gone.current;
+    w.visible = show > 0.01;
+    if (!w.visible) return;
     const lead = t * 0.045;
-    // A wide loop over the coast, so the flock rarely crosses a district.
-    const fx = Math.cos(lead) * 15;
-    const fz = Math.sin(lead) * 12;
+    // A loop just off the coast, over open water, so the flock never crosses a district.
+    const fx = FLOCK_CX + Math.cos(lead) * FLOCK_RX;
+    const fz = FLOCK_CZ + Math.sin(lead) * FLOCK_RZ;
     // Flying anticlockwise: forward is the tangent of the circle.
-    const yaw = Math.atan2(-Math.sin(lead) * 15, Math.cos(lead) * 12);
+    const yaw = Math.atan2(-Math.sin(lead) * FLOCK_RX, Math.cos(lead) * FLOCK_RZ);
     const fwdX = Math.sin(yaw);
     const fwdZ = Math.cos(yaw);
     for (let b = 0; b < BIRDS; b++) {
       // A loose V: birds trail behind and to either side of the leader.
       const rank = Math.ceil(b / 2);
       const side = b === 0 ? 0 : b % 2 ? 1 : -1;
-      const back = rank * 0.55;
-      const across = side * rank * 0.5;
+      const back = rank * 0.55 * GULL_SCALE;
+      const across = side * rank * 0.5 * GULL_SCALE;
       const x = fx - fwdX * back + fwdZ * across;
       const z = fz - fwdZ * back - fwdX * across;
-      const y = 8.5 + Math.sin(t * 0.6 + b) * 0.25 - rank * 0.05;
+      const y = FLOCK_Y + Math.sin(t * 0.6 + b) * 0.2 - rank * 0.05;
       const flap = Math.sin(t * 7 + b * 1.3) * 0.45;
-      const k = show > 0.01 ? show : 0;
+      const k = show * GULL_SCALE;
       for (let side2 = 0; side2 < 2; side2++) {
         DUMMY.position.set(x, y, z);
         DUMMY.rotation.set(0, yaw, side2 ? -flap : flap, "YXZ");
@@ -134,7 +160,7 @@ export default function Ambient({ reducedMotion, storm }: { reducedMotion: boole
         <meshStandardMaterial color={P.cream} roughness={0.9} side={THREE.DoubleSide} flatShading />
       </instancedMesh>
       <instancedMesh ref={wings} args={[wingGeometry, undefined, BIRDS * 2]} frustumCulled={false}>
-        <meshStandardMaterial roughness={1} side={THREE.DoubleSide} flatShading />
+        <meshStandardMaterial vertexColors roughness={1} side={THREE.DoubleSide} flatShading />
       </instancedMesh>
     </group>
   );
