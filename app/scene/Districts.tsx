@@ -116,6 +116,11 @@ function District({ focusKey, position, labelY, labelX = 0, title, value, next, 
   const group = useRef<THREE.Group>(null);
   const active = hover || focus === focusKey;
   const showLabel = labels === "all" || active || breached || spotlit;
+  // Value pills sit outward from the island's centre, so they don't pile up over the town;
+  // a pending decision keeps its banner right by its building.
+  const out = Math.hypot(position[0], position[2]) || 1;
+  const push = next || active || focusKey === "oil" ? 0 : 2.6 / style.scale;
+  const labelPos: [number, number, number] = [labelX + (position[0] / out) * push, labelY, (position[2] / out) * push];
 
   useEffect(() => {
     if (!hover) return;
@@ -126,7 +131,29 @@ function District({ focusKey, position, labelY, labelX = 0, title, value, next, 
   }, [hover]);
 
   const ring = useRef<THREE.Mesh>(null);
+  // When the quarter plays and this district's number changes, its ground flashes once:
+  // green if things are fine, red if the district is in trouble.
+  const flash = useRef<THREE.Mesh>(null);
+  const lastValue = useRef(value);
+  const flashAt = useRef<number | null>(null);
+  const flashQueued = useRef(false);
+  useEffect(() => {
+    if (lastValue.current !== value && !reducedMotion) flashQueued.current = true;
+    lastValue.current = value;
+  }, [value, reducedMotion]);
   useFrame(({ clock }, dt) => {
+    if (flashQueued.current) {
+      flashQueued.current = false;
+      flashAt.current = clock.elapsedTime;
+    }
+    const f = flash.current;
+    if (f) {
+      const age = flashAt.current === null ? 99 : clock.elapsedTime - flashAt.current;
+      const p = Math.min(1, age / 1.2);
+      f.visible = p < 1;
+      f.scale.setScalar(1 + p * 1.2);
+      (f.material as THREE.MeshBasicMaterial).opacity = 0.65 * (1 - p);
+    }
     const g = group.current;
     if (!g) return;
     // A decision waiting to play out makes its building breathe and send out a ring.
@@ -160,11 +187,15 @@ function District({ focusKey, position, labelY, labelX = 0, title, value, next, 
       >
         {children}
       </group>
+      <mesh ref={flash} rotation-x={-Math.PI / 2} position-y={0.3} visible={false}>
+        <circleGeometry args={[2.3, 48]} />
+        <meshBasicMaterial color={bad || breached ? "#d9534f" : "#3f9a5f"} transparent opacity={0} depthWrite={false} />
+      </mesh>
       <mesh ref={ring} rotation-x={-Math.PI / 2} position-y={0.35} visible={Boolean(next)}>
         <ringGeometry args={[2.1, 2.45, 48]} />
         <meshBasicMaterial color={color} transparent opacity={0} depthWrite={false} />
       </mesh>
-      <Label position={[labelX, labelY, 0]} title={breached ? `${title} · constraint breached` : title} value={value} next={next} bad={bad || breached} focus={active || Boolean(next)} tilt={tilt} hidden={!showLabel && !next} accent={color} icon={style.icon} />
+      <Label position={labelPos} title={breached ? `${title} · constraint breached` : title} value={value} next={next} bad={bad || breached} focus={active || Boolean(next)} tilt={tilt} hidden={!showLabel && !next} accent={color} icon={style.icon} />
     </group>
   );
 }

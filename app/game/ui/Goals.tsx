@@ -177,7 +177,7 @@ function WhyBars({ metric, state, prev }: { metric: MetricKey; state: QuarterSta
 
 const W = 300;
 const H = 108;
-const PAD = { l: 34, r: 8, t: 8, b: 18 };
+const PAD = { l: 34, r: 36, t: 8, b: 18 };
 
 function OutlookChart({ metric, objectives, actual, forecast, ghost, clock, end, comparison }: { metric: MetricKey; objectives: Objective[]; actual: QuarterState[]; forecast: QuarterState[]; ghost: QuarterState[]; clock: number; end: number; comparison: QuarterState[] | null }) {
   const meta = GAME_METRICS[metric];
@@ -215,8 +215,9 @@ function OutlookChart({ metric, objectives, actual, forecast, ghost, clock, end,
             <rect x={x(from)} y={bad.y0} width={Math.max(2, x(to) - x(from) + (o.when === "end" ? 6 : 0))} height={Math.max(0, bad.y1 - bad.y0)} fill={o.bonus ? "color-mix(in srgb, var(--lab-warn-mark) 10%, transparent)" : "color-mix(in srgb, var(--lab-alert) 11%, transparent)"} />
             <line x1={x(from)} x2={x(to)} y1={yT} y2={yT} stroke={o.bonus ? "var(--lab-warn-mark)" : "var(--lab-alert)"} strokeWidth={1.8} strokeDasharray={o.bonus ? "3 3" : undefined} />
             {!o.bonus ? (
-              <text x={x(to) - 2} y={yT - 4} fontSize={11} fontWeight={700} textAnchor="end" fill="var(--lab-bad)" paintOrder="stroke" stroke="var(--lab-paper)" strokeWidth={3}>
-                goal {o.op === "<=" ? "≤" : "≥"} {fmtNum(o.threshold, meta.digits)}
+              <text x={W - PAD.r + 3} y={yT + 4} fontSize={11} fontWeight={700} textAnchor="start" fill="var(--lab-bad)">
+                {o.op === "<=" ? "≤" : "≥"}
+                {fmtNum(o.threshold, meta.digits)}
               </text>
             ) : null}
           </g>

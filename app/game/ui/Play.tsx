@@ -139,7 +139,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
               ]}
             />
           </div>
-          {tips && mission.number === 1 && clock < 2 ? (
+          {tips && mission.number === 1 && clock < 2 && !changed ? (
             <p className="game-coach">
               {clock === 0 ? "Try moving the policy rate. The dashed line on each goal card shows where that choice leads; the faint one is where you started." : "Inflation reacts slowly. Judge your rate by the forecast at the end, not by this quarter."}
             </p>
@@ -209,11 +209,12 @@ function NextUp() {
   if (shock) items.push({ q: shock.quarter, text: SHOCKS[shock.kind].name, kind: "shock" });
   if (election) items.push({ q: election, text: "Election", kind: "election" });
   const next = items.sort((a, b) => a.q - b.q)[0];
-  if (!next) return null;
+  // An event this quarter is already on the agenda; the clock only names what's further out.
+  if (!next || next.q === clock + 1) return null;
   return (
     <p className={`game-nextup is-${next.kind}`} title="Dots on the track: amber = known shock, violet = election">
-      <span aria-hidden="true" /> Next: {next.text}, {quarterLabel(next.q)}
-      {next.q === clock + 1 ? " (this quarter)" : ""}
+      <span aria-hidden="true" className="game-nextup-dot" /> Next: {next.text}, {quarterLabel(next.q)}
+      {next.q === clock + 1 ? <span className="game-nextup-now"> (this quarter)</span> : null}
     </p>
   );
 }

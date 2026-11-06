@@ -25,7 +25,7 @@ const fmt = (v: number, d: number) => {
   return v > 0 && Number(s) !== 0 ? `+${s}` : s;
 };
 
-const W_MAX = 760;
+const W_MAX = 1400;
 const H = 228;
 const PAD = { l: 40, r: 44, t: 26, b: 36 };
 
@@ -127,7 +127,7 @@ export default function Decomp() {
                 {fmt(v, tickDigits(ticks))}
               </text>
               {i === ticks.length - 1 ? (
-                <text x={4} y={PAD.t - 12} fontSize={10.5} fill="var(--lab-ink-2)">
+                <text x={4} y={PAD.t - 12} fontSize={12} fill="var(--lab-ink-2)">
                   {meta.unit} vs start
                 </text>
               ) : null}
@@ -144,7 +144,7 @@ export default function Decomp() {
               ))
             : null}
           {years.map((t) => (
-            <text key={t} x={x(t) + band / 2} y={H - 2} fontSize={12} fontWeight={500} textAnchor={band >= 26 ? "middle" : "start"} fill="var(--lab-ink-2)">
+            <text key={t} x={x(t) + band / 2} y={H - 2} fontSize={12} fontWeight={600} textAnchor={band >= 26 ? "middle" : "start"} fill="var(--lab-ink-2)">
               {d.path[t].label.slice(0, 4)}
             </text>
           ))}

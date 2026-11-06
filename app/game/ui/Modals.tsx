@@ -74,6 +74,9 @@ function RecapCard({ recap }: { recap: Recap }) {
         <h2 id="recap-title" className="game-headline">{recap.headline.text}</h2>
       </div>
       <div className="game-stamp-row">
+        <p className="game-stamp-note">
+          {recap.statuses.filter((st) => !mission.objectives.find((o) => o.id === st.id)?.bonus && (st.after === "on-track" || st.after === "met")).length} of {mission.objectives.filter((o) => !o.bonus).length} goals on track for {quarterLabel(mission.quarters)}
+        </p>
         <Stamp mission={mission} recap={recap} />
       </div>
 

@@ -127,8 +127,11 @@ function FrameworkPanel() {
                 const row = SECTORS.find((x) => x.id === sector)!.rows.find((r) => r.key === key)!;
                 const effect = forecast[end][key] - untouched[end][key];
                 return (
-                  <button key={key} type="button" className="game-fw-tile" onClick={() => setTab("accounts")} title="Open the sector accounts">
-                    <span className="game-fw-tile-sector">{SECTORS.find((x) => x.id === sector)!.title}</span>
+                  <button key={key} type="button" className="game-fw-tile" onClick={() => { setTab("accounts"); window.setTimeout(() => document.getElementById(`fw-sector-${sector}`)?.scrollIntoView({ block: "start" }), 50); }} title="Open this sector's accounts">
+                    <span className="game-fw-tile-sector">
+                      {SECTORS.find((x) => x.id === sector)!.title}
+                      <span aria-hidden="true" className="game-fw-tile-go">→</span>
+                    </span>
                     <span className="game-fw-tile-label">{row.label}</span>
                     <span className="game-fw-tile-value">
                       {shown[key].toFixed(row.digits)}
@@ -177,7 +180,7 @@ function FrameworkPanel() {
               <span><i className="is-forecast" /> Forecast with your policies</span>
               {touched ? <span><i className="is-untouched" /> Had you changed nothing</span> : null}
               <span className="ml-auto">“Your policies” = forecast minus the no-change path, at {forecast[end].label}</span>
-              <span className="game-fw-valence"><b className="is-good">▲▼ helps a goal</b><b className="is-bad">▲▼ hurts a goal</b><b className="is-neutral">▲▼ neither</b></span>
+              <span className="game-fw-valence"><b className="game-fw-effect is-good">▲▼ helps a goal</b><b className="game-fw-effect is-bad">▲▼ hurts a goal</b><b className="game-fw-effect is-neutral">▲▼ neither</b></span>
             </div>
             <nav className="game-fw-jump" aria-label="Jump to a sector">
               {SECTORS.map((sec) => (
