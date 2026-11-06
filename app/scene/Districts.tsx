@@ -125,13 +125,22 @@ function District({ focusKey, position, labelY, labelX = 0, title, value, next, 
     };
   }, [hover]);
 
-  useFrame((_, dt) => {
+  const ring = useRef<THREE.Mesh>(null);
+  useFrame(({ clock }, dt) => {
     const g = group.current;
     if (!g) return;
-    const target = active ? 1.06 : 1;
+    // A decision waiting to play out makes its building breathe and send out a ring.
+    const pulse = next && !reducedMotion ? 0.035 * (0.5 + 0.5 * Math.sin(clock.elapsedTime * 4)) : 0;
+    const target = (active ? 1.06 : 1) + pulse;
     const k = reducedMotion ? 1 : Math.min(1, dt * 8);
     const s = g.scale.x + (target - g.scale.x) * k;
     g.scale.setScalar(s);
+    const r = ring.current;
+    if (r) {
+      const phase = reducedMotion ? 0.5 : (clock.elapsedTime * 0.7) % 1;
+      r.scale.setScalar(1 + phase * 1.4);
+      (r.material as THREE.MeshBasicMaterial).opacity = next ? 0.55 * (1 - phase) : 0;
+    }
   });
 
   return (
@@ -151,6 +160,10 @@ function District({ focusKey, position, labelY, labelX = 0, title, value, next, 
       >
         {children}
       </group>
+      <mesh ref={ring} rotation-x={-Math.PI / 2} position-y={0.35} visible={Boolean(next)}>
+        <ringGeometry args={[2.1, 2.45, 48]} />
+        <meshBasicMaterial color={color} transparent opacity={0} depthWrite={false} />
+      </mesh>
       <Label position={[labelX, labelY, 0]} title={breached ? `${title} · constraint breached` : title} value={value} next={next} bad={bad || breached} focus={active || Boolean(next)} tilt={tilt} hidden={!showLabel && !next} accent={color} icon={style.icon} />
     </group>
   );

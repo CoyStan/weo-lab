@@ -27,7 +27,7 @@ const fmt = (v: number, d: number) => {
 
 const W_MAX = 760;
 const H = 250;
-const PAD = { l: 40, r: 44, t: 26, b: 26 };
+const PAD = { l: 40, r: 44, t: 26, b: 36 };
 
 /** Stacked contributions to the change in one variable, quarter by quarter. */
 export default function Decomp() {
@@ -135,8 +135,15 @@ export default function Decomp() {
           {Array.from({ length: end }, (_, i) => i + 1).map((t) => (
             <line key={`q-${t}`} x1={x(t) + band / 2} x2={x(t) + band / 2} y1={H - PAD.b} y2={H - PAD.b + ((t - 1) % 4 === 0 ? 6 : 3)} stroke="var(--lab-ink-2)" strokeOpacity={0.5} />
           ))}
+          {band >= 26
+            ? Array.from({ length: end }, (_, i) => i + 1).map((t) => (
+                <text key={`ql-${t}`} x={x(t) + band / 2} y={H - PAD.b + 16} fontSize={11} textAnchor="middle" fill="var(--lab-ink-2)">
+                  {d.path[t].label.slice(4)}
+                </text>
+              ))
+            : null}
           {years.map((t) => (
-            <text key={t} x={x(t) + band / 2} y={H - 6} fontSize={12} fill="var(--lab-ink-2)">
+            <text key={t} x={x(t) + band / 2} y={H - 2} fontSize={12} fontWeight={600} textAnchor={band >= 26 ? "middle" : "start"} fill="var(--lab-ink-2)">
               {d.path[t].label.slice(0, 4)}
             </text>
           ))}
@@ -169,6 +176,11 @@ export default function Decomp() {
           {Array.from({ length: end }, (_, i) => i + 1).map((t) => (
             <circle key={t} cx={x(t) + band / 2} cy={y(total(t))} r={t === at ? 4.5 : 2.5} fill="var(--lab-ink)" stroke="var(--lab-paper)" strokeWidth={1.5} />
           ))}
+          {at !== end ? (
+            <text x={x(at) + band / 2} y={y(total(at)) - 10} fontSize={13} fontWeight={700} textAnchor="middle" fill="var(--lab-ink)" paintOrder="stroke" stroke="var(--lab-paper)" strokeWidth={4}>
+              {fmt(total(at), meta.digits)}
+            </text>
+          ) : null}
           <text x={x(end) + band / 2 + 8} y={y(total(end)) + 4} fontSize={13} fontWeight={700} textAnchor="start" fill="var(--lab-ink)" paintOrder="stroke" stroke="var(--lab-paper)" strokeWidth={4}>
             {fmt(total(end), meta.digits)}
           </text>

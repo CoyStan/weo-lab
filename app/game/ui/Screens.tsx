@@ -118,7 +118,8 @@ export function MissionSelect() {
                     </span>
                     <span className="game-mission-title">{m.title}</span>
                     <span className="game-mission-meta">{preset.name} · {preset.archetype} · {m.quarters} quarters</span>
-                    <span className="game-mission-kicker">{open ? m.kicker : "Win the previous mission to unlock."}</span>
+                    <span className="game-mission-kicker">{m.kicker}</span>
+                    {open ? null : <span className="game-mission-unlock">Win mission {m.number - 1} to unlock</span>}
                   </button>
                 </li>
               );

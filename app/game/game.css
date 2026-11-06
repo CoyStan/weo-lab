@@ -2939,3 +2939,187 @@
     transform: scale(0.88) !important;
   }
 }
+
+/* ---- Design council, round 4 ---------------------------------------------- */
+
+/* Driver bars by family, the same colours as the decomposition. */
+.game-why-bar.is-kind-policy {
+  background: var(--dc-1);
+}
+
+.game-why-bar.is-kind-env {
+  background: var(--dc-4);
+}
+
+.game-why-bar.is-kind-mixed {
+  background: color-mix(in srgb, var(--lab-ink) 45%, var(--lab-paper));
+}
+
+.game-why-bar.is-kind-momentum {
+  background: var(--dc-momentum);
+}
+
+.game-fw-channel.is-mixed .game-why-bar {
+  background: color-mix(in srgb, var(--lab-ink) 45%, var(--lab-paper));
+}
+
+.game-fw-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--lab-ink-2);
+}
+
+.game-fw-palette i {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  margin-right: 0.3rem;
+  vertical-align: -0.1rem;
+  border-radius: 3px;
+}
+
+.game-fw-palette .is-policy {
+  background: var(--dc-1);
+}
+
+.game-fw-palette .is-env {
+  background: var(--dc-4);
+}
+
+.game-fw-palette .is-mixed {
+  background: color-mix(in srgb, var(--lab-ink) 45%, var(--lab-paper));
+}
+
+/* Advisors: the verdict first, in bold. */
+.game-advice-lead {
+  font-weight: 650;
+  color: var(--lab-ink);
+}
+
+.game-shock:focus {
+  outline: none;
+}
+
+/* Locked missions: the premise stays visible, dimmed, with how to unlock. */
+.game-mission.is-locked .game-mission-kicker {
+  opacity: 0.75;
+}
+
+.game-mission-unlock {
+  margin-top: auto;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--lab-ink-2);
+}
+
+/* Votes and Trust are the game's resources: give them weight. */
+.game-hud .game-counter {
+  font-size: 0.9rem;
+  padding: 0.3rem 0.7rem;
+}
+
+.game-hud .game-counter strong {
+  font-size: 1.05rem;
+}
+
+/* Why-tab tiles: bigger sparklines. */
+.game-fw-tile svg {
+  height: 48px;
+}
+
+/* Phones: keep the island clean; only the capital and a pending decision label it. */
+@media (max-width: 480px) {
+  .lab-scene-label:not(.is-pending):not(.is-capital) {
+    display: none;
+  }
+  .game-play {
+    padding-bottom: 6.5rem;
+  }
+}
+
+.game-log {
+  margin-top: 1rem;
+  border-top: 1px solid var(--lab-line);
+  padding-top: 0.75rem;
+}
+
+.game-log h3 {
+  margin-bottom: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--lab-ink-2);
+}
+
+.game-log ol {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.game-log li span {
+  margin-right: 0.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--lab-scenario);
+}
+
+.game-log p {
+  font-size: 0.85rem;
+  color: var(--lab-ink-2);
+}
+
+@media (max-width: 640px) {
+  .game-dc-metrics {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    mask-image: linear-gradient(90deg, #000 85%, transparent);
+  }
+  .game-dc-metrics button {
+    flex: none;
+  }
+  .game-fw-valence b {
+    font-size: 0.75rem;
+  }
+}
+
+/* Round 4 follow-ups. */
+.game-fw-body {
+  padding-bottom: 2rem;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent);
+}
+
+.game-fw-open-short {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .game-fw-open-short {
+    display: inline;
+    font-size: 0.8rem;
+  }
+}
+
+/* Phones: one line of agenda above the lever, so the reason comes before the decision. */
+@media (max-width: 1179px) {
+  .game-col-levers > .game-agenda-top {
+    order: -1;
+    margin: 0 0 0.6rem;
+  }
+  .game-col-levers > .game-agenda-top .game-agenda li:not(:first-child) {
+    display: none;
+  }
+}
+
+@media (max-width: 1179px) {
+  .game-col-levers > :first-child {
+    order: -2;
+  }
+}

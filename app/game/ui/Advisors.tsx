@@ -26,11 +26,19 @@ export function AdviceList({ advice, compact = false }: { advice: Advice[]; comp
                 <strong className="text-[0.8rem]">{who.name}</strong>
                 <span className="text-[0.75rem] text-[var(--lab-ink-2)]">{who.role}</span>
               </div>
-              <p className="game-advice-text">{a.text}</p>
+              <p className="game-advice-text">
+                <strong className="game-advice-lead">{lead(a.text)}</strong> {a.text.slice(lead(a.text).length).trim()}
+              </p>
             </div>
           </li>
         );
       })}
     </ul>
   );
+}
+
+/** The first sentence: the advisor's verdict, set in bold so a glance is enough. */
+function lead(text: string): string {
+  const m = text.match(/^.*?[.!?](\s|$)/);
+  return m ? m[0].trim() : text;
 }

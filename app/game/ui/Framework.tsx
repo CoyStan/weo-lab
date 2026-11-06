@@ -117,6 +117,11 @@ function FrameworkPanel() {
             ) : (
               <p className="game-fw-sub">Nothing unusual: the economy is responding the way the channels suggest.</p>
             )}
+            <div className="game-fw-legend mt-3" aria-hidden="true">
+              <span><i className="is-actual" /> Outturn</span>
+              <span><i className="is-forecast" /> Forecast with your policies</span>
+              {touched ? <span><i className="is-untouched" /> Had you changed nothing</span> : null}
+            </div>
             <div className="game-fw-overview">
               {OVERVIEW.map(({ sector, key }) => {
                 const row = SECTORS.find((x) => x.id === sector)!.rows.find((r) => r.key === key)!;
@@ -155,6 +160,7 @@ function FrameworkPanel() {
 
         {tab === "channels" ? (
           <section className="game-fw-section" aria-label="How policy and shocks reach each sector">
+            <PaletteKey />
             <p className="game-fw-sub">Each channel is a chain from a lever or a shock to the economy. Bars show what flowed through it in {shown.label}: demand in pp of the output gap, inflation in pp, debt in pp of GDP.</p>
             <div className="game-fw-channels">
               {chans.map((c) => (
@@ -192,10 +198,20 @@ function FrameworkPanel() {
   );
 }
 
+function PaletteKey() {
+  return (
+    <p className="game-fw-palette" aria-label="Colour key">
+      <span><i className="is-policy" /> Your instruments</span>
+      <span><i className="is-env" /> Shocks and the world</span>
+      <span><i className="is-mixed" /> Expectations, markets, the currency</span>
+    </p>
+  );
+}
+
 function ChannelCard({ channel: c }: { channel: Channel }) {
   const max = Math.max(0.25, ...c.links.map((l) => Math.abs(l.value)));
   return (
-    <article className={`game-fw-channel is-${c.status} ${c.id === "world" ? "is-env" : c.id === "confidence" ? "is-mixed" : "is-policy"}`}>
+    <article className={`game-fw-channel is-${c.status} ${c.id === "world" ? "is-env" : c.id === "confidence" || c.status === "idle" || c.status === "blocked" ? "is-mixed" : "is-policy"}`}>
       <header className="flex items-start justify-between gap-2">
         <h4 className="text-[0.82rem] font-semibold leading-tight">{c.title}</h4>
         <span className={`game-fw-pill is-${c.status}`}>{STATUS_WORD[c.status]}</span>
@@ -222,10 +238,22 @@ function ChannelCard({ channel: c }: { channel: Channel }) {
   );
 }
 
-function Bar({ value, max }: { value: number; max: number }) {
+/** Which family a driver belongs to, so bars share the decomposition's colours. */
+const DRIVER_KIND: Record<string, "policy" | "env" | "mixed" | "momentum"> = {
+  monetary: "policy",
+  fiscal: "policy",
+  primary: "policy",
+  external: "env",
+  commodities: "env",
+  shocks: "env",
+  oil: "env",
+  fading: "momentum",
+};
+
+function Bar({ value, max, kind }: { value: number; max: number; kind?: "policy" | "env" | "mixed" | "momentum" }) {
   return (
     <span className="game-why-track" aria-hidden="true">
-      {Math.abs(value) >= 0.005 ? <span className={`game-why-bar ${value > 0 ? "is-pos" : "is-neg"}`} style={{ width: `${Math.min(50, (Math.abs(value) / max) * 50)}%`, [value > 0 ? "left" : "right"]: "50%" }} /> : null}
+      {Math.abs(value) >= 0.005 ? <span className={`game-why-bar ${value > 0 ? "is-pos" : "is-neg"} ${kind ? `is-kind-${kind}` : ""}`} style={{ width: `${Math.min(50, (Math.abs(value) / max) * 50)}%`, [value > 0 ? "left" : "right"]: "50%" }} /> : null}
     </span>
   );
 }
@@ -345,7 +373,7 @@ function SectorDrivers({ id, shown, prev }: { id: Sector["id"]; shown: QuarterSt
             {parts.map((p) => (
               <li key={p.label} className="game-fw-link">
                 <span className="truncate" title={p.label}>{p.label}</span>
-                <Bar value={p.value} max={max} />
+                <Bar value={p.value} max={max} kind="mixed" />
                 <span className="text-right font-mono tabular-nums">{signed(p.value, 2)}</span>
               </li>
             ))}
@@ -369,7 +397,7 @@ function SectorDrivers({ id, shown, prev }: { id: Sector["id"]; shown: QuarterSt
         {parts.slice(0, 5).map((p) => (
           <li key={p.key} className="game-fw-link">
             <span className="truncate" title={p.label}>{p.label}</span>
-            <Bar value={p.value} max={max} />
+            <Bar value={p.value} max={max} kind={DRIVER_KIND[p.key] ?? "mixed"} />
             <span className="text-right font-mono tabular-nums">{signed(p.value, 2)}</span>
           </li>
         ))}

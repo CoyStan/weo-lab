@@ -113,6 +113,7 @@ function RecapCard({ recap }: { recap: Recap }) {
               <span className={`text-[0.8rem] font-semibold tabular-nums ${verdict(mission, m, d)}`}>
                 {Math.abs(d) < 0.05 ? "unchanged" : `${d > 0 ? "▲" : "▼"} ${fmtNum(d, meta.digits, true)}${deltaUnit(meta.unit)}`}
               </span>
+              <GoalLine mission={mission} metric={m} />
             </div>
           );
         })}
@@ -179,7 +180,9 @@ function ShockCard({ ids }: { ids: string[] }) {
   const mission = getMission(missionId ?? "")!;
   const config = useLab((s) => s.config);
   const clock = useLab((s) => s.clock);
-  const primary = usePrimary();
+  // Focus the card itself, so no option looks pre-selected.
+  const dialog = useRef<HTMLDivElement>(null);
+  useEffect(() => dialog.current?.focus({ preventScroll: true }), []);
   const shocks = config.shocks.filter((s) => ids.includes(s.id));
   const main = shocks[0];
   if (!main) return null;
@@ -189,7 +192,7 @@ function ShockCard({ ids }: { ids: string[] }) {
   const now = main.quarter <= clock + 1;
 
   return (
-    <div className="game-card game-shock" role="dialog" aria-modal="true" aria-labelledby="shock-title">
+    <div ref={dialog} tabIndex={-1} className="game-card game-shock" role="dialog" aria-modal="true" aria-labelledby="shock-title">
       <span className="game-shock-kicker">{now && main.quarter > 1 ? "Breaking news" : "On your desk"}</span>
       <h2 id="shock-title" className="game-shock-title">{spec.name}</h2>
       <p className="text-[0.82rem] leading-relaxed">{spec.description}</p>
@@ -215,7 +218,7 @@ function ShockCard({ ids }: { ids: string[] }) {
             <span>{o.detail}</span>
           </button>
         ))}
-        <button ref={primary} type="button" className="game-choice is-plain" onClick={close}>
+        <button type="button" className="game-choice is-plain" onClick={close}>
           <strong>I&rsquo;ll decide myself</strong>
           <span>Close this and use the levers. You can see each one&rsquo;s effect before you commit.</span>
         </button>
@@ -423,4 +426,21 @@ function worstStatus(mission: Mission, recap: Recap, metric: string): ObjectiveS
 function StatusPill({ status }: { status: ObjectiveStatus | null }) {
   if (!status) return null;
   return <span className={`game-status is-${status}`}>{STATUS_WORD[status].charAt(0).toUpperCase() + STATUS_WORD[status].slice(1)}</span>;
+}
+
+/** "Forecast 3.9% by 2027Q4 · goal ≤ 4.5%": why a rising number can still be on track. */
+function GoalLine({ mission, metric }: { mission: Mission; metric: keyof typeof GAME_METRICS }) {
+  const config = useLab((st) => st.config);
+  const clock = useLab((st) => st.clock);
+  const o = mission.objectives.find((x) => x.metric === metric && !x.bonus);
+  if (!o || clock >= mission.quarters) return null;
+  const meta = GAME_METRICS[metric];
+  const f = forecastFor(config, clock)[mission.quarters][metric];
+  return (
+    <span className="text-[0.75rem] leading-snug text-[var(--lab-ink-2)]">
+      Forecast {fmtNum(f, meta.digits)}
+      {unitShort(meta.unit)} by {quarterLabel(mission.quarters)} · goal {o.op === "<=" ? "≤" : "≥"} {fmtNum(o.threshold, meta.digits)}
+      {unitShort(meta.unit)}
+    </span>
+  );
 }

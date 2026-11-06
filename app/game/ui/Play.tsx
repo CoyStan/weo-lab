@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { quarterLabel } from "../../model/economy";
+import { describeChanges, quarterLabel } from "../../model/economy";
 import { getPreset } from "../../model/presets";
 import { MISSIONS } from "../missions";
 import { sound } from "../audio";
@@ -100,7 +100,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
         <Capital />
         <div className="ml-auto flex items-center justify-end gap-1.5">
           <button type="button" className="lab-btn lab-btn-sm game-fw-open" onClick={() => setFramework(true)} title="Every sector, every channel, and why things are or aren't moving (M)">
-            <ChartIcon /> <span className="game-fw-open-label">Macro framework</span> <kbd className="game-fw-kbd">M</kbd>
+            <ChartIcon /> <span className="game-fw-open-label">Macro framework</span><span className="game-fw-open-short">Framework</span> <kbd className="game-fw-kbd">M</kbd>
           </button>
           <SoundToggle />
           {clock > 0 ? <button type="button" className="lab-btn lab-btn-ghost lab-btn-sm" onClick={rewind} title="Go back one quarter and decide again">Rewind</button> : null}
@@ -141,6 +141,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
           {panel === "levers" ? (
             <>
               <Levers />
+              <DecisionLog />
               <Hint text={mission.hint} />
             </>
           ) : (
@@ -187,6 +188,33 @@ export default function Play({ scene }: { scene: ReactNode }) {
         </aside>
       </main>
     </div>
+  );
+}
+
+/** The group's choices so far, newest first: a record to argue about. */
+function DecisionLog() {
+  const turns = useGame((s) => s.turns);
+  const config = useLab((s) => s.config);
+  const clock = useLab((s) => s.clock);
+  const start = turns[0];
+  if (!start || clock === 0) return null;
+  const inherited = new Set(start.decisions.map((d) => JSON.stringify(d)));
+  const mine = config.decisions.filter((d) => d.quarter >= 1 && d.quarter <= clock && !inherited.has(JSON.stringify(d))).sort((a, b) => b.quarter - a.quarter);
+  return (
+    <section className="game-log" aria-label="Your decisions so far">
+      <h3>Your decisions so far</h3>
+      {mine.length ? (
+        <ol>
+          {mine.slice(0, 5).map((d) => (
+            <li key={d.quarter}>
+              <span>{quarterLabel(d.quarter)}</span> {describeChanges(d.changes)}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p>None yet: policy has carried on as you found it.</p>
+      )}
+    </section>
   );
 }
 
