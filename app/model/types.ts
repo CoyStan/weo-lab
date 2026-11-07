@@ -165,13 +165,6 @@ export type Drivers = {
   debt: { interestGrowth: number; primary: number; currency: number; other: number };
 };
 
-/**
- * One quarter of the projection. Flows are % of GDP at an annual rate and
- * stocks % of annual GDP unless a comment says otherwise. The accounting
- * blocks (national accounts, current account, balance of payments,
- * saving–investment, monetary survey) hold exactly every quarter; see
- * app/model/identities.test.ts.
- */
 export type QuarterState = {
   t: number;
   label: string;
@@ -220,67 +213,6 @@ export type QuarterState = {
   imfDisb: number;
   /** FX pressure this quarter (what a float would have depreciated), %. */
   pressure: number;
-  /** Nominal GDP growth this quarter, annualised % (domestic currency). */
-  nomGrowth: number;
-
-  // ---- National accounts, expenditure side (nominal, % of GDP). cons + inv + gov + exports − imports = 100.
-  /** Private consumption (the residual of the expenditure identity). */
-  cons: number;
-  /** Private investment. */
-  inv: number;
-  /** Government consumption and investment. */
-  gov: number;
-  /** Public investment (part of gov). */
-  govInvestment: number;
-  exports: number;
-  imports: number;
-  /** Net exports of goods and services, exports − imports. */
-  nx: number;
-
-  // ---- Current account: ca = nx + primaryIncome + transfers.
-  /** Net primary income (investment income on the net foreign asset position), % GDP. */
-  primaryIncome: number;
-  /** Net secondary income (remittances, grants), % GDP. */
-  transfers: number;
-  /** Net foreign assets, % of annual GDP (negative = net liabilities). */
-  nfa: number;
-  /** Valuation and other volume changes in nfa this quarter (exchange rate on the FX share, restructuring), % GDP. */
-  nfaValuation: number;
-
-  // ---- Balance of payments: ca + fa + official − dReserves = 0 (annual-rate flows, % GDP).
-  /** Private financial account, net inflows (positive = inflow). fa = faFdi + faPortfolio + faOther. */
-  fa: number;
-  faFdi: number;
-  faPortfolio: number;
-  /** Other investment, including exchange-rate clearing and exceptional financing. */
-  faOther: number;
-  /** Official financing (IMF disbursements, swap-line drawings), annual rate. */
-  official: number;
-  /** Change in reserve assets, annual rate (positive = accumulation), excluding valuation. */
-  dReserves: number;
-
-  // ---- Saving–investment balances: privateSI + publicSI = ca.
-  publicSI: number;
-  privateSI: number;
-  /** Gross national saving = inv + govInvestment + ca. */
-  savingNational: number;
-
-  // ---- Monetary survey: money = mNfa + mNda; mNda = creditGov + creditPrivate + mOther.
-  /** Broad money, % GDP. */
-  money: number;
-  /** Net foreign assets of the banking system (= reservesPct). */
-  mNfa: number;
-  /** Net domestic assets of the banking system. */
-  mNda: number;
-  creditPrivate: number;
-  creditGov: number;
-  /** Other items net (residual of the survey). */
-  mOther: number;
-  /** Change in money this quarter, pp of GDP, split into ΔNFA and ΔNDA. */
-  dMoney: number;
-  dMNfa: number;
-  dMNda: number;
-
   activeShocks: ShockKind[];
   drivers: Drivers;
   /** The stock-flow consistent accounts (see accounts.ts). */
