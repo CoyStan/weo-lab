@@ -86,7 +86,7 @@ export const MISSIONS: Mission[] = [
     briefing: [
       "Welcome to the central bank of Aurelia. A failed harvest has pushed food prices up, and inflation is running well above the 4% target.",
       "You set the policy rate each quarter. Raising it cools demand and, with a lag, inflation. Raise it too far and the economy stalls.",
-      "Get inflation down to 4.5% or below by the end of 2027, and keep growth above 1.5% along the way.",
+      "Get inflation down to 3.8% or below by the end of 2027, and keep growth above 1.5% along the way.",
     ],
     lesson: "Monetary policy works with a lag: the rate you set today shows up in inflation two to four quarters later.",
     hint: "Raise the rate early, by about two points, then bring it back down once inflation turns. Rates take a few quarters to bite.",
@@ -94,7 +94,7 @@ export const MISSIONS: Mission[] = [
     unlocks: ["rate"],
     advisors: ["governor", "minister"],
     objectives: [
-      { id: "infl-end", label: "Inflation at or below 4.5% by the end of 2027", metric: "infl", op: "<=", threshold: 4.5, when: "end" },
+      { id: "infl-end", label: "Inflation at or below 3.8% by the end of 2027", metric: "infl", op: "<=", threshold: 3.8, when: "end" },
       { id: "growth-floor", label: "Growth stays above 1.5% every quarter", metric: "growth", op: ">=", threshold: 1.5, when: "every", from: 1 },
       { id: "infl-peak", label: "Inflation peaks at 8.6% or lower", metric: "infl", op: "<=", threshold: 8.6, when: "every", from: 1, bonus: true },
       { id: "growth-end", label: "Growth back to 3.5% or more by the end", metric: "growth", op: ">=", threshold: 3.5, when: "end", bonus: true },
@@ -210,7 +210,7 @@ export const MISSIONS: Mission[] = [
     objectives: [
       { id: "reserves-end", label: "Reserves at 3 months of imports or more by the end of 2028", metric: "reserves", op: ">=", threshold: 3, when: "end" },
       { id: "spread", label: "Spread at or below 750 bp every quarter", metric: "spread", op: "<=", threshold: 750, when: "every", from: 1 },
-      { id: "debt", label: "Debt at or below 85% of GDP at the end", metric: "debt", op: "<=", threshold: 85, when: "end", bonus: true },
+      { id: "debt", label: "Debt at or below 86% of GDP at the end", metric: "debt", op: "<=", threshold: 86, when: "end", bonus: true },
       { id: "reserves-deep", label: "Reserves at 5 months or more at the end", metric: "reserves", op: ">=", threshold: 5, when: "end", bonus: true },
     ],
     fail: [
@@ -233,7 +233,7 @@ export const MISSIONS: Mission[] = [
       "Through 2029, keep debt at or below 72% of GDP, inflation at or below 6%, and reserves above 2.5 months of imports.",
     ],
     lesson: "In a sudden stop, every tool trades one risk for another; the best mix shares the burden across rates, reserves and the exchange rate.",
-    hint: "When capital leaves, share the burden: tighten the budget by about a point and take a small IMF programme, rather than burning reserves on the currency.",
+    hint: "When capital leaves, share the burden: tighten the budget by about a point, take a small IMF programme, and let intervention absorb about half of the fall in the currency rather than all of it or none.",
     quarters: 16,
     unlocks: ["rate", "rule", "fiscal", "mix", "investment", "fxRegime", "intervention", "controls", "reforms", "imf"],
     advisors: ["governor", "minister", "chief"],

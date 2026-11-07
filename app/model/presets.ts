@@ -14,7 +14,7 @@ export type PresetParams = {
   sigma: number;
   /** Phillips-curve slope: pp of annualised inflation per pp of output gap. */
   kappa: number;
-  /** Exchange-rate pass-through: pp of inflation per 1% nominal depreciation. */
+  /** Exchange-rate pass-through: pp of annualised quarterly inflation per 1% real depreciation in the quarter. */
   passthrough: number;
   /** pp of inflation per 1% quarterly oil-price change. */
   oilInflation: number;
@@ -61,6 +61,12 @@ export type PresetParams = {
   financingGap: number;
   /** Effective lower bound on the policy rate, %. */
   elb: number;
+  /**
+   * λ: weight of model-consistent (forward) inflation in the unanchored part of
+   * expectations; the rest is last quarter's inflation. Higher where policy is
+   * better understood.
+   */
+  leadWeight: number;
 };
 
 export type PresetInitial = {
@@ -124,6 +130,29 @@ const basePolicy: Policy = {
   capitalControls: false,
 };
 
+/*
+ * Calibration of the four archetypes against published impulse responses
+ * (checked in irf.test.ts; sources listed there):
+ * - Monetary transmission (100 bp for a year: output trough −0.15 to −0.6 pp in
+ *   quarters 3–8, inflation trough −0.05 to −0.4 pp in quarters 4–10; Berg,
+ *   Karam & Laxton 2006) and Okun's law (0.3–0.6; Ball, Leigh & Loungani 2017)
+ *   already held with sigma, rhoGap, kappa and okun as they were.
+ * - Fiscal multipliers (Ilzetzki, Mendoza & Végh 2013; Batini et al. 2014)
+ *   and oil (Kilian 2009; Blanchard & Galí 2007) already held too.
+ * - Exchange-rate pass-through did not: a 10% devaluation moved the price level
+ *   by 1.1% (Aurelia), 0.8% (Boreas) and 0.25% (Castellan) after a year, below
+ *   the 1.5–4% for emerging economies and 0.5–2% for advanced ones reported by
+ *   Ha, Stocker & Yilmazkuday (2020). `passthrough` is now 0.3 (was 0.15), 0.28
+ *   (0.12) and 0.14 (0.04); Dumara's 0.25 already gave 2.4%.
+ * - `leadWeight` (λ, new) is 0.5 for the emerging and commodity archetypes,
+ *   0.6 for the advanced one and 0.35 for the frontier, where policy is less
+ *   understood and inflation more backward-looking.
+ * - Dumara's default manual rate is 9% (was 12%), the rate the defend-the-peg
+ *   mission already used: behind the peg the rate follows the anchor's plus the
+ *   spread (about 10–11%), and a 12% floor on top, with forward-looking real
+ *   rates, sent the do-nothing baseline into a deflation spiral against the
+ *   model's −3% floor once the peg broke.
+ */
 export const PRESETS: Preset[] = [
   {
     id: "aurelia",
@@ -134,12 +163,12 @@ export const PRESETS: Preset[] = [
       "A mid-sized emerging economy with a floating currency and an inflation-targeting central bank. Debt sits just above the 60% mark, inflation is a point and a half above target, and a third of public debt is in foreign currency.",
     initial: { gap: 0, infl: 5.5, rate: 8.5, debt: 62, structPB: -1.0, iEff: 7.5, ca: -3.0, reserves: 4.5, unemp: 7.5, spread: 280, cred: 60, growth: 3.8 },
     params: {
-      neutralRealRate: 2.0, rhoGap: 0.8, sigma: 0.5, kappa: 0.25, passthrough: 0.15, oilInflation: 0.03,
+      neutralRealRate: 2.0, rhoGap: 0.8, sigma: 0.5, kappa: 0.25, passthrough: 0.3, oilInflation: 0.03,
       oilImportShare: 3, commodityExportShare: 0, commodityRevenueShare: 0, importsGDP: 30,
       exportElasticity: 0.15, externalDemand: 0.6, fxDebtShare: 0.35, marketDebtShare: 0.9,
       debtThreshold: 60, spreadBase: 280, avgMaturity: 6, autoStabilizer: 0.35,
       multiplierSpend: 0.8, multiplierTax: 0.4, nairu: 7.5, okun: 0.35, termPremium: 1.0,
-      k1: 0.25, k2: 0.4, k3: 1.0, k5: 0.5, financingGap: 0, elb: 0,
+      k1: 0.25, k2: 0.4, k3: 1.0, k5: 0.5, financingGap: 0, elb: 0, leadWeight: 0.5,
     },
     defaultPolicy: { ...basePolicy, manualRate: 8.5, inflationTarget: 4, fxRegime: "float", publicInvestment: 3.5 },
     potentialGrowth: 3.5,
@@ -154,12 +183,12 @@ export const PRESETS: Preset[] = [
       "A resource-rich economy whose budget and exports lean on commodity prices. Reserves are comfortable and debt is moderate, but a commodity bust hits the budget, the current account and the currency at once.",
     initial: { gap: 0.5, infl: 3.2, rate: 5.0, debt: 45, structPB: 0.5, iEff: 5.5, ca: 1.5, reserves: 7, unemp: 6, spread: 180, cred: 65, growth: 2.6 },
     params: {
-      neutralRealRate: 1.5, rhoGap: 0.8, sigma: 0.5, kappa: 0.2, passthrough: 0.12, oilInflation: 0.02,
+      neutralRealRate: 1.5, rhoGap: 0.8, sigma: 0.5, kappa: 0.2, passthrough: 0.28, oilInflation: 0.02,
       oilImportShare: -4, commodityExportShare: 15, commodityRevenueShare: 6, importsGDP: 28,
       exportElasticity: 0.1, externalDemand: 0.7, fxDebtShare: 0.25, marketDebtShare: 0.85,
       debtThreshold: 55, spreadBase: 180, avgMaturity: 7, autoStabilizer: 0.4,
       multiplierSpend: 0.7, multiplierTax: 0.35, nairu: 6, okun: 0.4, termPremium: 0.8,
-      k1: 0.25, k2: 0.4, k3: 1.0, k5: 0.5, financingGap: 0, elb: 0,
+      k1: 0.25, k2: 0.4, k3: 1.0, k5: 0.5, financingGap: 0, elb: 0, leadWeight: 0.5,
     },
     defaultPolicy: { ...basePolicy, manualRate: 5.0, inflationTarget: 3, fxRegime: "managed", fxIntervention: 50, publicInvestment: 4.0 },
     potentialGrowth: 2.5,
@@ -174,12 +203,12 @@ export const PRESETS: Preset[] = [
       "A mature economy with deep markets, a credible central bank and public debt above 100% of GDP. Spreads are low and the currency floats freely, so the question is fiscal space, not market access.",
     initial: { gap: -0.3, infl: 2.4, rate: 2.75, debt: 108, structPB: -1.5, iEff: 2.6, ca: 2.0, reserves: 12, unemp: 5.5, spread: 40, cred: 85, growth: 1.2 },
     params: {
-      neutralRealRate: 0.5, rhoGap: 0.85, sigma: 0.6, kappa: 0.12, passthrough: 0.04, oilInflation: 0.015,
+      neutralRealRate: 0.5, rhoGap: 0.85, sigma: 0.6, kappa: 0.12, passthrough: 0.14, oilInflation: 0.015,
       oilImportShare: 1.5, commodityExportShare: 0, commodityRevenueShare: 0, importsGDP: 40,
       exportElasticity: 0.08, externalDemand: 0.6, fxDebtShare: 0, marketDebtShare: 1,
       debtThreshold: 100, spreadBase: 40, avgMaturity: 8, autoStabilizer: 0.5,
       multiplierSpend: 1.0, multiplierTax: 0.5, nairu: 5.3, okun: 0.5, termPremium: 0.5,
-      k1: 0.2, k2: 0.2, k3: 0.5, k5: 0.3, financingGap: 0, elb: 0,
+      k1: 0.2, k2: 0.2, k3: 0.5, k5: 0.3, financingGap: 0, elb: 0, leadWeight: 0.6,
     },
     defaultPolicy: { ...basePolicy, manualRate: 2.75, inflationTarget: 2, fxRegime: "float", publicInvestment: 3.0 },
     potentialGrowth: 1.3,
@@ -199,9 +228,9 @@ export const PRESETS: Preset[] = [
       exportElasticity: 0.12, externalDemand: 0.5, fxDebtShare: 0.6, marketDebtShare: 0.4,
       debtThreshold: 55, spreadBase: 650, avgMaturity: 5, autoStabilizer: 0.25,
       multiplierSpend: 0.7, multiplierTax: 0.3, nairu: 11, okun: 0.3, termPremium: 1.5,
-      k1: 0.3, k2: 0.5, k3: 1.2, k5: 0.6, financingGap: 2.0, elb: 0,
+      k1: 0.3, k2: 0.5, k3: 1.2, k5: 0.6, financingGap: 2.0, elb: 0, leadWeight: 0.35,
     },
-    defaultPolicy: { ...basePolicy, rateMode: "manual", manualRate: 12, inflationTarget: 5, ruleStrength: 1.2, fxRegime: "peg", fxIntervention: 100, publicInvestment: 4.0 },
+    defaultPolicy: { ...basePolicy, rateMode: "manual", manualRate: 9, inflationTarget: 5, ruleStrength: 1.2, fxRegime: "peg", fxIntervention: 100, publicInvestment: 4.0 },
     potentialGrowth: 4.0,
     defaultRegime: "peg",
   },

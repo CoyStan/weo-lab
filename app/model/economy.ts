@@ -8,12 +8,19 @@
 // term, a current-account equation, Okun's law and a reduced-form sovereign
 // spread. Everything is deterministic given the configuration, so the whole
 // horizon is recomputed on every change.
+//
+// Expectations are partly model-consistent (QPM style): expected inflation
+// mixes the target (by credibility), next quarter's inflation on the solved
+// path and last quarter's; demand and the currency respond to the real and
+// nominal rates expected over the coming year. The path is solved by
+// Fair–Taylor iteration (see solve()).
 
 import { getPreset, WEO_REFERENCE, WORLD_INFLATION } from "./presets.ts";
 import type { Preset } from "./presets.ts";
 import { generateRandomShocks, impulseAt } from "./shocks.ts";
+import type { Impulse } from "./shocks.ts";
 import { SHOCKS } from "./shocks.ts";
-import type { Decision, Drivers, FxRegime, Policy, QuarterState, ScenarioConfig, ScheduledShock, SimEvent, SimResult } from "./types.ts";
+import type { Decision, Drivers, FxRegime, Policy, QuarterState, Residual, ScenarioConfig, ScheduledShock, ShockKind, SimEvent, SimResult } from "./types.ts";
 import { evaluateConstraints } from "./constraints.ts";
 import { accountParams, creditTarget, externalYield, moneyTarget } from "./accounts.ts";
 
@@ -81,18 +88,224 @@ function fundamentalPressure(preset: Preset, rate: number, usRate: number, sprea
   return -P.k1 * interestDiff + (P.k2 * -ca) / 4 - P.k3 * flowTerm;
 }
 
-const sum = (parts: Record<string, number>) => Object.values(parts).reduce((a, b) => a + b, 0);
+/**
+ * Expectations are solved by Fair–Taylor iteration: each pass takes the
+ * previous pass's paths for inflation, the policy rate and credibility as what
+ * agents expect, until the inflation path stops moving (max |Δπ| below the
+ * tolerance, or the iteration cap). The first pass uses the old
+ * backward-looking rule; with the cap at 1 the model is the old one. The cap is
+ * 12 rather than 8: frontier economies on a fixed nominal rate have explosive
+ * backward dynamics and need 9–11 passes; most scenarios take 5–7.
+ * `depth` is the Anderson-mixing memory. `predictor` is the persistence agents
+ * attach to a drift of the economy away from the expected path within a pass
+ * (it vanishes at the fixed point); `newsPersistence` is the same for
+ * surprises (see solve()).
+ */
+export const SOLVER = { maxIterations: 12, tolerance: 1e-4, depth: 5, predictor: 0.9, newsPersistence: 0.8 };
+
+/** Paths from the previous Fair–Taylor pass, indexed by quarter 0..HORIZON. */
+type Guess = { buf: Float64Array; infl: Float64Array; rate: Float64Array; anchor: Float64Array };
+const guessOf = (buf: Float64Array): Guess => ({ buf, infl: buf.subarray(0, HORIZON + 1), rate: buf.subarray(HORIZON + 1, 2 * (HORIZON + 1)), anchor: buf.subarray(2 * (HORIZON + 1)) });
+
+export type SolveInfo = { iterations: number; residual: number; converged: boolean };
+
+/** Shocks nobody can see coming: random draws and the campaign's surprises. */
+export const isNews = (s: ScheduledShock) => s.source === "random" || s.id.startsWith("surprise");
 
 export function simulate(config: ScenarioConfig): SimResult {
+  return solve(config).result;
+}
+
+type Anticipated = { preset: Preset; guess: Guess; iterations: number; residual: number };
+/** Recently solved anticipated paths. Keyed on everything they depend on, so a hit returns exactly what a fresh solve would. */
+const anticipatedCache = new Map<string, Anticipated>();
+const CACHE_SIZE = 64;
+
+/** Forget cached expectations (for benchmarks and tests). */
+export function clearExpectationsCache() {
+  anticipatedCache.clear();
+}
+
+/**
+ * The simulation plus how the expectations solver converged.
+ *
+ * Information sets: agents know the policy settings, institutions, one-off
+ * actions and announced shocks in the configuration, and form model-consistent
+ * expectations about them. They cannot foresee news: calibration residuals
+ * (the model's unexplained part, estimated quarter by quarter) and surprise or
+ * random shocks. So expectations are solved on the anticipated scenario
+ * (everything but the news); the reported path then runs once with the news,
+ * and agents who see the economy drift from the anticipated path expect the
+ * drift to persist (decaying at `newsPersistence` a quarter). Without news,
+ * that final run is simply one more Fair–Taylor pass.
+ */
+export function solve(config: ScenarioConfig): { result: SimResult } & SolveInfo {
   setStartYear(config.startYear ?? START_YEAR);
   const preset = getPreset(config.presetId);
   const residualAt = new Map((config.residuals ?? []).map((r) => [r.quarter, r]));
-  const P = preset.params;
-  const A = config.assumptions;
   const shocks: ScheduledShock[] = [...config.shocks, ...(config.randomShocks ? generateRandomShocks(config.seed, HORIZON) : [])].sort((a, b) => a.quarter - b.quarter);
   const decisions = [...config.decisions].sort((a, b) => a.quarter - b.quarter);
+  const known = shocks.filter((s) => !isNews(s));
+  const hasNews = known.length < shocks.length || residualAt.size > 0;
+
+  // Inputs that do not depend on the solution, computed once for every pass.
+  const pols: Policy[] = [];
+  for (let t = 0; t <= HORIZON; t++) pols.push(policyAt(preset.defaultPolicy, decisions, t));
+  const impulses = (list: ScheduledShock[], residuals: Map<number, Residual>) => {
+    const imps: Impulse[] = [];
+    const actives: ShockKind[][] = [];
+    for (let t = 0; t <= HORIZON; t++) {
+      const { impulse, active } = impulseAt(list, Math.max(1, t));
+      const res = residuals.get(t);
+      imps.push(res && t > 0 ? { ...impulse, gapAdd: impulse.gapAdd + (res.gap ?? 0), inflAdd: impulse.inflAdd + (res.infl ?? 0), debtOneOff: impulse.debtOneOff + (res.debt ?? 0) } : impulse);
+      actives.push(t > 0 ? active : []);
+    }
+    return { imps, actives };
+  };
+
+  const key = JSON.stringify([config.presetId, config.startYear, config.assumptions, decisions, config.oneOffs, known, config.institutions, SOLVER]);
+  let ant = anticipatedCache.get(key);
+  if (ant && ant.preset !== preset) ant = undefined;
+  const noResiduals = new Map<number, Residual>();
+  const anticipated = hasNews ? impulses(known, noResiduals) : impulses(shocks, residualAt);
+  if (!ant) {
+    const { imps, actives } = anticipated;
+    ant = { preset, ...fairTaylor((guess) => pass(config, preset, known, decisions, noResiduals, pols, imps, actives, guess, SOLVER.predictor, true).guess) };
+    anticipatedCache.set(key, ant);
+    if (anticipatedCache.size > CACHE_SIZE) anticipatedCache.delete(anticipatedCache.keys().next().value!);
+  } else {
+    // Most recently used last.
+    anticipatedCache.delete(key);
+    anticipatedCache.set(key, ant);
+  }
+  const { imps, actives } = hasNews ? impulses(shocks, residualAt) : anticipated;
+  // With the iteration cap at one, expectations stay backward-looking throughout (the old model).
+  const expected = SOLVER.maxIterations > 1 ? ant.guess : null;
+  const final = pass(config, preset, shocks, decisions, residualAt, pols, imps, actives, expected, hasNews ? SOLVER.newsPersistence : SOLVER.predictor);
+  return { result: final.result, iterations: ant.iterations, residual: ant.residual, converged: ant.residual < SOLVER.tolerance };
+}
+
+/**
+ * Plain Fair–Taylor iteration moves news back one quarter per pass, so it is
+ * accelerated with Anderson mixing over the last few passes (the expected
+ * paths of inflation, the policy rate and credibility, stacked). The residual
+ * is always that of a plain pass: how far the solved inflation path is from
+ * the one agents expected.
+ */
+function fairTaylor(run: (guess: Guess | null) => Guess): { guess: Guess; iterations: number; residual: number } {
+  const fs: Float64Array[] = [];
+  const rs: Float64Array[] = [];
+  let guess = run(null);
+  let residual = Infinity;
+  let iterations = 1;
+  while (iterations < SOLVER.maxIterations) {
+    iterations++;
+    const out = run(guess);
+    residual = 0;
+    for (let t = 1; t <= HORIZON; t++) residual = Math.max(residual, Math.abs(out.infl[t] - guess.infl[t]));
+    if (residual < SOLVER.tolerance) {
+      guess = out;
+      break;
+    }
+    const r = new Float64Array(out.buf.length);
+    for (let j = 0; j < r.length; j++) r[j] = out.buf[j] - guess.buf[j];
+    fs.push(out.buf);
+    rs.push(r);
+    if (fs.length > SOLVER.depth + 1) {
+      fs.shift();
+      rs.shift();
+    }
+    guess = iterations < SOLVER.maxIterations ? guessOf(anderson(fs, rs)) : out;
+  }
+  return { guess, iterations, residual };
+}
+
+/**
+ * Anderson mixing: the combination of recent passes whose residuals
+ * (output − input) cancel best in least squares, applied to their outputs.
+ */
+function anderson(fs: Float64Array[], rs: Float64Array[]): Float64Array {
+  const k = fs.length;
+  const last = fs[k - 1];
+  if (k < 2) return last;
+  const n = last.length;
+  // Minimise |r_k − Σ γ_i (r_{i+1} − r_i)| over γ (normal equations, m ≤ depth).
+  const m = k - 1;
+  const dr: Float64Array[] = [];
+  for (let i = 0; i < m; i++) {
+    const d = new Float64Array(n);
+    const a = rs[i + 1];
+    const b = rs[i];
+    for (let j = 0; j < n; j++) d[j] = a[j] - b[j];
+    dr.push(d);
+  }
+  const dot = (a: Float64Array, b: Float64Array) => {
+    let s = 0;
+    for (let j = 0; j < n; j++) s += a[j] * b[j];
+    return s;
+  };
+  const M: number[][] = [];
+  const v: number[] = [];
+  for (let i = 0; i < m; i++) M.push(new Array<number>(m).fill(0));
+  for (let i = 0; i < m; i++) {
+    for (let j = i; j < m; j++) M[i][j] = M[j][i] = dot(dr[i], dr[j]);
+    M[i][i] = M[i][i] * (1 + 1e-10) + 1e-14;
+    v.push(dot(dr[i], rs[k - 1]));
+  }
+  const gamma = solveSmall(M, v);
+  if (!gamma || !gamma.every(Number.isFinite)) return last;
+  const x = last.slice();
+  for (let i = 0; i < m; i++) {
+    const g = gamma[i];
+    const a = fs[i + 1];
+    const b = fs[i];
+    for (let j = 0; j < n; j++) x[j] -= g * (a[j] - b[j]);
+  }
+  return x;
+}
+
+/** Gaussian elimination with partial pivoting for a tiny system; null if singular. */
+function solveSmall(M: number[][], v: number[]): number[] | null {
+  const m = v.length;
+  const a = M.map((row, i) => [...row, v[i]]);
+  for (let c = 0; c < m; c++) {
+    let p = c;
+    for (let r = c + 1; r < m; r++) if (Math.abs(a[r][c]) > Math.abs(a[p][c])) p = r;
+    if (Math.abs(a[p][c]) < 1e-300) return null;
+    [a[c], a[p]] = [a[p], a[c]];
+    for (let r = c + 1; r < m; r++) {
+      const f = a[r][c] / a[c][c];
+      for (let j = c; j <= m; j++) a[r][j] -= f * a[c][j];
+    }
+  }
+  const x = new Array<number>(m).fill(0);
+  for (let r = m - 1; r >= 0; r--) {
+    let s = a[r][m];
+    for (let j = r + 1; j < m; j++) s -= a[r][j] * x[j];
+    x[r] = s / a[r][r];
+  }
+  return x;
+}
+
+function pass(
+  config: ScenarioConfig,
+  preset: Preset,
+  shocks: ScheduledShock[],
+  decisions: Decision[],
+  residualAt: Map<number, Residual>,
+  pols: Policy[],
+  imps: Impulse[],
+  actives: ShockKind[][],
+  guess: Guess | null,
+  rho: number,
+  /** Intermediate pass: only the expected paths matter, so skip labels, drivers, events and constraints. */
+  lite = false,
+): { result: SimResult; guess: Guess } {
+  const P = preset.params;
+  const A = config.assumptions;
   const events: SimEvent[] = [];
   const path: QuarterState[] = [];
+  const next = guessOf(new Float64Array(3 * (HORIZON + 1)));
 
   const init = preset.initial;
   const policy0 = policyAt(preset.defaultPolicy, decisions, 0);
@@ -173,6 +386,9 @@ export function simulate(config: ScenarioConfig): SimResult {
     },
   };
   path.push(initial);
+  next.infl[0] = initial.infl;
+  next.rate[0] = initial.rate;
+  next.anchor[0] = Math.min(1, init.cred / 100);
 
   // GDP levels for the four quarters before the start, so year-on-year growth is defined from quarter 1.
   const gdpHist: number[] = [];
@@ -195,27 +411,33 @@ export function simulate(config: ScenarioConfig): SimResult {
   let inflationSpiralLogged = false;
   let marketAccessLogged = false;
 
-  const adopted = config.institutions ?? [];
+  const adopted = new Map<string, number[]>();
+  for (const x of config.institutions ?? []) adopted.set(x.id, [...(adopted.get(x.id) ?? []), x.quarter]);
   const sinceAdoption = (id: string, t: number) => {
-    const a = adopted.find((x) => x.id === id && x.quarter <= t);
-    return a ? t - a.quarter : -1;
+    const qs = adopted.get(id);
+    if (!qs) return -1;
+    for (const q of qs) if (q <= t) return t - q;
+    return -1;
   };
+  // Powers of the drift persistence, rho^k.
+  const pw = new Float64Array(HORIZON + 3);
+  for (let k = 0; k < pw.length; k++) pw[k] = Math.pow(rho, k);
 
   for (let t = 1; t <= HORIZON; t++) {
     const prev = path[t - 1];
     const has = (id: string) => sinceAdoption(id, t) >= 0;
-    const pol = policyAt(preset.defaultPolicy, decisions, t);
-    const { impulse: shockImp, active } = impulseAt(shocks, t);
+    const pol = pols[t];
+    const imp = imps[t];
+    const active = actives[t];
     const res = residualAt.get(t);
-    const imp = res ? { ...shockImp, gapAdd: shockImp.gapAdd + (res.gap ?? 0), inflAdd: shockImp.inflAdd + (res.infl ?? 0), debtOneOff: shockImp.debtOneOff + (res.debt ?? 0) } : shockImp;
 
     for (const sh of shocks) {
-      if (sh.quarter !== t) continue;
+      if (lite || sh.quarter !== t) continue;
       const spec = SHOCKS[sh.kind];
       events.push({ quarter: t, kind: "shock", title: spec.name, detail: `${spec.short}${sh.magnitude !== 1 ? ` × ${sh.magnitude.toFixed(1)}` : ""}${sh.source === "random" ? " (random draw)" : ""}`, severity: spec.severity });
     }
     for (const d of decisions) {
-      if (d.quarter !== t) continue;
+      if (lite || d.quarter !== t) continue;
       events.push({ quarter: t, kind: "decision", title: "Policy decision", detail: describeChanges(d.changes), severity: "info" });
     }
 
@@ -278,9 +500,32 @@ export function simulate(config: ScenarioConfig): SimResult {
 
     // Expectations anchored by credibility.
     // An inflation-targeting framework anchors expectations as if credibility were 10 points higher.
+    // Hybrid expectations: the unanchored part mixes next quarter's inflation on the expected
+    // path (weight λ) with last quarter's. The first pass is backward-looking.
     const anchor = Math.min(1, (prev.cred + (has("inflation-targeting") ? 10 : 0)) / 100);
-    const inflExp = anchor * pol.inflationTarget + (1 - anchor) * prev.infl;
-    const realRatePrev = prev.rate - inflExp;
+    next.anchor[t] = anchor;
+    const lambda = P.leadWeight;
+    // Expected inflation for s+1 as formed in quarter s, read off the expected path.
+    // Beyond the horizon there is no solved path, so expectations there are backward-looking.
+    // Where this pass has already drifted from the expected path, later quarters are
+    // expected to keep that drift (a predictor that vanishes at the fixed point).
+    const dInfl = guess ? prev.infl - guess.infl[t - 1] : 0;
+    const dRate = guess ? prev.rate - guess.rate[t - 1] : 0;
+    const expInfl = (s: number) => guess!.infl[s] + pw[s - t + 1] * dInfl;
+    const expectedAt = (s: number, a: number, target: number) => {
+      const lead = s < HORIZON ? lambda * expInfl(s + 1) + (1 - lambda) * expInfl(s - 1) : expInfl(s - 1);
+      return a * target + (1 - a) * lead;
+    };
+    const inflExp = guess && t < HORIZON ? anchor * pol.inflationTarget + (1 - anchor) * (lambda * expInfl(t + 1) + (1 - lambda) * prev.infl) : anchor * pol.inflationTarget + (1 - anchor) * prev.infl;
+    // Demand responds to the real rate expected over the coming year, with a one-quarter lag:
+    // last quarter's rate and the next three on the expected path, each net of expected inflation.
+    let realRatePrev = prev.rate - inflExp;
+    if (guess) {
+      const now = realRatePrev;
+      let s = now;
+      for (let j = 1; j < 4; j++) s += t + j <= HORIZON ? guess.rate[t - 1 + j] + pw[j] * dRate - expectedAt(t + j, guess.anchor[t + j], pols[t + j].inflationTarget) : now;
+      realRatePrev = s / 4;
+    }
 
     // Structural fiscal path and the demand impulse it carries.
     const structPB = prev.structPB + pol.fiscalAdjustment / 4;
@@ -319,7 +564,16 @@ export function simulate(config: ScenarioConfig): SimResult {
     // PPP drift is the inflation differential. A float resolves both into depreciation;
     // a peg absorbs the fundamentals with reserves and lets the real rate appreciate.
     const flows = imp.capitalFlowAdd < 0 && has("macroprudential") ? imp.capitalFlowAdd * 0.7 : imp.capitalFlowAdd;
-    const fundamentals = fundamentalPressure(preset, prev.rate, usRate, prev.spread, prev.ca, flows, pol.capitalControls) - pressure0 + (P.k3 * P.financingGap) / 4 + riskPremium / 800;
+    // Markets price the currency off the rate they expect over the coming year (uncovered
+    // interest parity, in flow form), so an announced tightening moves it on impact. The
+    // backward-looking first pass uses last quarter's rate.
+    let rateFx = prev.rate;
+    if (guess) {
+      let s = 0;
+      for (let j = 0; j < 4; j++) s += t + j <= HORIZON ? guess.rate[t + j] + pw[j + 1] * dRate : guess.rate[HORIZON] + pw[HORIZON - t + 1] * dRate;
+      rateFx = s / 4;
+    }
+    const fundamentals = fundamentalPressure(preset, rateFx, usRate, prev.spread, prev.ca, flows, pol.capitalControls) - pressure0 + (P.k3 * P.financingGap) / 4 + riskPremium / 800;
     const pppDrift = (prev.infl - WORLD_INFLATION) / 4;
     const pressure = fundamentals + pppDrift;
     let dE = 0;
@@ -549,9 +803,11 @@ export function simulate(config: ScenarioConfig): SimResult {
       events.push({ quarter: t, kind: "crisis", title: "Market access lost", detail: "Spreads above 1,000 bp; refinancing at market rates is no longer realistic.", severity: "bad" });
     } else if (spread < 700) marketAccessLogged = false;
 
+    next.infl[t] = infl;
+    next.rate[t] = rate;
     path.push({
       t,
-      label: quarterLabel(t),
+      label: lite ? "" : quarterLabel(t),
       gap,
       growth,
       infl,
@@ -583,17 +839,22 @@ export function simulate(config: ScenarioConfig): SimResult {
       pressure,
       activeShocks: active,
       acct,
-      drivers: {
-        infl: { ...inflParts, other: infl - prev.infl - sum(inflParts) },
-        gap: { ...gapParts, other: gap - prev.gap - sum(gapParts) },
-        debt: { ...debtParts, other: debt - prev.debt - sum(debtParts) },
-      },
+      drivers: lite
+        ? ZERO_DRIVERS
+        : {
+            infl: { ...inflParts, other: infl - prev.infl - (inflParts.expectations + inflParts.demand + inflParts.currency + inflParts.oil + inflParts.shocks) },
+            gap: {
+              ...gapParts,
+              other: gap - prev.gap - (gapParts.fading + gapParts.monetary + gapParts.fiscal + gapParts.external + gapParts.commodities + gapParts.currency + gapParts.confidence + gapParts.shocks),
+            },
+            debt: { ...debtParts, other: debt - prev.debt - (debtParts.interestGrowth + debtParts.primary + debtParts.currency) },
+          },
     });
     void globalGrowth;
   }
 
-  const breaches = evaluateConstraints(path, config.constraints);
-  return { path, events, breaches, shocks };
+  const breaches = lite ? [] : evaluateConstraints(path, config.constraints);
+  return { result: { path, events, breaches, shocks }, guess: next };
 }
 
 /** The WEO-style reference: preset defaults, reference assumptions, no decisions, no shocks. */
