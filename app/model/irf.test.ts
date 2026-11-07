@@ -59,7 +59,9 @@ const ARCHETYPES: Archetype[] = [
 function base(a: Archetype, extra: Decision[] = []): ScenarioConfig {
   const b = baselineConfig(a.id);
   const keepPeg: Decision[] = a.kind === "frontier" ? [{ quarter: 0, changes: { imfProgram: 6, fiscalAdjustment: 1 } }] : [];
-  return { ...b, assumptions: { ...b.assumptions, rerConvention: "model" }, decisions: [...keepPeg, ...extra] };
+  // Each experiment is announced on impact (quarter 1), path and all, as in a model impulse response.
+  const announced = extra.map((d) => ({ ...d, announced: d.announced ?? Math.min(d.quarter, 1) }));
+  return { ...b, assumptions: { ...b.assumptions, rerConvention: "model" }, decisions: [...keepPeg, ...announced] };
 }
 
 const run = (c: ScenarioConfig) => simulate(c).path;
@@ -274,8 +276,8 @@ test("a credible pre-announced rate path moves inflation before the first hike (
   const b = baselineConfig("aurelia");
   const b0 = simulate(b).path;
   // Announced at the start: +2 points from quarter 4 to quarter 7, then back to the rule.
-  const path: Decision[] = [4, 5, 6, 7].map((t) => ({ quarter: t, changes: { rateMode: "manual", manualRate: b0[t].rate + 2 } }));
-  path.push({ quarter: 8, changes: { rateMode: "rule" } });
+  const path: Decision[] = [4, 5, 6, 7].map((t) => ({ quarter: t, changes: { rateMode: "manual", manualRate: b0[t].rate + 2 }, announced: 0 }));
+  path.push({ quarter: 8, changes: { rateMode: "rule" }, announced: 0 });
   const announced = { ...b, decisions: path };
   const forward = diff(simulate(announced).path, b0, "infl");
 
@@ -303,4 +305,17 @@ test("a credible pre-announced rate path moves inflation before the first hike (
   assert.ok(forward[3] < -0.03, `by quarter 3 the announced hike should be lowering inflation, got ${forward[3]}`);
   const first = (xs: number[]) => xs.findIndex((x, t) => t > 0 && x < -0.05);
   assert.ok(first(forward) < first(backward), `inflation should turn earlier: quarter ${first(forward)} vs ${first(backward)}`);
+});
+
+test("a decision only moves the economy from the quarter agents learn of it", () => {
+  // As in the game: a rate cut decided for quarter 5 must not rewrite quarters already played.
+  const b = baselineConfig("aurelia");
+  const before = simulate(b).path;
+  const cut: Decision = { quarter: 5, changes: { rateMode: "manual", manualRate: before[5].rate - 3 } };
+  const surprise = simulate({ ...b, decisions: [cut] }).path;
+  for (let t = 0; t < 5; t++) assert.ok(Math.abs(surprise[t].infl - before[t].infl) < 1e-6 && Math.abs(surprise[t].gap - before[t].gap) < 1e-6, `quarter ${t} moved`);
+  assert.ok(Math.abs(surprise[6].rate - before[6].rate) > 0.5, "the cut itself happens");
+  // Announced at the start, the same cut moves inflation earlier.
+  const announced = simulate({ ...b, decisions: [{ ...cut, announced: 0 }] }).path;
+  assert.ok(Math.abs(announced[3].infl - before[3].infl) > 1e-3, "an announced cut is anticipated");
 });

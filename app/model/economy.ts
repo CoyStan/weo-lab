@@ -130,7 +130,8 @@ export function clearExpectationsCache() {
  * The simulation plus how the expectations solver converged.
  *
  * Information sets: agents know the policy settings, institutions, one-off
- * actions and announced shocks in the configuration, and form model-consistent
+ * actions and shocks in the configuration from the quarter each is announced
+ * (see the `announced` fields in types.ts), and form model-consistent
  * expectations about them. They cannot foresee news: calibration residuals
  * (the model's unexplained part, estimated quarter by quarter) and surprise or
  * random shocks. So expectations are solved on the anticipated scenario
@@ -163,26 +164,52 @@ export function solve(config: ScenarioConfig): { result: SimResult } & SolveInfo
     return { imps, actives };
   };
 
-  const key = JSON.stringify([config.presetId, config.startYear, config.assumptions, decisions, config.oneOffs, known, config.institutions, SOLVER]);
-  let ant = anticipatedCache.get(key);
-  if (ant && ant.preset !== preset) ant = undefined;
+  // Information sets. Agents learn of each decision, one-off and adoption in the quarter it
+  // is announced (by default the quarter it takes effect: policy changes are news unless
+  // pre-announced), and of non-news shocks when announced (by default at the start). For
+  // each announcement date there is one anticipated scenario, solved by Fair–Taylor
+  // iteration; in quarter t agents expect the path of the latest scenario announced by t.
+  // So a later decision never changes quarters before it is announced.
+  const annOf = (x: { quarter: number; announced?: number }) => Math.max(0, Math.min(x.quarter, x.announced ?? x.quarter));
+  const annShock = (x: ScheduledShock) => Math.max(0, Math.min(x.quarter, x.announced ?? 0));
+  const dates = [...new Set([0, ...decisions.map(annOf), ...config.oneOffs.map(annOf), ...(config.institutions ?? []).map(annOf), ...known.map(annShock)])].sort((a, b) => a - b);
   const noResiduals = new Map<number, Residual>();
-  const anticipated = hasNews ? impulses(known, noResiduals) : impulses(shocks, residualAt);
-  if (!ant) {
-    const { imps, actives } = anticipated;
-    ant = { preset, ...fairTaylor((guess) => pass(config, preset, known, decisions, noResiduals, pols, imps, actives, guess, SOLVER.predictor, true).guess) };
-    anticipatedCache.set(key, ant);
-    if (anticipatedCache.size > CACHE_SIZE) anticipatedCache.delete(anticipatedCache.keys().next().value!);
-  } else {
-    // Most recently used last.
-    anticipatedCache.delete(key);
-    anticipatedCache.set(key, ant);
-  }
-  const { imps, actives } = hasNews ? impulses(shocks, residualAt) : anticipated;
+  const solveSet = (a: number): Anticipated => {
+    const last = a === dates[dates.length - 1];
+    const decs = last ? decisions : decisions.filter((d) => annOf(d) <= a);
+    const sh = last ? known : known.filter((x) => annShock(x) <= a);
+    const c: ScenarioConfig = last ? config : { ...config, oneOffs: config.oneOffs.filter((o) => annOf(o) <= a), institutions: (config.institutions ?? []).filter((x) => annOf(x) <= a) };
+    const key = JSON.stringify([config.presetId, config.startYear, config.assumptions, decs, c.oneOffs, sh, c.institutions, SOLVER]);
+    let ant = anticipatedCache.get(key);
+    if (ant && ant.preset !== preset) ant = undefined;
+    if (!ant) {
+      const ps: Policy[] = last ? pols : [];
+      if (!last) for (let t = 0; t <= HORIZON; t++) ps.push(policyAt(preset.defaultPolicy, decs, t));
+      const { imps, actives } = impulses(sh, noResiduals);
+      ant = { preset, ...fairTaylor((guess) => pass(c, preset, sh, decs, noResiduals, ps, imps, actives, guess, SOLVER.predictor, true).guess) };
+      anticipatedCache.set(key, ant);
+      if (anticipatedCache.size > CACHE_SIZE) anticipatedCache.delete(anticipatedCache.keys().next().value!);
+    } else {
+      // Most recently used last.
+      anticipatedCache.delete(key);
+      anticipatedCache.set(key, ant);
+    }
+    return ant;
+  };
+  const sets = dates.map(solveSet);
+  const { imps, actives } = impulses(shocks, residualAt);
   // With the iteration cap at one, expectations stay backward-looking throughout (the old model).
-  const expected = SOLVER.maxIterations > 1 ? ant.guess : null;
-  const final = pass(config, preset, shocks, decisions, residualAt, pols, imps, actives, expected, hasNews ? SOLVER.newsPersistence : SOLVER.predictor);
-  return { result: final.result, iterations: ant.iterations, residual: ant.residual, converged: ant.residual < SOLVER.tolerance };
+  const forward = SOLVER.maxIterations > 1;
+  const setAt: (Guess | null)[] = [];
+  for (let t = 0, k = 0; t <= HORIZON; t++) {
+    while (k + 1 < dates.length && dates[k + 1] <= t) k++;
+    setAt.push(forward ? sets[k].guess : null);
+  }
+  const surprised = hasNews || dates.length > 1;
+  const final = pass(config, preset, shocks, decisions, residualAt, pols, imps, actives, (t) => setAt[t], surprised ? SOLVER.newsPersistence : SOLVER.predictor);
+  const iterations = Math.max(...sets.map((x) => x.iterations));
+  const residual = Math.max(...sets.map((x) => x.residual));
+  return { result: final.result, iterations, residual, converged: residual < SOLVER.tolerance };
 }
 
 /**
@@ -296,7 +323,8 @@ function pass(
   pols: Policy[],
   imps: Impulse[],
   actives: ShockKind[][],
-  guess: Guess | null,
+  /** The expected path agents hold in quarter t (null: backward-looking). */
+  guessIn: Guess | null | ((t: number) => Guess | null),
   rho: number,
   /** Intermediate pass: only the expected paths matter, so skip labels, drivers, events and constraints. */
   lite = false,
@@ -423,7 +451,9 @@ function pass(
   const pw = new Float64Array(HORIZON + 3);
   for (let k = 0; k < pw.length; k++) pw[k] = Math.pow(rho, k);
 
+  const guessAt = typeof guessIn === "function" ? guessIn : () => guessIn;
   for (let t = 1; t <= HORIZON; t++) {
+    const guess = guessAt(t);
     const prev = path[t - 1];
     const has = (id: string) => sinceAdoption(id, t) >= 0;
     const pol = pols[t];

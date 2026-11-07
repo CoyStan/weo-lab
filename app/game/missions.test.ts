@@ -36,7 +36,7 @@ function greedy(mission: Mission, start: ScenarioConfig): ScenarioConfig {
 
 /** One known-good plan per mission, and one that should earn every star. */
 const WINS: Record<string, { win: Plan; threeStars: Plan }> = {
-  "first-quarter": { win: [[1, { manualRate: 9.5 }]], threeStars: [[1, { manualRate: 10.5 }], [5, { manualRate: 8.5 }]] },
+  "first-quarter": { win: [[1, { manualRate: 9.5 }]], threeStars: [[1, { manualRate: 10.5 }], [4, { manualRate: 8.5 }]] },
   "cost-shock": { win: [[1, { ruleStrength: 1.5 }]], threeStars: [[1, { ruleStrength: 1.8 }]] },
   "debt-mountain": { win: [[1, { fiscalAdjustment: 0.75, adjustmentMix: 100 }]], threeStars: [[1, { fiscalAdjustment: 1, adjustmentMix: 50 }]] },
   "commodity-bust": { win: [[1, { fiscalAdjustment: 1 }], [3, { fxRegime: "float" }]], threeStars: [[1, { fiscalAdjustment: 1 }], [3, { fxRegime: "float" }]] },

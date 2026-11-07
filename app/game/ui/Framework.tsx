@@ -17,8 +17,7 @@ import { Valence, type Tone } from "./Valence";
 import { useReducedMotion } from "./useTween";
 import { useScrollMore, useStripOverflow } from "../../components/strip";
 
-/** The store's tab type predates the stress tests; the store keeps whatever id it is given. */
-type Tab = FrameworkTab | "stress";
+type Tab = FrameworkTab;
 
 const TABS: { id: Tab; label: string; short: string; sub: string }[] = [
   { id: "why", label: "Why", short: "Why", sub: "Is it moving, or not?" },
@@ -76,9 +75,9 @@ function FrameworkPanel() {
   const shown = clock > 0 ? actual[clock] : forecast[1];
   const acctTables = accountTables(shown, forecast[end]);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const tab = useGame((s) => s.frameworkTab) as Tab;
+  const tab = useGame((s) => s.frameworkTab);
   const setStoreTab = useGame((s) => s.setFrameworkTab);
-  const setTab = (id: Tab) => setStoreTab(id as FrameworkTab);
+  const setTab = setStoreTab;
   const reduced = useReducedMotion();
   const tabsRef = useRef<HTMLElement>(null);
   useStripOverflow(tabsRef, tab);
@@ -93,7 +92,7 @@ function FrameworkPanel() {
         setFramework(false);
       }
       const n = Number(e.key);
-      if (n >= 1 && n <= TABS.length && !(e.target as HTMLElement | null)?.closest("input, textarea")) setStoreTab(TABS[n - 1].id as FrameworkTab);
+      if (n >= 1 && n <= TABS.length && !(e.target as HTMLElement | null)?.closest("input, textarea")) setStoreTab(TABS[n - 1].id);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

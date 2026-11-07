@@ -80,6 +80,8 @@ export type ScheduledShock = {
   /** 1 = the catalog's reference size. */
   magnitude: number;
   source: "scheduled" | "random";
+  /** Quarter from which agents know it is coming (default 0: an announced shock). Ignored for news (random or "surprise-…" shocks). */
+  announced?: number;
 };
 
 export type OneOffKind = "restructure" | "devalue";
@@ -91,9 +93,16 @@ export type OneOffAction = {
   kind: OneOffKind;
   /** restructure: haircut in % of the debt stock. devalue: step depreciation in %. */
   value: number;
+  /** Quarter from which agents know it is coming (default: its own quarter, a surprise). */
+  announced?: number;
 };
 
-export type Decision = { quarter: number; changes: Partial<Policy> };
+/**
+ * A change of policy levers. Agents learn of it in quarter `announced`
+ * (default: the quarter it takes effect, so it is news); set `announced`
+ * earlier for a pre-announced path, such as forward guidance.
+ */
+export type Decision = { quarter: number; changes: Partial<Policy>; announced?: number };
 
 /** Institutions and reforms adopted for good from a given quarter (the campaign's upgrades). */
 export type InstitutionId =
@@ -108,7 +117,7 @@ export type InstitutionId =
   | "swap-line"
   | "macroprudential";
 
-export type Adoption = { id: InstitutionId; quarter: number };
+export type Adoption = { id: InstitutionId; quarter: number; /** Default: its own quarter. */ announced?: number };
 
 export type ConstraintVar =
   | "debt"

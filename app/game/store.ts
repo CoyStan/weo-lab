@@ -19,7 +19,7 @@ import { getMission, registerMission, isSurprise, knownConfig, missionOutcome, M
 import { ledger, type Entry } from "./politics";
 import type { InstitutionId } from "../model/types";
 
-export type FrameworkTab = "why" | "path" | "channels" | "accounts";
+export type FrameworkTab = "why" | "path" | "channels" | "accounts" | "stress";
 
 export type Screen = "title" | "missions" | "briefing" | "play" | "sandbox" | "contagion";
 

@@ -125,10 +125,10 @@ function growthShock(config: ScenarioConfig, from: number, last: number, sd: num
   );
 }
 
-/** Spread higher by `bp` from `from` to the end: a downgrade of that size, renewed as each one expires. */
+/** Spread higher by `bp` from `from` to the end: a downgrade of that size, renewed as each one expires. Nobody sees it coming before `from`. */
 function interestShock(config: ScenarioConfig, from: number, last: number, bp: number): ScenarioConfig {
   const shocks: ScheduledShock[] = [];
-  for (let q = from; q <= last; q += 8) shocks.push({ id: `dsa-spread-${q}`, kind: "downgrade", quarter: q, magnitude: bp / 150, source: "scheduled" });
+  for (let q = from; q <= last; q += 8) shocks.push({ id: `dsa-spread-${q}`, kind: "downgrade", quarter: q, magnitude: bp / 150, source: "scheduled", announced: from });
   return { ...config, shocks: [...config.shocks, ...shocks] };
 }
 
@@ -152,7 +152,7 @@ function exchangeShock(config: ScenarioConfig, from: number, last: number, pct: 
   const decisions: Decision[] = [...config.decisions];
   if (regimeBefore === "float") {
     decisions.push({ quarter: from, changes: { fxRegime: "managed" } });
-    if (from + 1 <= last) decisions.push({ quarter: from + 1, changes: { fxRegime: "float" } });
+    if (from + 1 <= last) decisions.push({ quarter: from + 1, changes: { fxRegime: "float" }, announced: from });
   }
   const ref = simulate(config).path;
   let c: ScenarioConfig = { ...config, decisions, oneOffs: [...config.oneOffs, { id: `dsa-fx-${from}`, quarter: from, kind: "devalue", value: pct }] };
