@@ -15,6 +15,7 @@ import { generateRandomShocks, impulseAt } from "./shocks.ts";
 import { SHOCKS } from "./shocks.ts";
 import type { Decision, Drivers, FxRegime, Policy, QuarterState, ScenarioConfig, ScheduledShock, SimEvent, SimResult } from "./types.ts";
 import { evaluateConstraints } from "./constraints.ts";
+import { accountParams, creditTarget, externalYield, moneyTarget } from "./accounts.ts";
 
 export const HORIZON = 24;
 /** Default calendar year of quarter 1. Historical episodes start earlier. */
@@ -97,6 +98,19 @@ export function simulate(config: ScenarioConfig): SimResult {
   const policy0 = policyAt(preset.defaultPolicy, decisions, 0);
   const monthOfImports = P.importsGDP / 12;
 
+  // Accounts at the start: trade, income and transfers reproduce the initial current
+  // account; private consumption closes the national accounts.
+  const AP = accountParams(preset.archetype);
+  const ob0 = init.structPB + P.autoStabilizer * init.gap - (init.iEff / 100) * init.debt;
+  const income0 = (externalYield(AP.nfa0, A.usRate, init.spread) / 100) * AP.nfa0;
+  const M0 = P.importsGDP;
+  const nx0 = init.ca - income0 - AP.transfers;
+  const X0 = M0 + nx0;
+  const r0gap = init.rate - init.infl - P.neutralRealRate;
+  const diff0 = init.rate - A.usRate - init.spread / 100;
+  const reservesPct0 = init.reserves * monthOfImports;
+  const creditGov0 = AP.bankDebtShare * init.debt;
+
   const initial: QuarterState = {
     t: 0,
     label: quarterLabel(0),
@@ -131,6 +145,32 @@ export function simulate(config: ScenarioConfig): SimResult {
     pressure: 0,
     activeShocks: [],
     drivers: ZERO_DRIVERS,
+    acct: {
+      cons: 100 - AP.inv0 - AP.gov0 - nx0,
+      inv: AP.inv0,
+      gov: AP.gov0,
+      exports: X0,
+      imports: M0,
+      nx: nx0,
+      primaryIncome: income0,
+      transfers: AP.transfers,
+      fa: -init.ca,
+      faFdi: AP.fdi,
+      faPortfolio: 0,
+      faOther: -init.ca - AP.fdi,
+      official: 0,
+      dReserves: 0,
+      nfa: AP.nfa0,
+      nfaValuation: 0,
+      publicSI: ob0,
+      privateSI: init.ca - ob0,
+      saving: AP.inv0 + preset.defaultPolicy.publicInvestment + init.ca,
+      money: AP.money0,
+      mNfa: reservesPct0,
+      creditGov: creditGov0,
+      creditPrivate: AP.credit0,
+      otherNet: AP.money0 - reservesPct0 - creditGov0 - AP.credit0,
+    },
   };
   path.push(initial);
 
@@ -146,6 +186,8 @@ export function simulate(config: ScenarioConfig): SimResult {
   let effReform = { labor: 0, prod: 0, trade: 0 };
   let effInvest = preset.defaultPolicy.publicInvestment;
   let restructurePenalty = 0;
+  // Cumulative spending-side fiscal adjustment, pp of GDP (moves government spending in the national accounts).
+  let cumSpendCut = 0;
   let programWasActive = false;
   let offTrackLogged = -99;
   let elbLogged = false;
@@ -397,22 +439,77 @@ export function simulate(config: ScenarioConfig): SimResult {
     debt = clamp(debt, 0, 400);
     const gfn = Math.max(0, -ob) + prev.debt / P.avgMaturity;
 
-    // Current account.
-    const ca =
-      init.ca +
-      P.exportElasticity * clamp(prev.rer - 100, -50, 80) -
-      0.3 * (gap - init.gap) +
-      (P.externalDemand * 0.6) * (partnerGrowth - WEO_REFERENCE.partnerGrowth) -
-      P.oilImportShare * oilDev +
-      P.commodityExportShare * commodityDev -
-      0.3 * imp.spendingAdd -
-      0.2 * investDelta;
+    // Current account = trade balance + primary income + transfers. Exports gain from a
+    // weaker currency, partner growth and commodity (or oil) prices; imports rise with
+    // demand, oil prices and government spending, and fall with a weaker currency.
+    const competitiveness = 0.5 * P.exportElasticity * clamp(prev.rer - 100, -50, 80);
+    const exports =
+      X0 +
+      competitiveness +
+      P.externalDemand * 0.6 * (partnerGrowth - WEO_REFERENCE.partnerGrowth) +
+      P.commodityExportShare * commodityDev +
+      (P.oilImportShare < 0 ? -P.oilImportShare * oilDev : 0);
+    const imports =
+      M0 - competitiveness + 0.3 * (gap - init.gap) + (P.oilImportShare > 0 ? P.oilImportShare * oilDev : 0) + 0.3 * imp.spendingAdd + 0.2 * investDelta;
+    const nx = exports - imports;
+    // Interest and dividends on the net foreign position: deficits build liabilities, which cost income later.
+    const primaryIncome = (externalYield(prev.acct.nfa, usRate, prev.spread) / 100) * prev.acct.nfa;
+    const ca = nx + primaryIncome + AP.transfers;
 
     // Reserves.
     let reservesPct = prev.reservesPct - absorbed * P.k5 + imfDisb + (sinceAdoption("swap-line", t) === 0 ? 1.5 * monthOfImports : 0);
     if (pegBreak) reservesPct = Math.max(reservesPct, 0.5 * monthOfImports);
     reservesPct = Math.max(0.1 * monthOfImports, reservesPct);
     const reserves = reservesPct / monthOfImports;
+
+    // ---- Accounts ----------------------------------------------------------
+    // Balance of payments: reserves change by what the current account, private flows
+    // and official money bring in. Private flows close the identity ("other investment");
+    // under a float the exchange rate moves until they finance the current account.
+    const swapInflow = sinceAdoption("swap-line", t) === 0 ? 1.5 * monthOfImports : 0;
+    const dReserves = 4 * (reservesPct - prev.reservesPct);
+    const official = 4 * (imfDisb + swapInflow);
+    const fa = dReserves - ca - official;
+    const faFdi = AP.fdi;
+    const faPortfolio = 0.6 * (prev.rate - usRate - prev.spread / 100 - diff0) + 4 * flows;
+    // External stock: eroded by nominal growth, built up by the current account, revalued by the exchange rate.
+    const nfaValuation = AP.nfaFxShare * prev.acct.nfa * (dE / 100);
+    const nfa = prev.acct.nfa / (1 + nominalGrowth / 400) + ca / 4 + nfaValuation;
+    // National accounts: government spending moves with spending-side adjustment, public
+    // investment and emergency spending; private investment with activity and real rates.
+    cumSpendCut += dStruct * (1 - pol.adjustmentMix / 100);
+    const gov = AP.gov0 - cumSpendCut + investDelta + imp.spendingAdd;
+    const inv = clamp(AP.inv0 + 0.8 * (gap - init.gap) - 0.4 * (realRatePrev - P.neutralRealRate - r0gap), 5, 45);
+    // Monetary survey: money demand and private credit are behavioural; other items close it.
+    const money = prev.acct.money + 0.25 * (moneyTarget(AP.money0, rate, init.rate, infl, init.infl) - prev.acct.money);
+    const creditPrivate = prev.acct.creditPrivate + 0.25 * (creditTarget(AP.credit0, gap, realRate - P.neutralRealRate - r0gap) - prev.acct.creditPrivate);
+    const creditGov = AP.bankDebtShare * debt;
+    const acct = {
+      cons: 100 - inv - gov - nx,
+      inv,
+      gov,
+      exports,
+      imports,
+      nx,
+      primaryIncome,
+      transfers: AP.transfers,
+      fa,
+      faFdi,
+      faPortfolio,
+      faOther: fa - faFdi - faPortfolio,
+      official,
+      dReserves,
+      nfa,
+      nfaValuation,
+      publicSI: ob,
+      privateSI: ca - ob,
+      saving: inv + effInvest + ca,
+      money,
+      mNfa: reservesPct,
+      creditGov,
+      creditPrivate,
+      otherNet: money - reservesPct - creditGov - creditPrivate,
+    };
 
     // Labour market.
     const nairu = prev.nairu + (P.nairu - 0.6 * effReform.labor - prev.nairu) * 0.1;
@@ -485,6 +582,7 @@ export function simulate(config: ScenarioConfig): SimResult {
       imfDisb,
       pressure,
       activeShocks: active,
+      acct,
       drivers: {
         infl: { ...inflParts, other: infl - prev.infl - sum(inflParts) },
         gap: { ...gapParts, other: gap - prev.gap - sum(gapParts) },
