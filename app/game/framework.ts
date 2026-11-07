@@ -325,3 +325,129 @@ export function policyTouched(config: ScenarioConfig, start: ScenarioConfig): bo
 export function untouchedConfig(config: ScenarioConfig, start: ScenarioConfig): ScenarioConfig {
   return { ...config, decisions: start.decisions, oneOffs: start.oneOffs, institutions: start.institutions };
 }
+
+// ---- Consistency tables ------------------------------------------------------
+
+/** One line of a sector's consistency table: % of GDP, now and at the end of the mission. */
+export type AccountLine = {
+  label: string;
+  now: number;
+  end: number;
+  /** How the line enters the identity: added, subtracted, a memo item (not summed), or the total. */
+  role: "plus" | "minus" | "memo" | "total";
+  /** A component of the line above (shown indented). */
+  sub?: boolean;
+};
+
+export type AccountTable = {
+  id: "real" | "external" | "fiscal" | "monetary";
+  /** The sector card the table sits in. */
+  sector: SectorId;
+  title: string;
+  /** The identity, in symbols. */
+  identity: string;
+  lines: AccountLine[];
+  /** Largest absolute residual of the identity, now or at the end (pp of GDP). */
+  residual: number;
+  ok: boolean;
+};
+
+/** Any residual below this, in pp of GDP, is rounding: the account "adds up". */
+export const ADDS_UP_TOL = 0.05;
+
+function table(id: AccountTable["id"], sector: SectorId, title: string, identity: string, lines: AccountLine[], residuals: number[]): AccountTable {
+  const residual = Math.max(...residuals.map(Math.abs));
+  return { id, sector, title, identity, lines, residual, ok: Number.isFinite(residual) && residual < ADDS_UP_TOL };
+}
+
+/**
+ * The four sectors' accounts as consistency tables, each identity checked live
+ * on the quarter shown (`now`) and at the end of the mission (`end`).
+ */
+export function accountTables(now: QuarterState, end: QuarterState): AccountTable[] {
+  const a = now.acct;
+  const b = end.acct;
+  const L = (label: string, f: (s: QuarterState) => number, role: AccountLine["role"], sub = false): AccountLine => ({ label, now: f(now), end: f(end), role, ...(sub ? { sub } : {}) });
+
+  const real = table(
+    "real",
+    "real",
+    "National accounts",
+    "GDP = C + I + G + X − M",
+    [
+      L("Consumption (C)", (s) => s.acct.cons, "plus"),
+      L("Private investment (I)", (s) => s.acct.inv, "plus"),
+      L("Government (G)", (s) => s.acct.gov, "plus"),
+      L("Exports (X)", (s) => s.acct.exports, "plus"),
+      L("Imports (M)", (s) => s.acct.imports, "minus"),
+      L("GDP", () => 100, "total"),
+    ],
+    [a.cons + a.inv + a.gov + a.exports - a.imports - 100, b.cons + b.inv + b.gov + b.exports - b.imports - 100],
+  );
+
+  const external = table(
+    "external",
+    "external",
+    "Balance of payments",
+    "CA + FA + official − Δ reserves = 0",
+    [
+      L("Current account (CA)", (s) => s.ca, "plus"),
+      L("Trade balance", (s) => s.acct.nx, "memo", true),
+      L("Income on foreign assets", (s) => s.acct.primaryIncome, "memo", true),
+      L("Transfers", (s) => s.acct.transfers, "memo", true),
+      L("Financial account (FA)", (s) => s.acct.fa, "plus"),
+      L("Direct investment", (s) => s.acct.faFdi, "memo", true),
+      L("Portfolio", (s) => s.acct.faPortfolio, "memo", true),
+      L("Other investment", (s) => s.acct.faOther, "memo", true),
+      L("Official financing", (s) => s.acct.official, "plus"),
+      L("Change in reserves", (s) => s.acct.dReserves, "minus"),
+      L("Balance", (s) => s.ca + s.acct.fa + s.acct.official - s.acct.dReserves, "total"),
+      L("Net foreign assets (stock)", (s) => s.acct.nfa, "memo"),
+    ],
+    [
+      a.nx + a.primaryIncome + a.transfers - now.ca,
+      b.nx + b.primaryIncome + b.transfers - end.ca,
+      a.faFdi + a.faPortfolio + a.faOther - a.fa,
+      b.faFdi + b.faPortfolio + b.faOther - b.fa,
+      now.ca + a.fa + a.official - a.dReserves,
+      end.ca + b.fa + b.official - b.dReserves,
+    ],
+  );
+
+  const fiscal = table(
+    "fiscal",
+    "fiscal",
+    "The budget",
+    "Overall balance = primary balance − interest",
+    [
+      L("Primary balance", (s) => s.pb, "plus"),
+      L("Interest bill", (s) => s.interest, "minus"),
+      L("Overall balance", (s) => s.ob, "total"),
+      L("Public debt (stock)", (s) => s.debt, "memo"),
+    ],
+    [now.pb - now.interest - now.ob, end.pb - end.interest - end.ob],
+  );
+
+  const monetary = table(
+    "monetary",
+    "prices",
+    "Monetary survey",
+    "Broad money = NFA + NDA",
+    [
+      L("Net foreign assets (NFA)", (s) => s.acct.mNfa, "plus"),
+      L("Credit to government", (s) => s.acct.creditGov, "plus"),
+      L("Credit to the private sector", (s) => s.acct.creditPrivate, "plus"),
+      L("Other items, net", (s) => s.acct.otherNet, "plus"),
+      L("Broad money", (s) => s.acct.money, "total"),
+    ],
+    [a.mNfa + a.creditGov + a.creditPrivate + a.otherNet - a.money, b.mNfa + b.creditGov + b.creditPrivate + b.otherNet - b.money],
+  );
+
+  return [real, external, fiscal, monetary];
+}
+
+/** Saving minus investment: what the private sector and the government don't spend is lent abroad (the current account). */
+export function savingInvestment(s: QuarterState): { privateSI: number; publicSI: number; ca: number; residual: number; ok: boolean } {
+  const residual = s.acct.privateSI + s.acct.publicSI - s.ca;
+  return { privateSI: s.acct.privateSI, publicSI: s.acct.publicSI, ca: s.ca, residual, ok: Math.abs(residual) < ADDS_UP_TOL };
+}
