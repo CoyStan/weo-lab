@@ -36,12 +36,15 @@ function greedy(mission: Mission, start: ScenarioConfig): ScenarioConfig {
 
 /** One known-good plan per mission, and one that should earn every star. */
 const WINS: Record<string, { win: Plan; threeStars: Plan }> = {
-  "first-quarter": { win: [[1, { manualRate: 9.5 }]], threeStars: [[1, { manualRate: 10.5 }], [5, { manualRate: 8.5 }]] },
+  "first-quarter": { win: [[1, { manualRate: 9.5 }]], threeStars: [[1, { manualRate: 10.5 }], [4, { manualRate: 8.5 }]] },
   "cost-shock": { win: [[1, { ruleStrength: 1.5 }]], threeStars: [[1, { ruleStrength: 1.8 }]] },
   "debt-mountain": { win: [[1, { fiscalAdjustment: 0.75, adjustmentMix: 100 }]], threeStars: [[1, { fiscalAdjustment: 1, adjustmentMix: 50 }]] },
   "commodity-bust": { win: [[1, { fiscalAdjustment: 1 }], [3, { fxRegime: "float" }]], threeStars: [[1, { fiscalAdjustment: 1 }], [3, { fxRegime: "float" }]] },
   "defend-peg": { win: [[1, { imfProgram: 4, fiscalAdjustment: 0.5 }]], threeStars: [[1, { imfProgram: 6, fiscalAdjustment: 1 }]] },
-  "sudden-stop": { win: [[5, { fiscalAdjustment: 0.75, adjustmentMix: 100 }]], threeStars: [[5, { fiscalAdjustment: 1, imfProgram: 2 }]] },
+  "sudden-stop": {
+    win: [[5, { fiscalAdjustment: 0.75, adjustmentMix: 100, imfProgram: 2, fxRegime: "managed", fxIntervention: 50 }]],
+    threeStars: [[5, { fiscalAdjustment: 1, imfProgram: 2, fxRegime: "managed", fxIntervention: 50 }]],
+  },
 };
 
 test("every mission is lost by doing nothing", () => {
@@ -119,7 +122,7 @@ test("advisors speak for every mission, and flag a goal the forecast misses", as
   const forecast = simulate(knownConfig(config, 0)).path;
   const governor = advise({ mission: first, now: forecast[0], forecast, policy: policyForTurn(config, 0) }).find((a) => a.advisor === "governor")!;
   assert.equal(governor.tone, "worried", "doing nothing misses the inflation goal, so the governor should say so");
-  assert.match(governor.text, /4\.5%/);
+  assert.match(governor.text, /3\.8%/);
 });
 
 test("shock responses only use unlocked levers", async () => {

@@ -80,6 +80,8 @@ export type ScheduledShock = {
   /** 1 = the catalog's reference size. */
   magnitude: number;
   source: "scheduled" | "random";
+  /** Quarter from which agents know it is coming (default 0: an announced shock). Ignored for news (random or "surprise-…" shocks). */
+  announced?: number;
 };
 
 export type OneOffKind = "restructure" | "devalue";
@@ -91,9 +93,16 @@ export type OneOffAction = {
   kind: OneOffKind;
   /** restructure: haircut in % of the debt stock. devalue: step depreciation in %. */
   value: number;
+  /** Quarter from which agents know it is coming (default: its own quarter, a surprise). */
+  announced?: number;
 };
 
-export type Decision = { quarter: number; changes: Partial<Policy> };
+/**
+ * A change of policy levers. Agents learn of it in quarter `announced`
+ * (default: the quarter it takes effect, so it is news); set `announced`
+ * earlier for a pre-announced path, such as forward guidance.
+ */
+export type Decision = { quarter: number; changes: Partial<Policy>; announced?: number };
 
 /** Institutions and reforms adopted for good from a given quarter (the campaign's upgrades). */
 export type InstitutionId =
@@ -108,7 +117,7 @@ export type InstitutionId =
   | "swap-line"
   | "macroprudential";
 
-export type Adoption = { id: InstitutionId; quarter: number };
+export type Adoption = { id: InstitutionId; quarter: number; /** Default: its own quarter. */ announced?: number };
 
 export type ConstraintVar =
   | "debt"
@@ -215,6 +224,53 @@ export type QuarterState = {
   pressure: number;
   activeShocks: ShockKind[];
   drivers: Drivers;
+  /** The stock-flow consistent accounts (see accounts.ts). */
+  acct: Accounts;
+};
+
+/**
+ * National, external, fiscal and monetary accounts in one consistent set, as in
+ * IMF financial programming. Flows are % of GDP at an annual rate; stocks are
+ * % of annual GDP. Identities checked every quarter in identities.test.ts:
+ *   cons + inv + gov + exports - imports = 100
+ *   ca = (exports - imports) + primaryIncome + transfers
+ *   ca + fa + official - dReserves = 0          (balance of payments)
+ *   reservesPct_t = reservesPct_{t-1} + dReserves / 4
+ *   nfa_t = nfa_{t-1} / (1 + nominal growth / 400) + ca / 4 + nfaValuation
+ *   privateSI + publicSI = ca,  publicSI = ob   (saving - investment)
+ *   money = mNfa + creditGov + creditPrivate + otherNet   (monetary survey)
+ */
+export type Accounts = {
+  cons: number;
+  inv: number;
+  gov: number;
+  exports: number;
+  imports: number;
+  nx: number;
+  primaryIncome: number;
+  transfers: number;
+  /** Private financial account, net inflows (+ = inflows). */
+  fa: number;
+  faFdi: number;
+  faPortfolio: number;
+  /** Other investment, including the flows that clear the exchange market under a float. */
+  faOther: number;
+  /** Official financing (IMF and other official disbursements, swap lines). */
+  official: number;
+  /** Change in reserve assets (+ = accumulation), annual rate. */
+  dReserves: number;
+  /** Net foreign assets of the country (negative = net liabilities). */
+  nfa: number;
+  nfaValuation: number;
+  publicSI: number;
+  privateSI: number;
+  /** Gross national saving = private investment + public investment + current account. */
+  saving: number;
+  money: number;
+  mNfa: number;
+  creditGov: number;
+  creditPrivate: number;
+  otherNet: number;
 };
 
 export type EventSeverity = "info" | "warn" | "bad" | "good";

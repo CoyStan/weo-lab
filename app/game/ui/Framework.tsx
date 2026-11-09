@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { debtFan, STRESS_META, stressTests, type StressScenario } from "../../model/dsa";
 import { getPreset } from "../../model/presets";
-import type { QuarterState } from "../../model/types";
+import type { QuarterState, ScenarioConfig } from "../../model/types";
 import { explain } from "../explain";
-import { channels, deltaTail, diagnose, policyTouched, SECTORS, unitTail, untouchedConfig, type Channel, type ChannelStatus, type FrameworkInput, type RowMeta, type Sector } from "../framework";
+import { accountTables, channels, deltaTail, diagnose, policyTouched, savingInvestment, SECTORS, unitTail, untouchedConfig, type AccountTable, type Channel, type ChannelStatus, type FrameworkInput, type RowMeta, type Sector } from "../framework";
+import { knownConfig } from "../missions";
 import { forecastFor, useGame, type FrameworkTab } from "../store";
 import { useTurn } from "../useTurn";
 import { splitLead } from "./Advisors";
@@ -15,11 +17,14 @@ import { Valence, type Tone } from "./Valence";
 import { useReducedMotion } from "./useTween";
 import { useScrollMore, useStripOverflow } from "../../components/strip";
 
-const TABS: { id: FrameworkTab; label: string; short: string; sub: string }[] = [
+type Tab = FrameworkTab;
+
+const TABS: { id: Tab; label: string; short: string; sub: string }[] = [
   { id: "why", label: "Why", short: "Why", sub: "Is it moving, or not?" },
   { id: "path", label: "Shocks vs policy", short: "Shocks", sub: "What caused the path" },
   { id: "channels", label: "Channels", short: "Channels", sub: "How levers reach the economy" },
   { id: "accounts", label: "Sector accounts", short: "Sectors", sub: "Every indicator, every sector" },
+  { id: "stress", label: "Debt stress tests", short: "Stress", sub: "If things go wrong" },
 ];
 
 /** One headline indicator per sector for the overview. */
@@ -68,9 +73,11 @@ function FrameworkPanel() {
   const notes = diagnose(input);
   const preset = getPreset(config.presetId);
   const shown = clock > 0 ? actual[clock] : forecast[1];
+  const acctTables = accountTables(shown, forecast[end]);
   const closeRef = useRef<HTMLButtonElement>(null);
   const tab = useGame((s) => s.frameworkTab);
-  const setTab = useGame((s) => s.setFrameworkTab);
+  const setStoreTab = useGame((s) => s.setFrameworkTab);
+  const setTab = setStoreTab;
   const reduced = useReducedMotion();
   const tabsRef = useRef<HTMLElement>(null);
   useStripOverflow(tabsRef, tab);
@@ -85,11 +92,11 @@ function FrameworkPanel() {
         setFramework(false);
       }
       const n = Number(e.key);
-      if (n >= 1 && n <= TABS.length && !(e.target as HTMLElement | null)?.closest("input, textarea")) setTab(TABS[n - 1].id);
+      if (n >= 1 && n <= TABS.length && !(e.target as HTMLElement | null)?.closest("input, textarea")) setStoreTab(TABS[n - 1].id);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [setFramework, setTab]);
+  }, [setFramework, setStoreTab]);
 
   return (
     <div className="game-modal-backdrop game-fw-backdrop" role="presentation" onClick={(e) => e.target === e.currentTarget && setFramework(false)}>
@@ -189,6 +196,7 @@ function FrameworkPanel() {
               <button type="button" onClick={() => setTab("path")}>2 · What caused the path</button>
               <button type="button" onClick={() => setTab("channels")}>3 · How your levers reach the economy</button>
               <button type="button" onClick={() => setTab("accounts")}>4 · Every indicator</button>
+              <button type="button" onClick={() => setTab("stress")}>5 · Debt stress tests</button>
             </div>
           </section>
         ) : null}
@@ -233,9 +241,16 @@ function FrameworkPanel() {
             <JumpStrip reduced={reduced} />
             <div className="game-fw-sectors">
               {SECTORS.map((s) => (
-                <SectorCard key={s.id} sector={s} actual={actual} forecast={forecast} untouched={untouched} clock={clock} end={end} touched={touched} shown={shown} />
+                <SectorCard key={s.id} sector={s} actual={actual} forecast={forecast} untouched={untouched} clock={clock} end={end} touched={touched} shown={shown} account={acctTables.find((t) => t.sector === s.id)} />
               ))}
             </div>
+            <SavingInvestment now={shown} end={forecast[end]} />
+          </section>
+        ) : null}
+
+        {tab === "stress" ? (
+          <section className="game-fw-section" aria-label="Debt stress tests">
+            <StressPane config={config} clock={clock} />
           </section>
         ) : null}
 
@@ -370,7 +385,7 @@ function Bar({ value, max, kind }: { value: number; max: number; kind?: "policy"
   );
 }
 
-function SectorCard({ sector, actual, forecast, untouched, clock, end, touched, shown }: { sector: Sector; actual: QuarterState[]; forecast: QuarterState[]; untouched: QuarterState[]; clock: number; end: number; touched: boolean; shown: QuarterState }) {
+function SectorCard({ sector, actual, forecast, untouched, clock, end, touched, shown, account }: { sector: Sector; actual: QuarterState[]; forecast: QuarterState[]; untouched: QuarterState[]; clock: number; end: number; touched: boolean; shown: QuarterState; account?: AccountTable }) {
   const prevShown = clock > 0 ? actual[clock - 1] : actual[0];
   return (
     <article className="game-fw-sector" id={`fw-sector-${sector.id}`}>
@@ -395,6 +410,7 @@ function SectorCard({ sector, actual, forecast, untouched, clock, end, touched, 
           ))}
         </tbody>
       </table>
+      {account ? <AccountCheck table={account} nowLabel={shown.label} endLabel={forecast[end].label} /> : null}
       <SectorDrivers id={sector.id} shown={shown} prev={prevShown} />
     </article>
   );
@@ -591,4 +607,268 @@ function useTileHeight() {
     return () => window.removeEventListener("resize", on);
   }, []);
   return h;
+}
+
+// ---- Consistency checks --------------------------------------------------------
+
+/** The live "adds up" check: a tick and a word, or a warning with the residual. */
+function AddsUp({ ok, residual }: { ok: boolean; residual: number }) {
+  return ok ? (
+    <span className="game-fw-check is-ok">
+      <span aria-hidden="true">✓</span> Adds up
+    </span>
+  ) : (
+    <span className="game-fw-check is-off" role="status">
+      <span aria-hidden="true">⚠</span> Off by {Math.abs(residual).toFixed(2)} pp
+    </span>
+  );
+}
+
+const SIGN: Record<"plus" | "minus" | "memo" | "total", string> = { plus: "+", minus: "−", total: "=", memo: "" };
+
+/** A sector's identity as a compact table, now and at the end of the mission, checked live. */
+function AccountCheck({ table, nowLabel, endLabel }: { table: AccountTable; nowLabel: string; endLabel: string }) {
+  return (
+    <div className="game-fw-acct">
+      <div className="game-fw-acct-head">
+        <h5>
+          {table.title} <span>{table.identity}</span>
+        </h5>
+        <AddsUp ok={table.ok} residual={table.residual} />
+      </div>
+      <table className="game-fw-table game-fw-acct-table">
+        <thead>
+          <tr>
+            <th scope="col">% of GDP</th>
+            <th scope="col">{nowLabel}</th>
+            <th scope="col">{endLabel}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {table.lines.map((l) => (
+            <tr key={l.label} className={`is-${l.role}${l.sub ? " is-sub" : ""}`}>
+              <th scope="row">
+                <span className="game-fw-acct-sign" aria-hidden="true">{SIGN[l.role]}</span>
+                {l.label}
+              </th>
+              <td className="tabular-nums">{fmt(l.now, 1)}</td>
+              <td className="tabular-nums">{fmt(l.end, 1)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Private S − I + public S − I = current account, now and at the end. */
+function SavingInvestment({ now, end }: { now: QuarterState; end: QuarterState }) {
+  const rows = [
+    { label: now.label, ...savingInvestment(now) },
+    { label: end.label, ...savingInvestment(end) },
+  ];
+  const ok = rows.every((r) => r.ok);
+  const residual = Math.max(...rows.map((r) => Math.abs(r.residual)));
+  return (
+    <div className="game-fw-si">
+      <div className="game-fw-acct-head">
+        <h5>
+          Saving minus investment <span>private S − I + public S − I = current account</span>
+        </h5>
+        <AddsUp ok={ok} residual={residual} />
+      </div>
+      <p className="game-fw-si-note">What households, firms and the government save beyond what they invest is lent to the rest of the world; a shortfall is borrowed from it.</p>
+      <ul className="game-fw-si-rows">
+        {rows.map((r) => (
+          <li key={r.label}>
+            <b>{r.label}</b>
+            <span>
+              Private <span className="tabular-nums">{signed(r.privateSI, 1)}</span>
+            </span>
+            <span aria-hidden="true">+</span>
+            <span>
+              Public <span className="tabular-nums">{signed(r.publicSI, 1)}</span>
+            </span>
+            <span aria-hidden="true">=</span>
+            <span>
+              <span className="game-fw-si-long">Current account</span>
+              <abbr className="game-fw-si-short" title="Current account">CA</abbr> <span className="tabular-nums">{signed(r.ca, 1)}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ---- Debt stress tests ----------------------------------------------------------
+
+const FAN_DRAWS = 100;
+
+/** Above or below a threshold: a marker and a word, never colour alone. */
+function Flag({ above }: { above: boolean }) {
+  return above ? (
+    <span className="game-st-flag is-above">
+      <Glyph name="up" /> above
+    </span>
+  ) : (
+    <span className="game-st-flag is-below">
+      <span className="game-st-ring" aria-hidden="true" /> below
+    </span>
+  );
+}
+
+type Line = { values: number[]; cls: string };
+
+/** A line chart whose strokes keep their width at any size; labels sit in HTML on top. */
+function Plot({ lines, band, lo, hi, threshold, height, children }: { lines: Line[]; band?: { lo: number[]; hi: number[] }; lo: number; hi: number; threshold: number; height: number; children?: ReactNode }) {
+  const n = lines[0].values.length;
+  const x = (i: number) => (n > 1 ? (i / (n - 1)) * 100 : 50);
+  const y = (v: number) => (1 - (v - lo) / (hi - lo)) * 100;
+  const d = (vals: number[]) => vals.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(" ");
+  const area = band ? `${d(band.hi)} ${band.lo.map((v, i) => `L${x(band.lo.length - 1 - i).toFixed(2)},${y(band.lo[band.lo.length - 1 - i]).toFixed(2)}`).join(" ")} Z` : null;
+  return (
+    <div className="game-st-plot" style={{ height }}>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        {area ? <path d={area} className="game-st-band" /> : null}
+        <line x1={0} x2={100} y1={y(threshold)} y2={y(threshold)} className="game-st-threshold" vectorEffect="non-scaling-stroke" />
+        {lines.map((l, i) => (
+          <path key={i} d={d(l.values)} className={l.cls} vectorEffect="non-scaling-stroke" />
+        ))}
+      </svg>
+      <span className="game-st-thr-label" style={{ top: `${y(threshold)}%` }}>{threshold}%</span>
+      {children}
+    </div>
+  );
+}
+
+/** A readable scale: the data and the threshold, padded and rounded to 5s. */
+function scale(values: number[], threshold: number): { lo: number; hi: number } {
+  const lo = Math.floor((Math.min(threshold, ...values) - 3) / 5) * 5;
+  const hi = Math.ceil((Math.max(threshold, ...values) + 3) / 5) * 5;
+  return { lo, hi };
+}
+
+function StressPane({ config, clock }: { config: ScenarioConfig; clock: number }) {
+  const known = useMemo(() => knownConfig(config, clock), [config, clock]);
+  const st = useMemo(() => stressTests(known, clock + 1), [known, clock]);
+  const fan = useMemo(() => debtFan(known, clock + 1, FAN_DRAWS), [known, clock]);
+  const base = st.scenarios[0];
+  const shocks = st.scenarios.slice(1);
+  const first = st.labels[0];
+  const last = st.labels[st.labels.length - 1];
+  if (st.labels.length < 2) {
+    return <p className="game-fw-sub">There are no quarters left to stress: the forecast ends here.</p>;
+  }
+  const multiples = scale(st.scenarios.flatMap((s) => s.debt), st.thresholds.debt);
+  const fanScale = scale([...fan.p10, ...fan.p90, ...base.debt], st.thresholds.debt);
+  const who = st.archetype === "AE" ? "an advanced economy" : "an emerging market";
+  const widthAt = fan.widthQuarter - (st.from - 1);
+  const widthLabel = st.labels[Math.min(widthAt, st.labels.length - 1)];
+  return (
+    <>
+      <p className="game-st-lead">
+        A stress test asks what would happen to public debt if things went wrong: each panel hits the economy with one standard shock from {st.labels[1]}, keeping your current policies, and checks the debt against the warning levels for {who}: debt above <b>{st.thresholds.debt}%</b> or yearly borrowing needs above <b>{st.thresholds.gfn}%</b> of GDP.
+      </p>
+
+      <div className="game-st-key" aria-hidden="true">
+        <span><i className="is-base" /> Baseline</span>
+        <span><i className="is-shock" /> With the shock</span>
+        <span><i className="is-thr" /> Warning level</span>
+        <span className="game-st-key-scale">Public debt, % of GDP, {first} to {last}. One scale: {multiples.lo}–{multiples.hi}%.</span>
+      </div>
+      <ol className="game-st-multiples">
+        {shocks.map((s) => (
+          <li key={s.id} className="game-st-panel">
+            <div className="game-st-panel-head">
+              <strong title={STRESS_META[s.id].plain}>{STRESS_META[s.id].short}</strong>
+              <span className="tabular-nums">
+                peak {fmt(s.peakDebt, 0)}% <small>{signed(s.peakDebt - base.peakDebt, 1)}</small>
+              </span>
+            </div>
+            <Plot lines={[{ values: base.debt, cls: "game-st-line is-base" }, { values: s.debt, cls: "game-st-line is-shock" }]} lo={multiples.lo} hi={multiples.hi} threshold={st.thresholds.debt} height={110} />
+            <p className="game-st-panel-note">{STRESS_META[s.id].plain}</p>
+          </li>
+        ))}
+      </ol>
+
+      <h4 className="game-st-h">Peaks against the warning levels</h4>
+      <div className="game-st-table-wrap">
+        <table className="game-fw-table game-st-table">
+          <thead>
+            <tr>
+              <th scope="col">Scenario</th>
+              <th scope="col">Peak debt</th>
+              <th scope="col">Peak financing needs</th>
+            </tr>
+          </thead>
+          <tbody>
+            {st.scenarios.map((s) => (
+              <StressRow key={s.id} s={s} base={base} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h4 className="game-st-h">How uncertain is the baseline?</h4>
+      <p className="game-fw-sub">
+        The baseline rerun {FAN_DRAWS} times with random shocks and ordinary surprises from {st.labels[1]} on. The shaded band holds the middle 80% of outcomes.
+      </p>
+      <div className="game-st-fan-facts">
+        <p>
+          <b className="tabular-nums">{Math.round(fan.probRising * 100)}%</b>
+          <span>chance debt is higher in {last} than in {first}</span>
+        </p>
+        <p>
+          <b className="tabular-nums">{fmt(fan.width2y, 1)} pp</b>
+          <span>fan width (10th to 90th percentile) {widthAt >= 8 ? "two years ahead" : `by ${widthLabel}`}</span>
+        </p>
+      </div>
+      <div className="game-st-fan">
+        <span className="game-st-axis-y is-top">{fanScale.hi}%</span>
+        <span className="game-st-axis-y is-bottom">{fanScale.lo}%</span>
+        <Plot lines={[{ values: fan.p50, cls: "game-st-line is-median" }, { values: base.debt, cls: "game-st-line is-base-thin" }]} band={{ lo: fan.p10, hi: fan.p90 }} lo={fanScale.lo} hi={fanScale.hi} threshold={st.thresholds.debt} height={190}>
+          <span className="game-st-mark" style={{ left: `calc((100% - 2.4rem) * ${(widthAt / (st.labels.length - 1)).toFixed(4)})` }} aria-hidden="true">
+            <span>{widthAt >= 8 ? "2 years" : widthLabel}</span>
+          </span>
+        </Plot>
+        <div className="game-st-axis-x" aria-hidden="true">
+          <span>{first}</span>
+          <span>{last}</span>
+        </div>
+      </div>
+      <div className="game-st-key" aria-hidden="true">
+        <span><i className="is-band" /> 10th–90th percentile</span>
+        <span><i className="is-median" /> Median</span>
+        <span><i className="is-base-thin" /> Baseline (no new shocks)</span>
+        <span><i className="is-thr" /> Warning level ({st.thresholds.debt}%)</span>
+      </div>
+      <p className="game-fw-foot">
+        Shocks follow the IMF&apos;s standard debt sustainability stress tests for market-access countries: growth one standard deviation lower ({st.archetype === "AE" ? "1.5" : "2"} pp) for two years, +200 bp on borrowing costs, a primary balance 1 pp weaker for two years, a 30% real depreciation, all four at half size, and a 10% of GDP bailout. Each runs through the full model, so every account still adds up.
+      </p>
+    </>
+  );
+}
+
+function StressRow({ s, base }: { s: StressScenario; base: StressScenario }) {
+  const d = s.peakDebt - base.peakDebt;
+  return (
+    <tr className={s.id === "baseline" ? "is-base" : ""}>
+      <th scope="row" title={STRESS_META[s.id].plain}>{STRESS_META[s.id].short}</th>
+      <td className="tabular-nums">
+        <span className="game-st-cell">
+          <span>
+            {fmt(s.peakDebt, 1)}%{s.id !== "baseline" ? <small> {signed(d, 1)}</small> : null}
+          </span>
+          <Flag above={s.debtFlag} />
+        </span>
+      </td>
+      <td className="tabular-nums">
+        <span className="game-st-cell">
+          <span>{fmt(s.peakGfn, 1)}%</span>
+          <Flag above={s.gfnFlag} />
+        </span>
+      </td>
+    </tr>
+  );
 }

@@ -42,7 +42,7 @@ const q = (quarter: number, changes: Decision["changes"]): Decision => ({ quarte
 /** One plan per episode that economists have argued would have done better. */
 const ALTERNATIVES: Record<string, { decisions: Decision[]; oneOffs?: Omit<OneOffAction, "id">[] }> = {
   "thailand-1997": { decisions: [q(1, { fxRegime: "float", imfProgram: 3, fiscalAdjustment: 0.5 })] },
-  "korea-1997": { decisions: [q(2, { fxRegime: "float" }), q(3, { imfProgram: 4, fiscalAdjustment: 0.5 })] },
+  "korea-1997": { decisions: [q(2, { fxRegime: "float" }), q(3, { imfProgram: 4, fiscalAdjustment: 0.5 }), q(6, { manualRate: 8 })] },
   "argentina-2001": { decisions: [q(1, { fxRegime: "float", manualRate: 5, imfProgram: 4, fiscalAdjustment: 0.5 })], oneOffs: [{ quarter: 2, kind: "restructure", value: 30 }] },
   "iceland-2008": { decisions: [q(4, { rateMode: "manual", manualRate: 12, capitalControls: true, imfProgram: 6, fiscalAdjustment: 0.5 }), q(6, { manualRate: 8 }), q(8, { manualRate: 5 })] },
   "greece-2010": { decisions: [q(2, { imfProgram: 8, fiscalAdjustment: 1 })], oneOffs: [{ quarter: 2, kind: "restructure", value: 50 }] },

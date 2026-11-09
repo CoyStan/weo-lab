@@ -2072,7 +2072,7 @@
   top: -1.1rem;
   z-index: 2;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.4rem;
   margin: 0.8rem -0.25rem 0;
   background: var(--lab-paper);
@@ -2331,7 +2331,7 @@
 
 @media (max-width: 760px) {
   .game-fw-tabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .game-fw-tabs small {
     display: none;
@@ -2723,7 +2723,7 @@
 
 @media (max-width: 640px) {
   .game-fw-tabs {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0.25rem;
   }
   .game-fw-tabs button {
@@ -5121,4 +5121,524 @@ html {
 /* Shock responses: a "Baseline" tag is as wide as its word. */
 :where(.lab:not([data-theme="ledger"])) .game-choice-body > .game-outcome {
   align-self: flex-start;
+}
+
+/* ---- Sector accounts: consistency tables ------------------------------------
+   Each sector card carries its identity as a compact table, checked live. */
+
+.game-fw-acct,
+.game-fw-si {
+  margin-top: 0.7rem;
+  border-top: 1px solid var(--lab-line);
+  padding-top: 0.55rem;
+}
+
+.game-fw-si {
+  margin-top: 0.75rem;
+  border: 1px solid var(--lab-line);
+  border-radius: 0.8rem;
+  padding: 0.7rem 0.8rem;
+}
+
+.game-fw-acct-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.2rem 0.75rem;
+  margin-bottom: 0.3rem;
+}
+
+.game-fw-acct-head h5 {
+  font-size: var(--t-sm);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.game-fw-acct-head h5 span {
+  margin-left: 0.35rem;
+  font-size: var(--t-xs);
+  font-weight: 500;
+  color: var(--lab-ink-2);
+}
+
+.game-fw-check {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.game-fw-check.is-ok {
+  color: var(--lab-good);
+}
+
+.game-fw-check.is-off {
+  color: var(--lab-bad);
+}
+
+.game-fw-acct .game-fw-table {
+  font-size: var(--t-xs);
+}
+
+.game-fw-acct .game-fw-table th,
+.game-fw-acct .game-fw-table td {
+  padding: 0.16rem 0.35rem;
+}
+
+.game-fw-acct .game-fw-table thead th {
+  font-weight: 600;
+}
+
+.game-fw-acct .game-fw-table tbody th {
+  font-weight: 500;
+  cursor: default;
+  white-space: normal;
+}
+
+.game-fw-acct .game-fw-table tbody tr + tr {
+  border-top: 0;
+}
+
+.game-fw-acct-sign {
+  display: inline-block;
+  width: 1.1em;
+  color: var(--lab-ink-2);
+  font-weight: 700;
+}
+
+.game-fw-acct tr.is-sub th {
+  padding-left: 1.6rem;
+  color: var(--lab-ink-2);
+}
+
+.game-fw-acct tr.is-sub td {
+  color: var(--lab-ink-2);
+}
+
+.game-fw-acct tr.is-total th,
+.game-fw-acct tr.is-total td {
+  border-top: 1px solid var(--lab-line-strong);
+  font-weight: 700;
+}
+
+.game-fw-acct tr.is-memo:not(.is-sub) th,
+.game-fw-acct tr.is-memo:not(.is-sub) td {
+  font-style: italic;
+  color: var(--lab-ink-2);
+}
+
+.game-fw-si-note {
+  margin-bottom: 0.4rem;
+  font-size: var(--t-xs);
+  line-height: 1.4;
+  color: var(--lab-ink-2);
+}
+
+.game-fw-si-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: var(--t-sm);
+}
+
+.game-fw-si-rows li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.5rem;
+}
+
+.game-fw-si-rows li > b {
+  min-width: 4.5rem;
+}
+
+.game-fw-si-rows li > span[aria-hidden] {
+  color: var(--lab-ink-2);
+  font-weight: 700;
+}
+
+.game-fw-si-rows .tabular-nums {
+  font-weight: 700;
+}
+
+/* ---- Debt stress tests --------------------------------------------------------- */
+
+.game-st-lead {
+  margin: 0.6rem 0 0.7rem;
+  max-width: 62rem;
+  font-size: var(--t-sm);
+  line-height: 1.45;
+}
+
+.game-st-key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 1rem;
+  margin-bottom: 0.5rem;
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+
+.game-st-key i {
+  display: inline-block;
+  width: 1.3rem;
+  height: 0;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+  border-top: 2px solid var(--lab-ink);
+}
+
+.game-st-key i.is-base {
+  border-top-width: 3px;
+}
+
+.game-st-key i.is-shock {
+  border-top: 2px solid var(--lab-reference);
+}
+
+.game-st-key i.is-thr {
+  border-top: 1.5px dashed var(--lab-ink-2);
+}
+
+.game-st-key i.is-band {
+  height: 0.7rem;
+  border: 0;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--lab-scenario) 22%, transparent);
+}
+
+.game-st-key i.is-median {
+  border-top: 2.5px solid var(--lab-scenario);
+}
+
+.game-st-key i.is-base-thin {
+  border-top: 1.5px solid var(--lab-ink);
+}
+
+.game-st-key-scale {
+  margin-left: auto;
+}
+
+.game-st-multiples {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.game-st-panel {
+  min-width: 0;
+  border: 1px solid var(--lab-line);
+  border-radius: 0.8rem;
+  padding: 0.55rem 0.7rem 0.6rem;
+}
+
+.game-st-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  font-size: var(--t-sm);
+}
+
+.game-st-panel-head strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-st-panel-head > span {
+  flex: none;
+  font-weight: 700;
+}
+
+.game-st-panel-head small,
+.game-st-cell small {
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--lab-ink-2);
+}
+
+.game-st-panel-note {
+  margin-top: 0.35rem;
+  font-size: var(--t-xs);
+  line-height: 1.35;
+  color: var(--lab-ink-2);
+}
+
+.game-st-plot {
+  position: relative;
+  width: 100%;
+  /* A gutter on the right for the warning level's label. */
+  padding-right: 2.4rem;
+}
+
+.game-st-plot svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.game-st-line {
+  fill: none;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.game-st-line.is-base {
+  stroke: var(--lab-ink);
+  stroke-width: 3px;
+}
+
+.game-st-line.is-shock {
+  stroke: var(--lab-reference);
+  stroke-width: 2px;
+}
+
+.game-st-line.is-median {
+  stroke: var(--lab-scenario);
+  stroke-width: 2.5px;
+}
+
+.game-st-line.is-base-thin {
+  stroke: var(--lab-ink);
+  stroke-width: 1.5px;
+}
+
+.game-st-band {
+  fill: color-mix(in srgb, var(--lab-scenario) 22%, transparent);
+}
+
+.game-st-threshold {
+  stroke: var(--lab-ink-2);
+  stroke-width: 1.5px;
+  stroke-dasharray: 5 4;
+}
+
+.game-st-thr-label {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  font-size: var(--t-xs);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--lab-ink-2);
+}
+
+.game-st-h {
+  margin: 1.1rem 0 0.4rem;
+  font-size: var(--t-md);
+  font-weight: 700;
+}
+
+.game-st-table-wrap {
+  max-width: 44rem;
+}
+
+.game-st-table th:last-child,
+.game-st-table td:last-child {
+  background: none;
+}
+
+.game-st-table tbody th {
+  cursor: default;
+}
+
+.game-st-table tbody tr.is-base th,
+.game-st-table tbody tr.is-base td {
+  font-weight: 700;
+}
+
+.game-st-cell {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.game-st-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 4.2rem;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  text-align: left;
+}
+
+.game-st-flag.is-above {
+  color: var(--lab-bad);
+}
+
+.game-st-flag.is-above .game-glyph,
+.game-st-flag.is-above svg {
+  width: 0.75em;
+  height: 0.75em;
+  color: var(--lab-alert);
+}
+
+.game-st-flag.is-below {
+  font-weight: 500;
+  color: var(--lab-ink-2);
+}
+
+.game-st-ring {
+  display: inline-block;
+  width: 0.65em;
+  height: 0.65em;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+}
+
+.game-st-fan-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 2rem;
+  margin: 0.2rem 0 0.6rem;
+}
+
+.game-st-fan-facts p {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: var(--t-sm);
+  color: var(--lab-ink-2);
+}
+
+.game-st-fan-facts b {
+  font-size: var(--t-xl);
+  line-height: 1;
+  color: var(--lab-ink);
+}
+
+.game-st-fan {
+  position: relative;
+  max-width: 52rem;
+  margin-bottom: 0.5rem;
+  padding-left: 2.8rem;
+}
+
+.game-st-axis-y {
+  position: absolute;
+  left: 0;
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+
+.game-st-axis-y.is-top {
+  top: 0;
+}
+
+.game-st-axis-y.is-bottom {
+  top: calc(190px - 1em);
+}
+
+.game-st-axis-x {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.3rem;
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+
+.game-st-fan .game-st-plot {
+  border-bottom: 1px solid var(--lab-line-strong);
+}
+
+.game-st-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dotted var(--lab-ink-2);
+}
+
+.game-st-mark > span {
+  position: absolute;
+  top: 0;
+  left: 0.3rem;
+  font-size: var(--t-xs);
+  white-space: nowrap;
+  color: var(--lab-ink-2);
+}
+
+.game-st-axis-x {
+  padding-right: 2.4rem;
+}
+
+.game-st-fan-facts b {
+  white-space: nowrap;
+}
+
+.game-fw-si-short {
+  display: none;
+  text-decoration: none;
+}
+
+@media (max-width: 900px) {
+  .game-st-multiples {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .game-st-multiples {
+    gap: 0.45rem;
+  }
+  .game-st-panel {
+    padding: 0.45rem 0.5rem 0.5rem;
+  }
+  .game-st-panel-head {
+    flex-direction: column;
+    gap: 0;
+  }
+  .game-st-panel-head strong {
+    max-width: 100%;
+  }
+  .game-st-panel-note {
+    display: none;
+  }
+  .game-st-key-scale {
+    margin-left: 0;
+  }
+  .game-st-cell {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0;
+  }
+  .game-st-flag {
+    min-width: 0;
+  }
+  .game-st-fan {
+    padding-left: 2.4rem;
+  }
+  .game-fw-acct tr.is-sub th {
+    padding-left: 1.2rem;
+  }
+  .game-fw-acct-head h5 span {
+    display: block;
+    margin-left: 0;
+  }
+  .game-fw-si-rows li > b {
+    flex-basis: 100%;
+  }
+  .game-fw-si-long {
+    display: none;
+  }
+  .game-fw-si-short {
+    display: inline;
+  }
+  .game-st-fan-facts {
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .game-st-fan-facts b {
+    min-width: 4.6rem;
+    font-size: var(--t-lg);
+  }
 }
