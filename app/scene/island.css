@@ -1,0 +1,153 @@
+/* ---- Island landmark tags (Tag.tsx), placed by labelLayer.ts ------------------------------
+   One plain line per landmark: its name, which way it moved, the figure ("Inflation ▲ 7.1%"),
+   and a word when its goal is in trouble. The tag layer sets --x / --y (the tag's top-left
+   from the building's anchor) and --sx / --sy / --sh (the stem); before its first pass the
+   tag simply sits above its building. */
+
+.isl-pin {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  user-select: none;
+  opacity: 1;
+  transition: opacity 180ms ease;
+}
+.isl-pin.is-hidden,
+.isl-pin[data-off] {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 180ms ease,
+    visibility 0s linear 180ms;
+}
+
+.isl-tag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3em;
+  white-space: nowrap;
+  transform: translate(var(--x, -50%), var(--y, calc(-100% - 10px)));
+  padding: 0.22em 0.6em 0.26em;
+  border: 1px solid color-mix(in srgb, var(--lab-ink) 18%, transparent);
+  border-radius: 0.5rem;
+  background: var(--lab-paper);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--lab-ink) 16%, transparent);
+  color: var(--lab-ink);
+  font-family: var(--lab-font-ui);
+  font-size: var(--t-sm);
+  font-weight: var(--w-semi, 600);
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+.isl-tag-name {
+  color: var(--lab-ink-2);
+}
+/* Phones: the same type, a tighter box, so five tags fit round a small island. */
+@media (max-width: 640px) {
+  .isl-tag {
+    gap: 0.25em;
+    padding: 0.16em 0.45em 0.2em;
+  }
+}
+.isl-tag-arrow {
+  font-size: 0.78em;
+  color: var(--lab-ink);
+}
+.isl-tag-value {
+  font-weight: var(--w-bold, 700);
+  color: var(--lab-ink);
+}
+/* A goal in trouble: the word says it; a small square in the warning (or bad) colour repeats it. */
+.isl-tag-status {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25em;
+  font-weight: var(--w-bold, 700);
+  color: var(--lab-ink);
+}
+.isl-tag-sep {
+  color: var(--lab-ink-2);
+}
+.isl-tag-status::before {
+  content: "";
+  align-self: center;
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 1px;
+  background: var(--lab-warn-mark);
+}
+.isl-pin.is-failed .isl-tag-status,
+.isl-pin.is-breached .isl-tag-status {
+  color: var(--lab-bad);
+}
+.isl-pin.is-failed .isl-tag-status::before,
+.isl-pin.is-breached .isl-tag-status::before {
+  background: var(--lab-bad);
+}
+.isl-pin.has-status .isl-tag {
+  border-color: color-mix(in srgb, var(--lab-ink) 40%, transparent);
+}
+/* The landmark under the pointer, or flown to. */
+.isl-pin.is-focus .isl-tag {
+  border-color: var(--lab-ink);
+  box-shadow:
+    0 0 0 1px var(--lab-ink),
+    0 2px 8px color-mix(in srgb, var(--lab-ink) 22%, transparent);
+}
+/* Free play's capital: ink-filled. */
+.isl-pin.is-capital .isl-tag {
+  background: var(--lab-ink);
+  border-color: var(--lab-ink);
+  color: var(--lab-paper);
+}
+.isl-pin.is-capital .isl-tag-name,
+.isl-pin.is-capital .isl-tag-value {
+  color: var(--lab-paper);
+}
+
+/* The stem: a thin line from the building to the tag. */
+.isl-stem {
+  position: absolute;
+  left: var(--sx, 0px);
+  top: var(--sy, -10px);
+  width: 1.5px;
+  height: var(--sh, 10px);
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--lab-ink) 55%, transparent);
+}
+
+.isl-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The island behind the title, mission and briefing screens is scenery: no tags. */
+.game-backdrop-scene .isl-pin {
+  display: none;
+}
+/* While any card or the framework is open, the tags step back with the rest of the island's chrome. */
+.lab.has-modal .isl-pin {
+  visibility: hidden;
+}
+
+/* Reduced motion: tags appear and go at once. */
+.lab-label-layer.is-still .isl-pin,
+.is-reduced .isl-pin {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .isl-pin {
+    transition: none;
+  }
+}

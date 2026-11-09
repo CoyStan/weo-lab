@@ -1,34 +1,34 @@
 "use client";
 
 import { P, SC } from "./palette";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useFrame } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { ConstraintVar } from "../model/types";
+import type { ConstraintVar, QuarterState } from "../model/types";
 import * as THREE from "three";
-import { fmt } from "../components/format";
 import { getPreset, WEO_REFERENCE } from "../model/presets";
-import { selectCurrent, selectPolicyNow, useLab, type FocusKey } from "../store";
-import Label, { PLACE, type IconName } from "./Label";
+import { useLab, type FocusKey } from "../store";
+import Tag, { type TagStatus } from "./Tag";
+import { markLabelsDirty } from "./labelLayer";
 import { HEX, TOP } from "./hexmap";
 import { WORLD } from "./world";
 import { clamp, useSmooth } from "./useSmooth";
 import { commitInstances, gableRoof, mixHex, placeInstance, primeInstances, prismGeometry, scatterOrder, TMP_COLOR, useGeometry } from "./shapes";
+import { useIslandMode, useIslandQuarter, useLandmarks, type IslandQuarter } from "./quarter";
 
 /** Rates as the lever shows them: up to two decimals, no trailing zeros (10.5, 10.25). */
 const rateText = (v: number) => String(+v.toFixed(2));
 
-const NAVY = SC.accent;
 const TEAL = SC.good;
 const CORAL = SC.bad;
 const AMBER = SC.warn;
 const SKYBLUE = SC.cool;
+const NAVY = SC.accent;
 
 const site = (k: keyof typeof WORLD.sites): [number, number, number] => [WORLD.sites[k].x, TOP, WORLD.sites[k].z];
 
 /**
- * Each district stands on its own hex; the tanker anchors offshore, in open
- * water north-east of the island where the home view is widest, so its hull
- * stays inside the canvas at 1440x900 and on phones (checked against the hex map).
+ * Each district stands on its own hex; the tanker anchors offshore, in open water north-east
+ * of the island, close enough to stay in the home view on a laptop, a TV and a phone.
  */
 export const DISTRICT_POS: Partial<Record<FocusKey, [number, number, number]>> = {
   debt: site("debt"),
@@ -39,26 +39,95 @@ export const DISTRICT_POS: Partial<Record<FocusKey, [number, number, number]>> =
   reserves: site("reserves"),
   unemp: site("unemp"),
   cred: site("cred"),
-  oil: [12.2, 0, -12.2],
+  oil: [11.2, 0, -8.6],
 };
 
-/** District type: colour slot in the palette, emblem, and scale that fits the model on one hex. */
-const DISTRICT_STYLE: Partial<Record<FocusKey, { slot: number; icon: IconName; scale: number }>> = {
-  debt: { slot: 0, icon: "scroll", scale: 0.82 },
-  rate: { slot: 1, icon: "bank", scale: 0.6 },
-  infl: { slot: 2, icon: "gauge", scale: 0.9 },
-  growth: { slot: 3, icon: "factory", scale: 0.56 },
-  ca: { slot: 4, icon: "anchor", scale: 0.68 },
-  reserves: { slot: 5, icon: "coins", scale: 0.72 },
-  unemp: { slot: 6, icon: "house", scale: 0.68 },
-  cred: { slot: 7, icon: "beacon", scale: 0.9 },
-  oil: { slot: 8, icon: "drop", scale: 1 },
+/**
+ * How far each landmark reaches round its site, in world units: [west, east, north, south,
+ * height of its tag's stem]. The camera frames the landmarks on the island with these.
+ */
+export const LANDMARK_EXTENT: Partial<Record<FocusKey, [number, number, number, number, number]>> = {
+  debt: [-1.6, 1.6, -1.6, 1.6, 4.6],
+  rate: [-1.6, 1.6, -1.6, 1.6, 3.2],
+  infl: [-1.6, 1.6, -1.6, 1.6, 4.6],
+  growth: [-1.6, 1.6, -1.6, 1.6, 2.3],
+  ca: [-1.5, 4.2, -4.8, 4.8, 2.2],
+  reserves: [-1.6, 1.6, -1.6, 1.6, 2.2],
+  unemp: [-1.6, 1.6, -1.6, 1.6, 1.4],
+  cred: [-1.4, 1.4, -1.4, 1.4, 4.0],
+  oil: [-2.4, 2.4, -1.4, 1.4, 2.0],
+};
+
+/** District type: colour slot in the palette, and the scale that fits the model on one hex. */
+const DISTRICT_STYLE: Partial<Record<FocusKey, { slot: number; scale: number }>> = {
+  debt: { slot: 0, scale: 0.82 },
+  rate: { slot: 1, scale: 0.6 },
+  infl: { slot: 2, scale: 0.9 },
+  growth: { slot: 3, scale: 0.56 },
+  ca: { slot: 4, scale: 0.68 },
+  reserves: { slot: 5, scale: 0.72 },
+  unemp: { slot: 6, scale: 0.68 },
+  cred: { slot: 7, scale: 0.9 },
+  oil: { slot: 8, scale: 1 },
 };
 
 const GROUND = TOP;
 const SCRATCH = new THREE.Color();
 
-/** Which constraint variables light up which district's pad when breached. */
+// ---- What each tag says ---------------------------------------------------------------
+
+/** Each landmark's tag names its figure, as the goal cards and the map do. */
+const NAME: Partial<Record<FocusKey, string>> = {
+  debt: "Debt",
+  rate: "Rate",
+  infl: "Inflation",
+  growth: "Growth",
+  ca: "Current account",
+  reserves: "Reserves",
+  unemp: "Unemployment",
+  cred: "Credibility",
+  oil: "Oil",
+};
+const LONG: Partial<Record<FocusKey, string>> = { debt: "Public debt", rate: "Policy rate", oil: "Oil price" };
+
+/** A figure to `d` decimals with a true minus sign, and no "−0.0". */
+const num = (v: number, d: number) => {
+  const s = Math.abs(v).toFixed(d);
+  return v < 0 && Number(s) !== 0 ? `−${s}` : s;
+};
+
+const FORMAT: Partial<Record<FocusKey, { get: (s: QuarterState) => number; text: (v: number) => string; digits: number }>> = {
+  debt: { get: (s) => s.debt, text: (v) => `${num(v, 1)}%`, digits: 1 },
+  rate: { get: (s) => s.rate, text: (v) => `${rateText(v)}%`, digits: 2 },
+  infl: { get: (s) => s.infl, text: (v) => `${num(v, 1)}%`, digits: 1 },
+  growth: { get: (s) => s.growth, text: (v) => `${num(v, 1)}%`, digits: 1 },
+  ca: { get: (s) => s.ca, text: (v) => `${num(v, 1)}%`, digits: 1 },
+  reserves: { get: (s) => s.reserves, text: (v) => `${num(v, 1)} mo`, digits: 1 },
+  unemp: { get: (s) => s.unemp, text: (v) => `${num(v, 1)}%`, digits: 1 },
+  cred: { get: (s) => s.cred, text: (v) => `${num(v, 0)}/100`, digits: 0 },
+  oil: { get: (s) => s.oil, text: (v) => `$${num(v, 0)}`, digits: 0 },
+};
+
+type Reading = { name: string; value: string; arrow?: "up" | "down"; sr: string };
+
+/** "Inflation ▲ 7.1%": the figure in the quarter shown, and which way it moved from the quarter before. */
+export function reading(k: FocusKey, q: IslandQuarter): Reading {
+  const f = FORMAT[k]!;
+  const v = f.get(q.now);
+  const p = f.get(q.prev);
+  const shown = Number(v.toFixed(f.digits));
+  const before = Number(p.toFixed(f.digits));
+  const arrow = shown > before ? "up" : shown < before ? "down" : undefined;
+  const value = f.text(v);
+  const name = NAME[k] ?? k;
+  const long = LONG[k] ?? name;
+  const sr = `${long} ${value} in ${q.now.label}${arrow ? `, ${arrow} from ${f.text(p)}` : ", no change"}.`;
+  return { name, value, arrow, sr };
+}
+
+// ---- Districts ----------------------------------------------------------------------
+
+/** Which constraint variables light up which district's pad when breached (free play). */
 const BREACH_MAP: Partial<Record<FocusKey, ConstraintVar[]>> = {
   debt: ["debt", "ob", "pb", "gfn", "spread"],
   infl: ["infl"],
@@ -84,20 +153,9 @@ function useBreachedNow(): Set<ConstraintVar> {
   }, [breaches, constraints, clock]);
 }
 
-/**
- * District hex: paved floor tinted with the district colour, and a border that pulses on a
- * breach, and pulses wide and full (so it reads from across a room) while a decision waits.
- */
-function HexBadge({ color, active, breached, pending, reducedMotion, scale }: { color: string; active: boolean; breached: boolean; pending: boolean; reducedMotion: boolean; scale: number }) {
-  const ring = useRef<THREE.MeshBasicMaterial>(null);
+/** The paved hex a district stands on, with a ring in the district's colour. It does not pulse. */
+function HexBadge({ color, active, scale }: { color: string; active: boolean; scale: number }) {
   const floor = useMemo(() => "#" + new THREE.Color(P.plaza).lerp(new THREE.Color(color), 0.18).getHexString(), [color]);
-  useFrame((state) => {
-    const m = ring.current;
-    if (!m) return;
-    const swing = pending ? 0.75 : 0.4;
-    const pulse = (breached || pending) && !reducedMotion ? 1 - swing / 2 + (swing / 2) * Math.sin(state.clock.elapsedTime * 4) : 1;
-    m.opacity = breached || pending ? pulse : active ? 1 : 0.85;
-  });
   // The badge lives inside the district's scaled group; undo the scale so it matches the tile.
   const k = 1 / scale;
   return (
@@ -107,73 +165,57 @@ function HexBadge({ color, active, breached, pending, reducedMotion, scale }: { 
         <meshStandardMaterial color={floor} roughness={1} />
       </mesh>
       <mesh rotation-x={-Math.PI / 2} position-y={0.02}>
-        <ringGeometry args={[HEX * (pending ? 0.7 : breached || active ? 0.8 : 0.84), HEX * 0.95, 6, 1, Math.PI / 2]} />
-        <meshBasicMaterial ref={ring} color={breached ? P.bad : color} transparent opacity={0.85} depthWrite={false} />
+        <ringGeometry args={[HEX * (active ? 0.78 : 0.84), HEX * 0.95, 6, 1, Math.PI / 2]} />
+        <meshBasicMaterial color={color} transparent opacity={active ? 1 : 0.8} depthWrite={false} />
       </mesh>
     </group>
   );
 }
 
-/**
- * Below this canvas width (phones) the island is too small for banners over the
- * buildings near the town: the capital's banner and a pending decision's banner
- * pin to the canvas corners instead, so the debt tower stays in view.
- */
-const NARROW_CANVAS = 560;
-const useNarrowCanvas = () => useThree((s) => s.size.width < NARROW_CANVAS);
+/** Seconds a landmark takes to rise out of its hex or sink back into it. */
+const GROW_S = 0.7;
+const smoothstep = (x: number) => x * x * (3 - 2 * x);
 
-function District({ focusKey, position, labelY, labelX = 0, pendingLabel, dockPending = false, dockValue, title, value, next, delta, bad, tilt, children, reducedMotion }: {
+/**
+ * One landmark: the district's model on its hex, and its one-line tag. A landmark the
+ * mission does not need sinks into its hex (and rises when it is needed: a news card points
+ * at it); a news card's district sends out one slow ring at a time.
+ */
+function District({
+  focusKey,
+  q,
+  shown,
+  tagAt,
+  status,
+  children,
+  reducedMotion,
+}: {
   focusKey: FocusKey;
-  position: [number, number, number];
-  labelY: number;
-  labelX?: number;
-  /** [y, x] of the banner while a decision is pending and the district is not focused. */
-  pendingLabel?: [number, number];
-  /** On a narrow canvas, pin the pending banner to the canvas corner instead of the building. */
-  dockPending?: boolean;
-  /** A shorter reading for the docked banner, so it stays clear of the buildings below it. */
-  dockValue?: string;
-  title: string;
-  value: string;
-  next?: string;
-  /** The lever's move, "+2.00", flashed on the tag for a moment when it changes. */
-  delta?: string;
-  bad?: boolean;
-  tilt?: number;
+  q: IslandQuarter;
+  shown: boolean;
+  /** Where the tag's stem meets the building, in the model's own units (before its scale). */
+  tagAt: [number, number, number];
+  status?: TagStatus;
   children: ReactNode;
   reducedMotion: boolean;
-  pad?: number;
 }) {
-  const style = DISTRICT_STYLE[focusKey] ?? { slot: 0, icon: "scroll" as IconName, scale: 1 };
+  const style = DISTRICT_STYLE[focusKey] ?? { slot: 0, scale: 1 };
   const color = P.districts[style.slot % P.districts.length];
+  const position = DISTRICT_POS[focusKey]!;
   const focus = useLab((s) => s.focus);
   const setFocus = useLab((s) => s.setFocus);
   const labels = useLab((s) => s.labels);
-  const spotlit = useLab((s) => s.spotlight.includes(focusKey));
-  const breachedNow = useBreachedNow();
-  const breached = (BREACH_MAP[focusKey] ?? []).some((v) => breachedNow.has(v));
-  const goalStatus = useLab((s) => s.districtStatus[focusKey]);
-  const cue = useLab((s) => s.sceneCue[focusKey]);
+  const spotlightCount = useLab((s) => s.spotlight.length);
   const shocked = useLab((s) => s.shockFocus === focusKey);
+  const mode = useIslandMode();
   const [hover, setHover] = useState(false);
-  const group = useRef<THREE.Group>(null);
   const focused = focus === focusKey;
   const active = hover || focused;
-  // In the game, the goals' figures sit in a ruled strip on the scene's top edge (see Play),
-  // so a tag stays on the island only where something is happening: a pending decision, a
-  // district in trouble, or the one under the pointer. Free play keeps its spotlight tags.
-  const inGame = labels === "focus";
-  const showLabel = labels === "all" || active || breached || (spotlit && !inGame) || Boolean(goalStatus) || (inGame && (Boolean(cue) || shocked));
-  const narrow = useNarrowCanvas();
-  const dock = next && dockPending && narrow ? "top-right" : undefined;
-  // A pending banner can ride somewhere else so it clears its neighbours; once the camera
-  // flies in to the district it comes back down by the building, or it would leave the frame.
-  const [ly, lx] = next && pendingLabel && !focused ? pendingLabel : [labelY, labelX];
-  // Value pills sit outward from the island's centre, so they don't pile up over the town;
-  // a pending decision keeps its banner right by its building.
-  const out = Math.hypot(position[0], position[2]) || 1;
-  const push = next || active || focusKey === "oil" ? 0 : 2.6 / style.scale;
-  const labelPos: [number, number, number] = [lx + (position[0] / out) * push, ly, (position[2] / out) * push];
+  // Every landmark on the island carries its tag, unless the player asked for tags on hover
+  // only; the title screens show the island bare.
+  const hoverOnly = labels === "focus" && spotlightCount === 0;
+  const showTag = shown && mode !== "backdrop" && (!hoverOnly || active);
+  const r = reading(focusKey, q);
 
   useEffect(() => {
     if (!hover) return;
@@ -182,78 +224,88 @@ function District({ focusKey, position, labelY, labelX = 0, pendingLabel, dockPe
       document.body.style.cursor = "";
     };
   }, [hover]);
-
-  const ring = useRef<THREE.Mesh>(null);
-  // When the quarter plays and this district's number changes, its ground flashes once:
-  // green if things are fine, red if the district is in trouble.
-  const flash = useRef<THREE.Mesh>(null);
-  const lastValue = useRef(value);
-  const flashAt = useRef<number | null>(null);
-  const flashQueued = useRef(false);
   useEffect(() => {
-    if (lastValue.current !== value && !reducedMotion) flashQueued.current = true;
-    lastValue.current = value;
-  }, [value, reducedMotion]);
+    if (!shown) setHover(false);
+  }, [shown]);
+
+  const grow = useRef<THREE.Group>(null);
+  const rise = useRef(shown ? 1 : 0);
+  const ring = useRef<THREE.Mesh>(null);
+  const ringMat = useRef<THREE.MeshBasicMaterial>(null);
   useFrame(({ clock }, dt) => {
-    if (flashQueued.current) {
-      flashQueued.current = false;
-      flashAt.current = clock.elapsedTime;
+    const g = grow.current;
+    if (g) {
+      const target = shown ? 1 : 0;
+      const step = dt / GROW_S;
+      rise.current = reducedMotion ? target : rise.current < target ? Math.min(target, rise.current + step) : Math.max(target, rise.current - step);
+      const s = smoothstep(rise.current);
+      g.scale.setScalar(Math.max(0.0001, s));
+      g.visible = rise.current > 0.001;
     }
-    const f = flash.current;
-    if (f) {
-      const age = flashAt.current === null ? 99 : clock.elapsedTime - flashAt.current;
-      const p = Math.min(1, age / 1.2);
-      f.visible = p < 1;
-      f.scale.setScalar(1 + p * 1.2);
-      (f.material as THREE.MeshBasicMaterial).opacity = 0.65 * (1 - p);
-    }
-    const g = group.current;
-    if (!g) return;
-    // A decision waiting to play out makes its building breathe and send out a ring; the
-    // district a news card points at breathes harder.
-    const amp = shocked ? 0.12 : next ? 0.06 : 0;
-    const pulse = amp && !reducedMotion ? amp * (0.5 + 0.5 * Math.sin(clock.elapsedTime * (shocked ? 3 : 4))) : 0;
-    const target = (active ? 1.06 : 1) + pulse;
-    const k = reducedMotion ? 1 : Math.min(1, dt * 8);
-    const s = g.scale.x + (target - g.scale.x) * k;
-    g.scale.setScalar(s);
-    const r = ring.current;
-    if (r) {
-      const phase = reducedMotion ? 0.5 : (clock.elapsedTime * 0.7) % 1;
-      r.scale.setScalar(1 + phase * 1.4);
-      (r.material as THREE.MeshBasicMaterial).opacity = next || shocked ? (shocked ? 0.95 : 0.8) * (1 - phase) : 0;
+    // A news card's district: one ring at a time spreads out and fades, starting and ending
+    // invisible, so the loop has no seam. Held still, half-spread, with reduced motion.
+    const m = ring.current;
+    const rm = ringMat.current;
+    if (m && rm) {
+      m.visible = shocked && shown;
+      if (m.visible) {
+        const phase = reducedMotion ? 0.5 : (clock.elapsedTime * 0.4) % 1;
+        m.scale.setScalar(1 + phase * 0.9);
+        rm.opacity = 0.85 * Math.sin(Math.PI * phase);
+      }
     }
   });
 
+  const k = style.scale;
   return (
-    <group position={position} scale={style.scale}>
-      {focusKey !== "oil" ? <HexBadge color={color} active={active} breached={breached} pending={Boolean(next) || shocked} reducedMotion={reducedMotion} scale={style.scale} /> : null}
-      <group
-        ref={group}
-        onClick={(e) => {
-          e.stopPropagation();
-          setFocus(focus === focusKey ? null : focusKey);
-        }}
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          setHover(true);
-        }}
-        onPointerOut={() => setHover(false)}
-      >
-        {children}
+    <group position={position}>
+      <group ref={grow}>
+        <group scale={k}>
+          {focusKey !== "oil" ? <HexBadge color={status ? P.bad : color} active={active} scale={k} /> : null}
+          <group
+            onClick={(e) => {
+              if (!shown) return;
+              e.stopPropagation();
+              setFocus(focus === focusKey ? null : focusKey);
+            }}
+            onPointerOver={(e) => {
+              if (!shown) return;
+              e.stopPropagation();
+              setHover(true);
+            }}
+            onPointerOut={() => setHover(false)}
+          >
+            {children}
+          </group>
+        </group>
+        <mesh ref={ring} rotation-x={-Math.PI / 2} position-y={0.36} visible={false}>
+          <ringGeometry args={[1.3, 1.6, 6, 1, Math.PI / 2]} />
+          <meshBasicMaterial ref={ringMat} color={color} transparent opacity={0} depthWrite={false} />
+        </mesh>
       </group>
-      <mesh ref={flash} rotation-x={-Math.PI / 2} position-y={0.3} visible={false}>
-        <circleGeometry args={[2.3, 48]} />
-        <meshBasicMaterial color={bad || breached ? "#d9534f" : "#3f9a5f"} transparent opacity={0} depthWrite={false} />
-      </mesh>
-      <mesh ref={ring} rotation-x={-Math.PI / 2} position-y={0.35} visible={Boolean(next) || shocked}>
-        <ringGeometry args={[2.0, 2.6, 48]} />
-        <meshBasicMaterial color={color} transparent opacity={0} depthWrite={false} />
-      </mesh>
-      <Label position={labelPos} title={breached ? `${title} · constraint breached` : title} value={dock && dockValue ? dockValue : value} next={next} delta={delta} bad={bad || breached} focus={active || Boolean(next)} tilt={tilt} hidden={!showLabel && !next} accent={color} icon={style.icon} dock={dock} status={goalStatus} place={PLACE[focusKey]} cue={inGame ? cue : undefined} shocked={shocked} />
+      <TagAt at={[tagAt[0] * k, tagAt[1] * k, tagAt[2] * k]} r={r} hidden={!showTag} focus={active} status={status} />
     </group>
   );
 }
+
+/** The tag, re-placed by the tag layer whenever its anchor moves (a tower growing). */
+function TagAt({ at, r, hidden, focus, status }: { at: [number, number, number]; r: Reading; hidden: boolean; focus: boolean; status?: TagStatus }) {
+  const [x, y, z] = at;
+  useEffect(() => markLabelsDirty(), [x, y, z]);
+  return <Tag position={[x, y, z]} name={r.name} arrow={r.arrow} value={r.value} sr={r.sr} hidden={hidden} focus={focus} status={status} />;
+}
+
+/** The status word on a landmark's tag: the goal's trouble in the game, a breached limit in free play. */
+function useStatus(focusKey: FocusKey): TagStatus | undefined {
+  const goal = useLab((s) => s.districtStatus[focusKey]);
+  const mode = useIslandMode();
+  const breachedNow = useBreachedNow();
+  if (mode === "play") return goal;
+  if (mode === "sandbox" && (BREACH_MAP[focusKey] ?? []).some((v) => breachedNow.has(v))) return "breached";
+  return undefined;
+}
+
+type Props = { q: IslandQuarter; shown: boolean; reducedMotion: boolean };
 
 // ---- Treasury: debt tower --------------------------------------------------
 
@@ -263,25 +315,32 @@ const SLAB_PITCH = 0.24;
 const PCT_PER_SLAB = 5;
 const TOWER_BASE = 1.0;
 
+/** Height of the debt tower's tag anchor above the ground, in world units, for a debt ratio. */
+export const towerTop = (debt: number) =>
+  (TOWER_BASE + clamp(debt / PCT_PER_SLAB, 1, MAX_SLABS) * SLAB_PITCH + 1.3 + clamp((debt - MAX_SLABS * PCT_PER_SLAB) / 40, 0, 1) * 1.3) * (DISTRICT_STYLE.debt?.scale ?? 1);
+
 /**
  * The tower gains a floor for every 5% of GDP of debt. Floors below the
  * debt threshold are the brand ink; floors above it turn amber, then coral
  * the further they climb. A gold frame marks the threshold itself.
  */
-function DebtTower({ reducedMotion }: { reducedMotion: boolean }) {
-  const current = useLab(selectCurrent);
+function DebtTower({ q, shown, reducedMotion }: Props) {
+  const current = q.now;
   const presetId = useLab((s) => s.config.presetId);
   const threshold = getPreset(presetId).params.debtThreshold;
   const slabs = useRef<THREE.InstancedMesh>(null);
   const core = useRef<THREE.Mesh>(null);
   const crown = useRef<THREE.Group>(null);
+  const spireMesh = useRef<THREE.Mesh>(null);
   const frame = useRef<THREE.MeshStandardMaterial>(null);
   const shades = useMemo(() => ({ a: new THREE.Color(P.accent), b: new THREE.Color(P.accent).lerp(new THREE.Color(P.stone), 0.1) }), []);
   const glass = useMemo(() => mixHex(P.window, P.hull, 0.55), []);
+  const spireGeometry = useGeometry(() => new THREE.ConeGeometry(0.32, 1.3, 4).translate(0, 0.65, 0));
+  const status = useStatus("debt");
   const floors = clamp(current.debt / PCT_PER_SLAB, 1, MAX_SLABS);
   /** Debt beyond the tallest tower: 0 at 160% of GDP, 1 at 200% and above. */
   const spire = clamp((current.debt - MAX_SLABS * PCT_PER_SLAB) / 40, 0, 1);
-  const sm = useSmooth({ floors }, 3, reducedMotion);
+  const sm = useSmooth({ floors, spire }, 3, reducedMotion);
   const thresholdFloors = threshold / PCT_PER_SLAB;
   const last = useRef(-1);
   useLayoutEffect(() => primeInstances(slabs.current, shades.a), [shades]);
@@ -290,8 +349,9 @@ function DebtTower({ reducedMotion }: { reducedMotion: boolean }) {
     const m = slabs.current;
     if (!m) return;
     const c = sm.current.floors;
+    const sp = sm.current.spire;
     // Rewrite the instances only while the tower is still moving (or the threshold changed).
-    const key = c + thresholdFloors * 1000;
+    const key = c + thresholdFloors * 1000 + sp * 1e6;
     if (key === last.current) return;
     last.current = key;
     const n = Math.min(MAX_SLABS, Math.ceil(c));
@@ -317,15 +377,19 @@ function DebtTower({ reducedMotion }: { reducedMotion: boolean }) {
       core.current.position.y = TOWER_BASE + h / 2;
     }
     if (crown.current) crown.current.position.y = TOWER_BASE + h;
-    // Below the threshold the frame is a faint marker of the headroom left; once reached it is solid.
-    if (frame.current) frame.current.opacity = c >= thresholdFloors ? 1 : 0.4;
+    // The spire grows out of the mast rather than appearing whole.
+    const sp3 = spireMesh.current;
+    if (sp3) {
+      sp3.visible = sp > 0.002;
+      sp3.scale.set(1, Math.max(0.001, sp), 1);
+    }
+    // Below the threshold the frame is a faint marker of the headroom left; it firms up over the last half floor.
+    if (frame.current) frame.current.opacity = 0.4 + 0.6 * clamp(c - thresholdFloors + 0.5, 0, 1);
   });
 
   const markY = TOWER_BASE + thresholdFloors * SLAB_PITCH;
-  const labelY = TOWER_BASE + floors * SLAB_PITCH + 1.5 + spire;
-  const bad = current.debt > threshold + 20;
   return (
-    <District focusKey="debt" pad={1.9} position={DISTRICT_POS.debt!} labelY={labelY} labelX={-1.2} title="Public debt" value={`${fmt(current.debt, 0)}% of GDP`} bad={bad} tilt={-1.2} reducedMotion={reducedMotion}>
+    <District focusKey="debt" q={q} shown={shown} status={status} tagAt={[0, TOWER_BASE + floors * SLAB_PITCH + 1.3 + spire * 1.3, 0]} reducedMotion={reducedMotion}>
       {/* Podium with a colonnade front */}
       <mesh position-y={0.08} receiveShadow>
         <boxGeometry args={[2.7, 0.16, 2.7]} />
@@ -377,41 +441,22 @@ function DebtTower({ reducedMotion }: { reducedMotion: boolean }) {
           <cylinderGeometry args={[0.025, 0.035, 0.6, 5]} />
           <meshStandardMaterial color={P.stone} roughness={0.6} />
         </mesh>
-        {/* Debt past the top floor: a coral spire instead of more floors, so the tower stays in frame */}
-        {spire > 0 ? (
-          <mesh position-y={0.55 + (0.4 + 0.9 * spire) / 2} rotation-y={Math.PI / 4}>
-            <coneGeometry args={[0.32, 0.4 + 0.9 * spire, 4]} />
-            <meshStandardMaterial color={CORAL} emissive={CORAL} emissiveIntensity={0.25} roughness={0.6} flatShading />
-          </mesh>
-        ) : null}
+        {/* Debt past the top floor: a coral spire instead of more floors, so the tower stays in frame.
+            Its base sits on the roof and it grows upward from there (the cone is built base-down at y = 0). */}
+        <mesh ref={spireMesh} geometry={spireGeometry} position-y={0.55} rotation-y={Math.PI / 4} visible={false}>
+          <meshStandardMaterial color={CORAL} emissive={CORAL} emissiveIntensity={0.25} roughness={0.6} flatShading />
+        </mesh>
       </group>
     </District>
   );
 }
 
-// ---- Central bank with an inflation thermometer ------------------------------
+// ---- Central bank -------------------------------------------------------------------
 
-function CentralBank({ reducedMotion }: { reducedMotion: boolean }) {
-  const current = useLab(selectCurrent);
-  const policy = useLab(selectPolicyNow);
-  const presetId = useLab((s) => s.config.presetId);
-  const neutral = getPreset(presetId).params.neutralRealRate;
-  const beacon = useRef<THREE.MeshStandardMaterial>(null);
-  const stance = clamp((current.realRate - neutral) / 3, -1, 1);
-  const sm = useSmooth({ stance }, 3, reducedMotion);
-  useFrame(() => {
-    const s = sm.current.stance;
-    if (!beacon.current) return;
-    SCRATCH.copy(AMBER).lerp(s >= 0 ? TEAL : CORAL, Math.abs(s));
-    beacon.current.color.copy(SCRATCH);
-    beacon.current.emissive.copy(SCRATCH);
-  });
-  const stanceWord = stance > 0.33 ? "tight" : stance < -0.33 ? "loose" : "neutral";
-  const next = policy.rateMode === "manual" && current.regime !== "peg" && Math.abs(policy.manualRate - current.rate) > 0.01 ? `${rateText(policy.manualRate)}%` : undefined;
-  // A pending decision rides high and to the right of the dome so it never covers the
-  // top of the debt tower next door; on a phone it pins to the canvas corner instead.
+/** The central bank: a domed rotunda with a gold lamp. Its tag carries the rate. */
+function CentralBank({ q, shown, reducedMotion }: Props) {
   return (
-    <District focusKey="rate" pad={2.35} position={DISTRICT_POS.rate!} labelY={6.1} labelX={-1.5} pendingLabel={[9.6, 3.0]} dockPending dockValue={`${rateText(current.rate)}%`} title="Policy rate" value={next ? `${rateText(current.rate)}%` : `${rateText(current.rate)}% · ${stanceWord}`} next={next} delta={next ? `${policy.manualRate - current.rate > 0 ? "+" : ""}${rateText(policy.manualRate - current.rate)}` : undefined} tilt={0.8} reducedMotion={reducedMotion}>
+    <District focusKey="rate" q={q} shown={shown} tagAt={[0, 4.8, 0]} reducedMotion={reducedMotion}>
       <mesh position-y={0.15} receiveShadow castShadow>
         <cylinderGeometry args={[2.0, 2.1, 0.3, 8]} />
         <meshStandardMaterial color={P.stone} roughness={1} flatShading={P.flat} />
@@ -435,9 +480,8 @@ function CentralBank({ reducedMotion }: { reducedMotion: boolean }) {
       </mesh>
       <mesh position-y={4.15}>
         <sphereGeometry args={[0.28, 12, 10]} />
-        <meshStandardMaterial ref={beacon} color={AMBER} emissive={AMBER} emissiveIntensity={0.9} roughness={0.3} />
+        <meshStandardMaterial color={P.gold} emissive={P.gold} emissiveIntensity={0.5} roughness={0.3} />
       </mesh>
-      <pointLight position={[0, 4.4, 0]} intensity={2} distance={6} color={policy.rateMode === "manual" ? P.bad : P.good} />
     </District>
   );
 }
@@ -455,9 +499,9 @@ const POLE = 1.55;
  * district colour near target, amber when inflation is moderately off target
  * and coral when it is far off.
  */
-function Thermometer({ reducedMotion }: { reducedMotion: boolean }) {
-  const current = useLab(selectCurrent);
-  const policy = useLab(selectPolicyNow);
+function Thermometer({ q, shown, reducedMotion }: Props) {
+  const current = q.now;
+  const target = useLab((s) => s.policyNow.inflationTarget);
   const mercury = useRef<THREE.Mesh>(null);
   const flags = useRef<(THREE.Group | null)[]>([]);
   const material = useMemo(() => new THREE.MeshStandardMaterial({ color: TEAL, roughness: 0.4, emissive: TEAL, emissiveIntensity: 0.25 }), []);
@@ -468,7 +512,7 @@ function Thermometer({ reducedMotion }: { reducedMotion: boolean }) {
   const scaleMax = 20;
   const tube = 4.0;
   const fill = clamp(current.infl / scaleMax, 0.02, 1.05);
-  const dev = current.infl - policy.inflationTarget;
+  const dev = current.infl - target;
   const tone = Math.abs(dev) <= 1.5 ? 0 : dev > 0 ? 1 : -1;
   // 0 near target, 1 moderately off (more than 1.5 points), 2 far off (more than 3 points).
   const alarm = Math.abs(dev) <= 1.5 ? 0 : Math.abs(dev) <= 3 ? 1 : 2;
@@ -490,17 +534,18 @@ function Thermometer({ reducedMotion }: { reducedMotion: boolean }) {
     material.color.copy(SCRATCH);
     material.emissive.copy(SCRATCH);
     flagMaterial.color.copy(neutral).lerp(AMBER, clamp(a, 0, 1)).lerp(CORAL, clamp(a - 1, 0, 1));
-    // Flags stir in the breeze, a little harder when the alarm is up.
+    // Flags stir in a light breeze, each about its own pole (the cloth is built out from the pole).
     const time = state.clock.elapsedTime;
     for (let i = 0; i < FLAGS.length; i++) {
       const g = flags.current[i];
       if (!g) continue;
-      g.rotation.y = reducedMotion ? -0.35 : -0.35 + Math.sin(time * (1.6 + a * 0.6) + i * 1.7) * (0.18 + a * 0.08);
+      g.rotation.y = reducedMotion ? -0.35 : -0.35 + Math.sin(time * 1.3 + i * 1.7) * 0.16;
     }
   });
-  const targetY = 0.55 + tube * clamp(policy.inflationTarget / scaleMax, 0, 1);
+  const targetY = 0.55 + tube * clamp(target / scaleMax, 0, 1);
+  const status = useStatus("infl");
   return (
-    <District focusKey="infl" pad={1.0} position={DISTRICT_POS.infl!} labelY={0.6} labelX={3.1} title="Inflation" value={`${fmt(current.infl, 1)}% · bank target ${fmt(policy.inflationTarget, 1)}%`} bad={Math.abs(dev) > 3} tilt={1.5} reducedMotion={reducedMotion}>
+    <District focusKey="infl" q={q} shown={shown} status={status} tagAt={[0, 0.55 + tube + 0.5, 0]} reducedMotion={reducedMotion}>
       {/* Lecture hall behind the thermometer */}
       <group position={[0, 0, -0.85]}>
         <mesh position-y={0.36} castShadow receiveShadow>
@@ -530,7 +575,7 @@ function Thermometer({ reducedMotion }: { reducedMotion: boolean }) {
       </mesh>
       <mesh position-y={0.55 + tube / 2}>
         <cylinderGeometry args={[0.3, 0.3, tube + 0.1, 12, 1, true]} />
-        <meshStandardMaterial color={P.glass} transparent opacity={0.28} roughness={0.1} side={THREE.DoubleSide} depthWrite={false} />
+        <meshStandardMaterial color={P.glass} transparent opacity={0.28} roughness={0.1} side={THREE.DoubleSide} forceSinglePass depthWrite={false} />
       </mesh>
       <mesh position-y={targetY} rotation-x={Math.PI / 2}>
         <torusGeometry args={[0.42, 0.045, 8, 20]} />
@@ -568,7 +613,7 @@ const FACTORY_D = 1.4;
 const TEETH = 3;
 const TOOTH = FACTORY_D / TEETH;
 const PANES = 6;
-const PUFFS = 5;
+const PUFFS = 4;
 const CHIMNEY = 1.35;
 
 /**
@@ -577,11 +622,12 @@ const CHIMNEY = 1.35;
  * chimneys pour out smoke; deep below it the windows go dark and a thin
  * wisp barely rises.
  */
-function Factories({ reducedMotion }: { reducedMotion: boolean }) {
-  const current = useLab(selectCurrent);
+function Factories({ q, shown, reducedMotion }: Props) {
+  const current = q.now;
   const height = 1.1 + clamp((current.gdpLevel - 100) * 0.07, -0.4, 2.4);
   const activity = clamp(0.65 + current.gap * 0.22, 0.03, 1.4);
   const sm = useSmooth({ height, activity }, 3, reducedMotion);
+  const status = useStatus("growth");
   const bodies = useRef<(THREE.Mesh | null)[]>([]);
   const chimneys = useRef<(THREE.Group | null)[]>([]);
   const teeth = useRef<THREE.InstancedMesh>(null);
@@ -610,7 +656,6 @@ function Factories({ reducedMotion }: { reducedMotion: boolean }) {
     [],
   );
   const order = useMemo(() => scatterOrder(FACTORY_X.length * PANES, 7), []);
-  const phase = useMemo(() => new Float32Array(FACTORY_X.length), []);
   const last = useRef({ h: -1, a: -1 });
   /** With reduced motion the smoke stands still: write it once, then only when activity moves. */
   const smokeStill = useRef(false);
@@ -621,7 +666,7 @@ function Factories({ reducedMotion }: { reducedMotion: boolean }) {
     primeInstances(smoke.current, colors.smoke);
   }, [colors]);
 
-  useFrame((_, dt) => {
+  useFrame((state) => {
     const { height: h, activity: a } = sm.current;
     const lit = clamp((a - 0.1) / 1.0, 0, 1);
     const changed = h !== last.current.h || a !== last.current.a;
@@ -667,26 +712,26 @@ function Factories({ reducedMotion }: { reducedMotion: boolean }) {
       commitInstances(pm);
     }
 
-    // Smoke rises faster and fuller the hotter the economy runs.
+    // Smoke rises at an even, slow pace; a busier economy makes fuller, taller plumes.
     const sm2 = smoke.current;
     if (!sm2) return;
     if (reducedMotion && !changed && smokeStill.current) return;
     smokeStill.current = reducedMotion;
-    const speed = reducedMotion ? 0 : 0.1 + 0.32 * a;
-    // The plume leans downwind (away from the district label above) and climbs higher when busy.
-    const rise = 0.35 + 0.65 * a;
-    const drift = 1.2 + 1.3 * a;
+    const t = state.clock.elapsedTime;
+    // The plume leans downwind and climbs higher when busy, short enough not to cross the next chimney's.
+    const rise = 0.6 + 0.8 * a;
+    const drift = 0.6 + 0.7 * a;
     for (let f = 0; f < FACTORY_X.length; f++) {
-      phase[f] = (phase[f] + dt * speed) % 1;
       const cx = FACTORY_X[f] + 0.35;
       const top = h + CHIMNEY + 0.05;
       for (let p = 0; p < PUFFS; p++) {
         const i = f * PUFFS + p;
-        const prog = reducedMotion ? (p + 0.5) / PUFFS : (phase[f] + p / PUFFS + f * 0.13) % 1;
-        // Grow as they rise, then shrink away at the top so there is no pop.
-        const fade = prog > 0.7 ? (1 - prog) / 0.3 : 1;
+        // Each puff's age on a loop from the clock, so the loop never jumps.
+        const prog = reducedMotion ? (p + 0.5) / PUFFS : (t * 0.08 + p / PUFFS + f * 0.13) % 1;
+        // Born small at the chimney mouth, it swells as it rises, then shrinks away at the top: no pop at either end.
+        const fade = prog < 0.15 ? prog / 0.15 : prog > 0.7 ? (1 - prog) / 0.3 : 1;
         const size = (0.2 + prog * 0.5) * (0.3 + a * 0.7) * fade * clamp(a * 2.5, 0, 1);
-        placeInstance(sm2, i, cx + prog * drift, top + prog * rise, -0.3 + prog * 0.9, Math.max(0.001, size));
+        placeInstance(sm2, i, cx + prog * drift, top + prog * rise, -0.3 + prog * 0.5, Math.max(0.001, size));
         if (changed) sm2.setColorAt(i, TMP_COLOR.copy(colors.smoke).lerp(colors.soot, clamp(a - 0.6, 0, 0.8) * 0.4));
       }
     }
@@ -695,7 +740,7 @@ function Factories({ reducedMotion }: { reducedMotion: boolean }) {
   });
 
   return (
-    <District focusKey="growth" pad={2.6} position={DISTRICT_POS.growth!} labelY={height + 3.0} labelX={1.4} title="Growth" value={`${fmt(current.growth, 1)}%`} bad={current.growth < 0} tilt={-0.6} reducedMotion={reducedMotion}>
+    <District focusKey="growth" q={q} shown={shown} status={status} tagAt={[0, height + 2.2, 0]} reducedMotion={reducedMotion}>
       {/* Yard */}
       <mesh position={[0, 0.03, 0.1]} receiveShadow>
         <boxGeometry args={[4.9, 0.06, 2.3]} />
@@ -769,7 +814,7 @@ const ANCHORAGE: [number, number, number][] = [
   [3.9, 6.3, -0.15],
 ];
 
-/** A low-poly freighter: hull with a pointed bow, bridge at the stern, boxes on deck. */
+/** A low-poly freighter: hull with a pointed bow, bridge at the stern, boxes on deck. Its origin is the middle of the hull. */
 function Freighter({ shipRef, cargo }: { shipRef: (el: THREE.Group | null) => void; cargo: number }) {
   const deck = [P.cars[cargo % P.cars.length], P.cars[(cargo + 2) % P.cars.length], P.cars[(cargo + 4) % P.cars.length]];
   return (
@@ -811,13 +856,15 @@ function Freighter({ shipRef, cargo }: { shipRef: (el: THREE.Group | null) => vo
  * Freighters at anchor follow export volume, a mix of the current account
  * and how competitive the currency is.
  */
-function Port({ reducedMotion }: { reducedMotion: boolean }) {
-  const current = useLab(selectCurrent);
+function Port({ q, shown, reducedMotion }: Props) {
+  const current = q.now;
   const exportsCount = clamp(3.5 + current.ca / 1.5, 0.3, MAX_CONTAINERS);
   const importsCount = clamp(3.5 - current.ca / 1.5, 0.3, MAX_CONTAINERS);
   // Ships at anchor beyond the one at the quay: more with a stronger current account and a weaker (more competitive) currency.
-  const ships = clamp(1 + (current.ca + 4) / 3.5 + (current.rer - 100) / 30, 0, ANCHORAGE.length);
+  // Whole ships only: one sails in or out at a time, never a toy-sized ship left half way.
+  const ships = Math.round(clamp(1 + (current.ca + 4) / 3.5 + (current.rer - 100) / 30, 0, ANCHORAGE.length));
   const sm = useSmooth({ exportsCount, importsCount, ships }, 3, reducedMotion);
+  const status = useStatus("ca");
   const boxes = useRef<THREE.InstancedMesh>(null);
   const ship = useRef<THREE.Group | null>(null);
   const anchored = useRef<(THREE.Group | null)[]>([]);
@@ -848,29 +895,28 @@ function Port({ reducedMotion }: { reducedMotion: boolean }) {
       commitInstances(b);
     }
     const t = reducedMotion ? 0 : state.clock.elapsedTime;
+    // The freighter at the quay is moored: it rides the swell in place, about the middle of its hull.
     const main = ship.current;
     if (main) {
-      const x = 4.8 + Math.sin(t * 0.22) * 1.2;
-      main.position.set(x, -0.42 + (reducedMotion ? 0 : Math.sin(t * 1.3) * 0.04), 2.7);
-      main.rotation.y = Math.cos(t * 0.22) >= 0 ? 0 : Math.PI;
-      main.rotation.z = reducedMotion ? 0 : Math.sin(t * 0.9) * 0.03;
+      main.position.set(4.8, -0.42 + (reducedMotion ? 0 : Math.sin(t * 1.1) * 0.035), 2.7);
+      main.rotation.set(0, 0, reducedMotion ? 0 : Math.sin(t * 0.8) * 0.02);
     }
     for (let i = 0; i < ANCHORAGE.length; i++) {
       const g = anchored.current[i];
       if (!g) continue;
       const v = clamp(n - i, 0, 1);
-      g.visible = v > 0.02;
+      g.visible = v > 0.002;
       if (!g.visible) continue;
       const [ax, az, heading] = ANCHORAGE[i];
-      // Ships sail in from the horizon side rather than popping into place.
-      g.position.set(ax + (1 - v) * 4, -0.42 + (reducedMotion ? 0 : Math.sin(t * 1.1 + i * 2) * 0.04), az);
-      g.rotation.set(0, heading + (reducedMotion ? 0 : Math.sin(t * 0.15 + i) * 0.08), reducedMotion ? 0 : Math.sin(t * 0.8 + i) * 0.025);
-      g.scale.setScalar(0.4 + 0.6 * v);
+      // A ship sails in from the open sea as it grows from nothing, and out again as it shrinks: no pop.
+      g.position.set(ax + (1 - v) * 3, -0.42 + (reducedMotion ? 0 : Math.sin(t * 1.1 + i * 2) * 0.035), az);
+      g.rotation.set(0, heading + (reducedMotion ? 0 : Math.sin(t * 0.15 + i) * 0.06), reducedMotion ? 0 : Math.sin(t * 0.8 + i) * 0.02);
+      g.scale.setScalar(smoothstep(v));
     }
   });
 
   return (
-    <District focusKey="ca" position={DISTRICT_POS.ca!} labelY={3.3} title="Current account" value={`${fmt(current.ca, 1, true)}% of GDP`} bad={current.ca < -6} tilt={1} reducedMotion={reducedMotion}>
+    <District focusKey="ca" q={q} shown={shown} status={status} tagAt={[1.2, 3.0, 0.4]} reducedMotion={reducedMotion}>
       <mesh position={[1.2, 0.15, 0.4]} receiveShadow castShadow>
         <boxGeometry args={[5.2, 0.3, 2.6]} />
         <meshStandardMaterial color={P.dock} roughness={1} flatShading={P.flat} />
@@ -961,8 +1007,8 @@ const GAUGE_H = 1.2;
  * Reserve vault: a pyramid of gold bars on the pallet and a gauge on the
  * facade fill and empty with reserves; the door turns coral when they run low.
  */
-function Vault({ reducedMotion }: { reducedMotion: boolean }) {
-  const current = useLab(selectCurrent);
+function Vault({ q, shown, reducedMotion }: Props) {
+  const current = q.now;
   const bars = useRef<THREE.InstancedMesh>(null);
   const gauge = useRef<THREE.Mesh>(null);
   const door = useRef<THREE.MeshStandardMaterial>(null);
@@ -970,6 +1016,7 @@ function Vault({ reducedMotion }: { reducedMotion: boolean }) {
   const count = clamp(current.reserves * 2, 0, MAX_BARS);
   const level = clamp(current.reserves / GAUGE_MONTHS, 0, 1);
   const sm = useSmooth({ count, level, danger: current.reserves < 1 ? 1 : current.reserves < 3 ? 0.5 : 0 }, 3, reducedMotion);
+  const status = useStatus("reserves");
   const gold = useMemo(() => new THREE.Color(P.gold), []);
   const last = useRef(-1);
   useLayoutEffect(() => primeInstances(bars.current, gold), [gold]);
@@ -996,7 +1043,7 @@ function Vault({ reducedMotion }: { reducedMotion: boolean }) {
   });
   const lowMark = 0.25 + GAUGE_H * (3 / GAUGE_MONTHS);
   return (
-    <District focusKey="reserves" pad={2.1} position={DISTRICT_POS.reserves!} labelY={3.1} title="Reserves" value={`${fmt(current.reserves, 1)} mo. imports`} bad={current.reserves < 2} tilt={-1.5} reducedMotion={reducedMotion}>
+    <District focusKey="reserves" q={q} shown={shown} status={status} tagAt={[0, 2.6, 0]} reducedMotion={reducedMotion}>
       <mesh position-y={0.06} receiveShadow>
         <boxGeometry args={[2.9, 0.12, 2.5]} />
         <meshStandardMaterial color={P.stone} roughness={1} flatShading={P.flat} />
@@ -1065,11 +1112,12 @@ const HOUSE_TURN = Array.from({ length: HOUSES }, (_, i) => ((i * 7) % 3 === 0 ?
  * Neighbourhood: lit windows go dark, scattered through the block, as
  * unemployment rises; a house with no lit window fades to grey.
  */
-function Housing({ reducedMotion }: { reducedMotion: boolean }) {
-  const current = useLab(selectCurrent);
+function Housing({ q, shown, reducedMotion }: Props) {
+  const current = q.now;
   // Every window is lit at 3% unemployment; none at 18% or more.
   const lit = clamp(1 - (current.unemp - 3) / 15, 0, 1);
   const sm = useSmooth({ lit }, 3, reducedMotion);
+  const status = useStatus("unemp");
   const bodies = useRef<THREE.InstancedMesh>(null);
   const roofs = useRef<THREE.InstancedMesh>(null);
   const panes = useRef<THREE.InstancedMesh>(null);
@@ -1124,7 +1172,7 @@ function Housing({ reducedMotion }: { reducedMotion: boolean }) {
     commitInstances(w);
   });
   return (
-    <District focusKey="unemp" pad={2.2} position={DISTRICT_POS.unemp!} labelY={2.1} title="Unemployment" value={`${fmt(current.unemp, 1)}%`} bad={current.unemp > 12} tilt={0.6} reducedMotion={reducedMotion}>
+    <District focusKey="unemp" q={q} shown={shown} status={status} tagAt={[0, 1.6, 0]} reducedMotion={reducedMotion}>
       <instancedMesh ref={bodies} args={[undefined, undefined, HOUSES]} castShadow receiveShadow frustumCulled={false}>
         <boxGeometry args={[0.62, 1, 0.62]} />
         <meshStandardMaterial roughness={0.95} flatShading />
@@ -1142,22 +1190,97 @@ function Housing({ reducedMotion }: { reducedMotion: boolean }) {
 
 // ---- Lighthouse: credibility -------------------------------------------------------
 
-function Lighthouse({ reducedMotion }: { reducedMotion: boolean }) {
-  const current = useLab(selectCurrent);
-  const beam = useRef<THREE.Mesh>(null);
-  const spin = useRef<THREE.Group>(null);
-  const lamp = useRef<THREE.PointLight>(null);
-  const sm = useSmooth({ cred: current.cred / 100 }, 2, reducedMotion);
-  useFrame((state, dt) => {
-    const c = sm.current.cred;
-    if (beam.current) {
-      if (!reducedMotion && spin.current) spin.current.rotation.y += dt * 0.8;
-      (beam.current.material as THREE.MeshBasicMaterial).opacity = 0.03 + 0.12 * c;
+/** The lamp's height in the tower's own units. */
+const LAMP_Y = 3.15;
+/** The beam: rings along its length (distance from the lamp, radius, opacity). */
+const BEAM: [number, number, number][] = [
+  [0.3, 0.07, 0.55],
+  [1.2, 0.17, 0.32],
+  [2.4, 0.29, 0.14],
+  [3.6, 0.4, 0],
+];
+const BEAM_SIDES = 14;
+
+/**
+ * A soft beam of light: an open cone from the lamp outward along +x, narrow at the lamp and
+ * widening a little, its colour fading out along its length (alpha in the vertex colours).
+ * It tips down slightly toward the sea, so seen from above it still starts in the lamp.
+ */
+function beamGeometry(color: string): THREE.BufferGeometry {
+  const c = new THREE.Color(color);
+  const pos: number[] = [];
+  const col: number[] = [];
+  const idx: number[] = [];
+  for (let r = 0; r < BEAM.length; r++) {
+    const [x, rad, a] = BEAM[r];
+    for (let s = 0; s < BEAM_SIDES; s++) {
+      const th = (s / BEAM_SIDES) * Math.PI * 2;
+      pos.push(x, Math.cos(th) * rad, Math.sin(th) * rad);
+      col.push(c.r, c.g, c.b, a);
     }
-    if (lamp.current) lamp.current.intensity = 1 + 7 * c;
+  }
+  for (let r = 0; r < BEAM.length - 1; r++) {
+    for (let s = 0; s < BEAM_SIDES; s++) {
+      const a = r * BEAM_SIDES + s;
+      const b = r * BEAM_SIDES + ((s + 1) % BEAM_SIDES);
+      const a2 = a + BEAM_SIDES;
+      const b2 = b + BEAM_SIDES;
+      idx.push(a, a2, b, b, a2, b2);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute("color", new THREE.Float32BufferAttribute(col, 4));
+  g.setIndex(idx);
+  return g;
+}
+
+/** A round, soft glow for the lamp: brightest in the middle, gone at the edge. */
+function glowTexture(): THREE.Texture {
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    g.addColorStop(0, "rgba(255,255,255,1)");
+    g.addColorStop(0.35, "rgba(255,255,255,0.45)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+  }
+  const t = new THREE.CanvasTexture(canvas);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/**
+ * Lighthouse: the brighter the beam, the more people trust the central bank. Two soft beams
+ * leave the lamp in opposite directions and sweep slowly round the tower's axis, at lamp
+ * height; a glow sits on the lamp. With reduced motion they hold still, side-on to the view.
+ */
+function Lighthouse({ q, shown, reducedMotion }: Props) {
+  const current = q.now;
+  const spin = useRef<THREE.Group>(null);
+  const glowMat = useRef<THREE.SpriteMaterial>(null);
+  const sm = useSmooth({ cred: current.cred / 100 }, 2, reducedMotion);
+  const status = useStatus("cred");
+  const geometry = useGeometry(() => beamGeometry(P.beam));
+  // One material for both beams, both faces drawn in one pass (three otherwise draws a
+  // transparent two-sided material twice a frame, and re-checks its shader each time).
+  const beam = useMemo(() => new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.8, side: THREE.DoubleSide, forceSinglePass: true, depthWrite: false, toneMapped: false }), []);
+  useEffect(() => () => beam.dispose(), [beam]);
+  const glow = useMemo(glowTexture, []);
+  useEffect(() => () => glow.dispose(), [glow]);
+  useFrame((state) => {
+    const c = sm.current.cred;
+    if (spin.current) spin.current.rotation.y = reducedMotion ? 0 : state.clock.elapsedTime * 0.45;
+    beam.opacity = 0.35 + 0.65 * c;
+    if (glowMat.current) glowMat.current.opacity = 0.35 + 0.55 * c;
   });
   return (
-    <District focusKey="cred" pad={1.25} position={DISTRICT_POS.cred!} labelY={4.4} title="Credibility" value={`${fmt(current.cred, 0)} / 100`} bad={current.cred < 30} tilt={-0.8} reducedMotion={reducedMotion}>
+    <District focusKey="cred" q={q} shown={shown} status={status} tagAt={[0, 4.3, 0]} reducedMotion={reducedMotion}>
       <mesh position-y={0.15} receiveShadow>
         <cylinderGeometry args={[0.9, 1.0, 0.3, 8]} />
         <meshStandardMaterial color={P.stone} roughness={1} flatShading={P.flat} />
@@ -1172,23 +1295,26 @@ function Lighthouse({ reducedMotion }: { reducedMotion: boolean }) {
           <meshStandardMaterial color={P.accent} roughness={0.9} />
         </mesh>
       ))}
-      <mesh position-y={3.15}>
+      <mesh position-y={LAMP_Y}>
         <cylinderGeometry args={[0.36, 0.36, 0.5, 10]} />
-        <meshStandardMaterial color={P.lampGlass} emissive={P.gold} emissiveIntensity={0.6} roughness={0.3} />
+        <meshStandardMaterial color={P.lampGlass} emissive={P.gold} emissiveIntensity={0.8} roughness={0.3} />
       </mesh>
       <mesh position-y={3.55} castShadow>
         <coneGeometry args={[0.5, 0.4, 10]} />
         <meshStandardMaterial color={P.accent} roughness={0.9} flatShading={P.flat} />
       </mesh>
-      <pointLight ref={lamp} position={[0, 3.2, 0]} intensity={4} distance={14} color={P.lamp} />
-      {/* The beam's tip sits in the lamp and the group turns about the tower's axis. A cone is
-          built around its middle, apex up: laid on its side (apex to +x), it is shifted back by
-          half its length so the apex is at the lamp and the wide end points out to sea. */}
-      <group ref={spin} position-y={3.15}>
-        <mesh ref={beam} rotation-z={Math.PI / 2} position-x={2.75}>
-          <coneGeometry args={[1.1, 5.5, 12, 1, true]} />
-          <meshBasicMaterial color={P.beam} transparent opacity={0.15} side={THREE.DoubleSide} depthWrite={false} blending={THREE.AdditiveBlending} />
-        </mesh>
+      {/* The lamp's glow shows round the roof from any angle, so the beams have a source. */}
+      <sprite position-y={LAMP_Y + 0.1} scale={1.9} renderOrder={2}>
+        <spriteMaterial ref={glowMat} map={glow} color={P.beam} transparent depthWrite={false} depthTest={false} opacity={0.6} toneMapped={false} />
+      </sprite>
+      {/* The beams turn about the tower's axis, at the lamp; each starts inside the lamp glass
+          and tips 8 degrees down toward the sea. */}
+      <group ref={spin} position-y={LAMP_Y}>
+        {[0, Math.PI].map((turn) => (
+          <group key={turn} rotation-y={turn}>
+            <mesh geometry={geometry} material={beam} rotation-z={-0.14} />
+          </group>
+        ))}
       </group>
     </District>
   );
@@ -1196,18 +1322,20 @@ function Lighthouse({ reducedMotion }: { reducedMotion: boolean }) {
 
 // ---- Offshore tanker: oil price --------------------------------------------------------
 
-function Tanker({ reducedMotion }: { reducedMotion: boolean }) {
-  const current = useLab(selectCurrent);
+/** The tanker: it shows up with an oil shock (or anywhere in free play), and rides the swell about its own middle. */
+function Tanker({ q, shown, reducedMotion }: Props) {
+  const current = q.now;
   const group = useRef<THREE.Group>(null);
   const dev = current.oil / WEO_REFERENCE.oilPrice - 1;
   useFrame((state) => {
-    if (!group.current || reducedMotion) return;
-    const t = state.clock.elapsedTime;
-    group.current.position.y = Math.sin(t * 0.8) * 0.05;
-    group.current.rotation.z = Math.sin(t * 0.6) * 0.02;
+    const g = group.current;
+    if (!g) return;
+    const t = reducedMotion ? 0 : state.clock.elapsedTime;
+    g.position.y = Math.sin(t * 0.8) * 0.05;
+    g.rotation.z = Math.sin(t * 0.6) * 0.02;
   });
   return (
-    <District focusKey="oil" position={DISTRICT_POS.oil!} labelY={2.2} title="Oil" value={`$${fmt(current.oil, 0)}${Math.abs(dev) > 0.05 ? ` (${fmt(dev * 100, 0, true)}%)` : ""}`} bad={dev > 0.3} tilt={1.2} reducedMotion={reducedMotion}>
+    <District focusKey="oil" q={q} shown={shown} tagAt={[0, 2.0, 0]} reducedMotion={reducedMotion}>
       <group ref={group} rotation-y={-0.3}>
         <mesh castShadow>
           <boxGeometry args={[4.2, 0.7, 1.3]} />
@@ -1228,31 +1356,33 @@ function Tanker({ reducedMotion }: { reducedMotion: boolean }) {
   );
 }
 
-/** Capital banner: city name and a real-GDP index, like a strategy game's city population badge. */
-function CityBanner() {
+/** Free play's capital tag: the country's name and a real-GDP index. The game's goal cards carry the figures instead. */
+function CityBanner({ q }: { q: IslandQuarter }) {
   const presetId = useLab((s) => s.config.presetId);
-  const gdp = useLab((s) => Math.round(s.result.path[Math.min(s.clock, s.result.path.length - 1)].gdpLevel));
-  const narrow = useNarrowCanvas();
-  const inGame = useLab((s) => s.labels === "focus");
+  const mode = useIslandMode();
+  const labels = useLab((s) => s.labels);
   const { x, z } = WORLD.sites.center;
-  // In the game the GDP index is chrome over the town: the goal cards carry the figures.
-  if (inGame) return null;
-  return <Label position={[x - 0.8, TOP + 1.5, z]} title={getPreset(presetId).name} value={`GDP index ${gdp}`} accent={P.border} icon="crown" capital dock={narrow ? "bottom-left" : undefined} />;
+  if (mode !== "sandbox") return null;
+  const gdp = Math.round(q.now.gdpLevel);
+  return <Tag position={[x, TOP + 2.0, z]} name={getPreset(presetId).name} value={`GDP index ${gdp}`} sr={`${getPreset(presetId).name}: real GDP index ${gdp} in ${q.now.label}.`} hidden={labels !== "all"} capital />;
 }
 
+/** Every landmark, reading the same quarter. */
 export default function Districts({ reducedMotion }: { reducedMotion: boolean }) {
+  const q = useIslandQuarter();
+  const shown = useLandmarks(q.now);
   return (
     <group>
-      <DebtTower reducedMotion={reducedMotion} />
-      <CentralBank reducedMotion={reducedMotion} />
-      <Thermometer reducedMotion={reducedMotion} />
-      <Factories reducedMotion={reducedMotion} />
-      <Port reducedMotion={reducedMotion} />
-      <Vault reducedMotion={reducedMotion} />
-      <Housing reducedMotion={reducedMotion} />
-      <Lighthouse reducedMotion={reducedMotion} />
-      <Tanker reducedMotion={reducedMotion} />
-      <CityBanner />
+      <DebtTower q={q} shown={shown.has("debt")} reducedMotion={reducedMotion} />
+      <CentralBank q={q} shown={shown.has("rate")} reducedMotion={reducedMotion} />
+      <Thermometer q={q} shown={shown.has("infl")} reducedMotion={reducedMotion} />
+      <Factories q={q} shown={shown.has("growth")} reducedMotion={reducedMotion} />
+      <Port q={q} shown={shown.has("ca")} reducedMotion={reducedMotion} />
+      <Vault q={q} shown={shown.has("reserves")} reducedMotion={reducedMotion} />
+      <Housing q={q} shown={shown.has("unemp")} reducedMotion={reducedMotion} />
+      <Lighthouse q={q} shown={shown.has("cred")} reducedMotion={reducedMotion} />
+      <Tanker q={q} shown={shown.has("oil")} reducedMotion={reducedMotion} />
+      <CityBanner q={q} />
     </group>
   );
 }

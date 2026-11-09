@@ -41,6 +41,8 @@ export type HexWorld = {
   bumps: { x: number; y: number; z: number; s: number }[];
   farms: { x: number; y: number; z: number; rot: number; d: number }[];
   roads: [number, number][][];
+  /** The road from the centre to each district, by district. */
+  roadsBySite: Partial<Record<SiteKey, [number, number][]>>;
   river: [number, number][] | null;
   /** Flat [x,y,z, x,y,z, ...] segment list along the territory edge. */
   border: number[];
@@ -166,10 +168,12 @@ export function generateWorld(seed = 11): HexWorld {
   // Roads: hex lines from the centre to each district.
   const roadKeys = new Set<string>();
   const roadPaths: [number, number][][] = [];
+  const roadSites: SiteKey[] = [];
   for (const name of Object.keys(SITES) as SiteKey[]) {
     if (name === "center") continue;
     const path = hexLine(SITES.center, SITES[name]);
     roadPaths.push(path);
+    roadSites.push(name);
     for (const [q, r] of path) roadKeys.add(key(q, r));
   }
 
@@ -256,28 +260,22 @@ export function generateWorld(seed = 11): HexWorld {
   };
   for (const t of tiles) {
     if (!t.land || t.developed) continue;
+    // Fewer, bigger pieces: a forest hex holds a small grove of three, a mountain one peak.
     if (t.kind === "forest") {
       const broad = moistNoise(t.x * 0.31 + 5, t.z * 0.31) > 0.5;
-      const n = 5 + Math.floor(rand() * 3);
-      for (let i = 0; i < n; i++) {
-        const [x, z] = scatter(t, HEX * 0.72);
-        trees.push({ x, y: t.top, z, s: 0.75 + rand() * 0.5, broad: broad ? rand() > 0.2 : rand() > 0.8, shade: rand() * 2 - 1 });
+      const turn = rand() * Math.PI * 2;
+      for (let i = 0; i < 3; i++) {
+        const a = turn + (i * Math.PI * 2) / 3;
+        const r = HEX * (0.36 + rand() * 0.12);
+        trees.push({ x: t.x + Math.cos(a) * r, y: t.top, z: t.z + Math.sin(a) * r, s: 1.15 + rand() * 0.3, broad: broad ? rand() > 0.2 : rand() > 0.8, shade: rand() * 2 - 1 });
       }
     } else if (t.kind === "hills") {
       bumps.push({ x: t.x + (rand() - 0.5) * 0.4, y: t.top, z: t.z + (rand() - 0.5) * 0.4, s: 0.85 + rand() * 0.3 });
-      if (rand() > 0.5) {
-        const [x, z] = scatter(t, HEX * 0.6);
-        trees.push({ x, y: t.top, z, s: 0.7, broad: false, shade: rand() * 2 - 1 });
-      }
     } else if (t.kind === "mountain") {
-      peaks.push({ x: t.x + (rand() - 0.5) * 0.3, y: t.top, z: t.z + (rand() - 0.5) * 0.3, r: HEX * (0.62 + rand() * 0.12), h: 1.7 + rand() * 0.8 });
-      for (let i = 0; i < 2; i++) {
-        const [x, z] = scatter(t, HEX * 0.5);
-        peaks.push({ x, y: t.top, z, r: HEX * (0.3 + rand() * 0.12), h: 0.8 + rand() * 0.5 });
-      }
-    } else if (t.kind === "grass" && rand() > 0.72) {
-      const [x, z] = scatter(t, HEX * 0.6);
-      trees.push({ x, y: t.top, z, s: 0.65 + rand() * 0.3, broad: rand() > 0.5, shade: rand() * 2 - 1 });
+      peaks.push({ x: t.x + (rand() - 0.5) * 0.3, y: t.top, z: t.z + (rand() - 0.5) * 0.3, r: HEX * (0.66 + rand() * 0.1), h: 1.8 + rand() * 0.6 });
+    } else if (t.kind === "grass" && rand() > 0.8) {
+      const [x, z] = scatter(t, HEX * 0.5);
+      trees.push({ x, y: t.top, z, s: 1.0 + rand() * 0.25, broad: rand() > 0.5, shade: rand() * 2 - 1 });
     }
   }
 
@@ -320,6 +318,10 @@ export function generateWorld(seed = 11): HexWorld {
   }
 
   const roads = roadPaths.map((path) => path.map(([q, r]) => axialToWorld(q, r)));
+  const roadsBySite: HexWorld["roadsBySite"] = {};
+  roadSites.forEach((name, i) => {
+    roadsBySite[name] = roads[i];
+  });
 
-  return { tiles, trees, peaks, bumps, farms, roads, river, border, grid, sites };
+  return { tiles, trees, peaks, bumps, farms, roads, roadsBySite, river, border, grid, sites };
 }
