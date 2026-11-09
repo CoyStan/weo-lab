@@ -1,0 +1,102 @@
+/* The economy machine (app/scenes/machine). Warm, rounded, museum-exhibit style. */
+
+.m-scene {
+  --m-water: color-mix(in srgb, var(--lab-info-mark) 34%, var(--lab-paper));
+  --m-water-hi: color-mix(in srgb, var(--lab-info-mark) 72%, var(--lab-ink) 6%);
+  --m-wall: color-mix(in srgb, var(--lab-ink) 26%, var(--lab-paper));
+  --m-inside: color-mix(in srgb, var(--lab-ink) 4%, var(--lab-paper));
+  --m-shock: var(--lab-warn-mark);
+  --m-leak: var(--lab-alert);
+  --m-k: 1;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--lab-paper);
+  color: var(--lab-ink);
+}
+
+.m-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  font-family: var(--lab-font-ui);
+}
+
+/* Type: theme tokens only (scaled back up when the board is drawn a little small). */
+.m-t-xs { font-size: calc(var(--t-xs) * var(--m-k)); fill: var(--lab-ink); }
+.m-t-sm { font-size: calc(var(--t-sm) * var(--m-k)); fill: var(--lab-ink); }
+.m-strong { font-weight: 700; }
+.m-muted { fill: var(--lab-ink-2); font-weight: 400; }
+.m-tone-good { fill: var(--lab-good); }
+.m-tone-bad { fill: var(--lab-bad); }
+.m-tone-warn { fill: var(--lab-warn); }
+.m-tone-neutral { fill: var(--lab-ink-2); }
+.m-svg text { paint-order: stroke; stroke: var(--lab-paper); stroke-width: 3px; stroke-linejoin: round; }
+
+/* Pipes. */
+.m-pipe path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.m-pipe-wall { stroke: var(--m-wall); }
+.m-pipe-in { stroke: var(--m-inside); }
+.m-pipe-water { stroke: var(--m-water-hi); }
+.m-pipe.is-shock .m-pipe-water { stroke: var(--m-shock); }
+.m-pipe.is-shock .m-pipe-in { stroke: color-mix(in srgb, var(--m-shock) 30%, var(--lab-paper)); }
+.m-pipe.is-leak .m-pipe-water { stroke: var(--m-leak); }
+.m-pipe.is-dim { opacity: 0.45; }
+
+/* Tanks, trough, basin, gauges' bodies. */
+.m-tank-body { fill: var(--m-inside); }
+.m-tank-rim { fill: none; stroke: var(--m-wall); stroke-width: 3; }
+.m-tank-water { fill: var(--m-water); }
+.m-level { transition: transform 0.9s cubic-bezier(0.3, 0.7, 0.2, 1); }
+.m-wave { animation: m-wave 2.4s linear infinite; }
+@keyframes m-wave { from { transform: translateX(0); } to { transform: translateX(-40px); } }
+.m-capacity { stroke: var(--lab-ink-2); stroke-width: 1.5; stroke-dasharray: 6 5; }
+
+/* Valves: the levers. */
+.m-valve-body { fill: var(--lab-surface); stroke: var(--lab-ink); stroke-width: 2.5; }
+.m-valve-handle { transition: transform 0.8s cubic-bezier(0.3, 1.4, 0.4, 1); }
+.m-valve-handle rect { fill: var(--lab-ink); }
+.m-valve-hub { fill: var(--lab-surface); stroke: var(--lab-ink); stroke-width: 2; }
+.m-valve-ring { fill: none; stroke: var(--lab-ink); stroke-width: 2; stroke-dasharray: 4 4; }
+.m-valve.is-locked { opacity: 0.45; }
+
+/* Pump. */
+.m-pump-body { fill: var(--lab-surface); stroke: var(--m-wall); stroke-width: 3; }
+.m-pump-blade { fill: var(--m-wall); }
+
+/* Shocks: drops falling from a crack, or a coloured pour. */
+.m-drop { animation: m-drop 1.2s ease-in infinite; transform-box: fill-box; }
+.m-drops.is-leak .m-drop { fill: var(--m-leak); }
+.m-drops.is-shock .m-drop { fill: var(--m-shock); }
+@keyframes m-drop { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(22px); opacity: 0; } }
+
+/* Gauges. */
+.m-thermo-liquid { fill: var(--m-water-hi); }
+.m-thermo-shock { fill: var(--m-shock); }
+.m-grow { transition: transform 0.9s cubic-bezier(0.3, 0.7, 0.2, 1); }
+.m-target { stroke: var(--lab-ink); stroke-width: 2; stroke-linecap: round; }
+.m-needle { transition: transform 0.9s cubic-bezier(0.3, 1.3, 0.4, 1); fill: var(--lab-ink); }
+.m-level-fluid { fill: color-mix(in srgb, var(--m-water) 70%, var(--lab-paper)); }
+.m-bubble { fill: var(--lab-surface); stroke: var(--lab-ink); stroke-width: 2; transition: transform 0.9s cubic-bezier(0.3, 1.2, 0.4, 1); }
+
+/* The lever's push and the lag ribbon. */
+.m-route { fill: none; stroke: var(--lab-ink); stroke-width: 2; stroke-dasharray: 2 6; stroke-linecap: round; opacity: 0.55; }
+.m-route.is-static { stroke-width: 3; stroke-dasharray: 3 5; opacity: 0.9; }
+.m-pulse-halo { fill: var(--lab-ink); opacity: 0.16; }
+.m-pulse-dot { fill: var(--lab-ink); stroke: var(--lab-surface); stroke-width: 3; }
+.m-axis { stroke: var(--lab-line-strong); stroke-width: 1.5; }
+.m-bar { fill: var(--lab-ink); opacity: 0.22; transition: opacity 0.3s; }
+.m-bar.is-lit { opacity: 0.85; }
+.m-cursor { stroke: var(--lab-ink); stroke-width: 2; stroke-linecap: round; }
+
+/* Reduced motion: the same picture, still. */
+.m-scene.is-reduced .m-wave,
+.m-scene.is-reduced .m-drop { animation: none; }
+.m-scene.is-reduced .m-drop { opacity: 1; }
+.m-scene.is-reduced .m-level,
+.m-scene.is-reduced .m-grow,
+.m-scene.is-reduced .m-needle,
+.m-scene.is-reduced .m-bubble,
+.m-scene.is-reduced .m-valve-handle,
+.m-scene.is-reduced .m-bar { transition: none; }
+.m-scene.is-paused * { animation-play-state: paused !important; }
