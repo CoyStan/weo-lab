@@ -23,13 +23,15 @@ export type LayoutInput = {
   flows: LFlow[];
   /** Pixel scale for card sizes (1 on a laptop, larger on a TV). */
   u: number;
+  /** The height a card's text needs ("c:food-price"), so text never runs out of its card. */
+  minH?: (id: string) => number;
 };
 
 const PAD = 12;
 
 export function columns(W: number, u: number) {
-  const causeW = Math.min(240 * u, Math.max(150, W * 0.25));
-  const outW = Math.min(240 * u, Math.max(150, W * 0.25));
+  const causeW = Math.min(250 * u, Math.max(150, W * 0.27));
+  const outW = Math.min(250 * u, Math.max(150, W * 0.27));
   const chanW = Math.min(180 * u, Math.max(126, W * 0.2));
   const causeX = PAD;
   const outX = W - PAD - outW;
@@ -38,7 +40,7 @@ export function columns(W: number, u: number) {
 }
 
 export function layout(inp: LayoutInput): Layout {
-  const { mode, W, top, H, causes, channels, outcomes, flows, u } = inp;
+  const { mode, W, top, H, causes, channels, outcomes, flows, u, minH } = inp;
   const ci = new Map(causes.map((c, i) => [c, i]));
   const hi = new Map(channels.map((c, i) => [c, i]));
   const oi = new Map(outcomes.map((c, i) => [c, i]));
@@ -74,7 +76,7 @@ export function layout(inp: LayoutInput): Layout {
   if (mode === "h") {
     const col = columns(W, u);
     const place = (ids: string[], x: number, w: number, base: number, need: (id: string) => number, prefix: string) => {
-      const hs = ids.map((id) => Math.max(base, need(id) + 16));
+      const hs = ids.map((id) => Math.max(base, need(id) + 16, minH?.(prefix + id) ?? 0));
       const total = hs.reduce((a, b) => a + b, 0);
       const gap = ids.length > 1 ? Math.max(6, Math.min(22 * u, (H - total) / (ids.length - 1))) : 0;
       const span = total + gap * (ids.length - 1);
@@ -85,9 +87,9 @@ export function layout(inp: LayoutInput): Layout {
       });
       height = Math.max(height, y - gap);
     };
-    place(causes, col.causeX, col.causeW, 58 * u, (id) => sum(cOut.get(id), slot), "c:");
-    place(channels, col.chanX, col.chanW, 54 * u, (id) => Math.max(sum(hIn.get(id), slot), sum(hOut.get(id), slot)), "h:");
-    place(outcomes, col.outX, col.outW, Math.min(112 * u, Math.max(84, (H - 2 * 12) / Math.max(1, outcomes.length))), (id) => sum(oIn.get(id), goalSlot), "o:");
+    place(causes, col.causeX, col.causeW, 60 * u, (id) => sum(cOut.get(id), slot), "c:");
+    place(channels, col.chanX, col.chanW, 56 * u, (id) => Math.max(sum(hIn.get(id), slot), sum(hOut.get(id), slot)), "h:");
+    place(outcomes, col.outX, col.outW, Math.min(120 * u, Math.max(84, (H - 2 * 12) / Math.max(1, outcomes.length))), (id) => sum(oIn.get(id), goalSlot), "o:");
   } else {
     const rowH = { c: 60, h: 50, o: 96 };
     const gapY = 50;

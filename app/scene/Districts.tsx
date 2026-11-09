@@ -500,7 +500,7 @@ function Thermometer({ reducedMotion }: { reducedMotion: boolean }) {
   });
   const targetY = 0.55 + tube * clamp(policy.inflationTarget / scaleMax, 0, 1);
   return (
-    <District focusKey="infl" pad={1.0} position={DISTRICT_POS.infl!} labelY={0.6} labelX={3.1} title="Inflation" value={`${fmt(current.infl, 1)}% · target ${fmt(policy.inflationTarget, 1)}`} bad={Math.abs(dev) > 3} tilt={1.5} reducedMotion={reducedMotion}>
+    <District focusKey="infl" pad={1.0} position={DISTRICT_POS.infl!} labelY={0.6} labelX={3.1} title="Inflation" value={`${fmt(current.infl, 1)}% · bank target ${fmt(policy.inflationTarget, 1)}%`} bad={Math.abs(dev) > 3} tilt={1.5} reducedMotion={reducedMotion}>
       {/* Lecture hall behind the thermometer */}
       <group position={[0, 0, -0.85]}>
         <mesh position-y={0.36} castShadow receiveShadow>

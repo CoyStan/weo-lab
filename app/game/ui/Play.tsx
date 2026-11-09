@@ -24,6 +24,7 @@ import { useLab, type FocusKey, type SceneCue } from "../../store";
 import { nameDistricts } from "../../scene/labelLayer";
 import { PlayIsland, SCENES, setSceneView, toggleSceneView, useMapId, useSceneView } from "../../scenes/registry";
 import StoryIslandLine from "../../scenes/story/IslandLine";
+import { useStoryShown } from "../../scenes/story/shown";
 import { useReducedMotionFlag } from "../../scene/useSmooth";
 import { PLACE } from "../../scene/places";
 import { deltaUnit, fmtNum, GAME_METRICS, unitShort } from "../metrics";
@@ -257,20 +258,57 @@ export default function Play({ scene }: { scene: ReactNode }) {
   );
 }
 
+/** One-time pointer to the island toggle, kept per browser. */
+const COACH_KEY = "palari.weo-lab.island-coach.v1";
+const coachSeen = () => {
+  try {
+    return window.localStorage.getItem(COACH_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+const retireCoach = () => {
+  try {
+    window.localStorage.setItem(COACH_KEY, "1");
+  } catch {
+    // Storage blocked: the pointer may show again next visit.
+  }
+};
+
+type IdleWindow = Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+
 /**
  * The scene slot: the cause-and-effect map, or the island, switched with the Map / Island
- * control in its top-left corner (a full-width bar on narrow slots) or the I key. The island
- * mounts on the first switch, fades in once its first frames are drawn, and stays mounted
- * but paused while the map is up. The views cross-fade (200 ms; at once with reduced motion).
+ * control (top-left over the map; top-right over the goal-by-goal list on phones and short
+ * slots) or the I key. The island warms up while the player reads the map: it mounts hidden
+ * once the cards are closed and the browser is idle, draws its first frames, then pauses, so
+ * the first switch is immediate; it stays mounted but paused while the map is up. The two
+ * views cross-fade together (200 ms; at once with reduced motion).
  */
 function SceneSlot({ map, children }: { map: ReactNode; children: ReactNode }) {
   const view = useSceneView();
   const mapId = useMapId();
   const reduced = useReducedMotionFlag();
+  const modal = useGame((s) => s.modal);
+  const list = useStoryShown((s) => s.list) && mapId === "story";
   const [mounted, setMounted] = useState(view === "island");
   if (view === "island" && !mounted) setMounted(true);
   const [ready, setReady] = useState(false);
   const onReady = useCallback(() => setReady(true), []);
+  useEffect(() => {
+    if (mounted || modal) return;
+    const w = window as IdleWindow;
+    let idle = 0;
+    const wait = window.setTimeout(() => {
+      idle = w.requestIdleCallback ? w.requestIdleCallback(() => setMounted(true), { timeout: 4000 }) : window.setTimeout(() => setMounted(true), 0);
+    }, 2500);
+    return () => {
+      window.clearTimeout(wait);
+      if (!idle) return;
+      if (w.cancelIdleCallback) w.cancelIdleCallback(idle);
+      else window.clearTimeout(idle);
+    };
+  }, [mounted, modal]);
   // No WebGL (the island shows its own note instead of a canvas): show that after a moment.
   useEffect(() => {
     if (!mounted || ready) return;
@@ -278,8 +316,27 @@ function SceneSlot({ map, children }: { map: ReactNode; children: ReactNode }) {
     return () => window.clearTimeout(id);
   }, [mounted, ready]);
   const island = view === "island" && ready;
+  const building = view === "island" && !ready;
 
-  // The map's title starts after the control: its width, as --scene-tabs-w on the slot.
+  // The first play screen points at the toggle once, for a few seconds; switching retires it.
+  const [coach, setCoach] = useState(false);
+  useEffect(() => {
+    if (modal || coachSeen()) return;
+    const show = window.setTimeout(() => setCoach(true), 1200);
+    const hide = window.setTimeout(() => {
+      setCoach(false);
+      retireCoach();
+    }, 8200);
+    return () => {
+      window.clearTimeout(show);
+      window.clearTimeout(hide);
+    };
+  }, [modal]);
+  useEffect(() => {
+    if (view === "island") retireCoach();
+  }, [view]);
+
+  // The map's header leaves room for the control: its width, as --scene-tabs-w on the slot.
   const slotRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -293,34 +350,64 @@ function SceneSlot({ map, children }: { map: ReactNode; children: ReactNode }) {
 
   const mapLabel = mapId === "story" ? "Map" : SCENES[mapId].label;
   return (
-    <div ref={slotRef} className={`game-scene has-tabs is-${island ? "island" : "map"}${reduced ? " is-instant" : ""}`}>
+    <div
+      ref={slotRef}
+      className={`game-scene has-tabs is-${island ? "island" : "map"}${mapId === "story" ? " is-story" : ""}${list ? " is-list" : ""}${reduced ? " is-instant" : ""}`}
+    >
       <div className="game-scene-views">
         <div id="game-view-map" className={`game-scene-view is-map${island ? "" : " is-on"}`} inert={island} aria-hidden={island || undefined}>
           {map}
         </div>
         {mounted ? (
           <div id="game-view-island" className={`game-scene-view is-island${island ? " is-on" : ""}`} inert={!island} aria-hidden={!island || undefined}>
-            <PlayIsland paused={view !== "island"} onReady={onReady} />
+            <PlayIsland paused={view !== "island" && ready} onReady={onReady} />
             {mapId === "story" ? <StoryIslandLine /> : null}
           </div>
         ) : null}
       </div>
-      <div ref={tabsRef} className="game-scene-tabs" role="group" aria-label="Show the map or the island (key I)" title="Switch between the map and the island (I)">
+      <div ref={tabsRef} className="game-scene-tabs" role="group" aria-label="Show the map or the island (key I)">
         <button type="button" aria-pressed={view === "map"} aria-controls="game-view-map" aria-keyshortcuts="I" onClick={() => setSceneView("map")}>
+          <SlotIcon name="map" />
           {mapLabel}
         </button>
-        <button type="button" aria-pressed={view === "island"} aria-controls={mounted ? "game-view-island" : undefined} aria-keyshortcuts="I" onClick={() => setSceneView("island")}>
+        <button type="button" aria-pressed={view === "island"} aria-controls={mounted ? "game-view-island" : undefined} aria-keyshortcuts="I" aria-busy={building || undefined} onClick={() => setSceneView("island")}>
+          <SlotIcon name="island" />
           Island
+          {building ? <span className="game-scene-tabs-spin" aria-hidden="true" /> : null}
         </button>
-        <kbd className="game-scene-tabs-kbd" aria-hidden="true">I</kbd>
+        <kbd className="game-scene-tabs-kbd" title="Press I to switch">
+          I
+        </kbd>
       </div>
-      {view === "island" && !ready ? (
-        <p className="game-scene-building" role="status">
+      {building ? (
+        <span className="sr-only" role="status">
           Building the island…
+        </span>
+      ) : null}
+      {coach && !modal && view === "map" ? (
+        <p className="game-scene-coach" role="status">
+          Peek at the island:{" "}
+          <span className="game-scene-coach-key">
+            press <kbd>I</kbd>
+          </span>
+          <span className="game-scene-coach-tap">tap Island</span>
         </p>
       ) : null}
       {children}
     </div>
+  );
+}
+
+/** The toggle's two small pictures: a cause-and-effect map, an island. */
+function SlotIcon({ name }: { name: "map" | "island" }) {
+  return (
+    <svg className="game-scene-tabs-icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {name === "map" ? (
+        <path d="M2 3.5h4v3H2Z M2 9.5h4v3H2Z M11 6.5h3v3h-3Z M6 5c2.5 0 2.5 3 5 3 M6 11c2.5 0 2.5-3 5-3" />
+      ) : (
+        <path d="M1.5 13c1.6 1 3.2 1 4.8 0s3.2-1 4.8 0 2.6.9 3.4.4 M3.5 11.5c1.2-2.8 3-4 4.5-4s3.3 1.2 4.5 4 M8 7.5V3 M8 3c1.3-.7 2.6-.4 3.3.6 M8 3c-1.3-.7-2.6-.4-3.3.6" />
+      )}
+    </svg>
   );
 }
 

@@ -5645,11 +5645,19 @@ html {
 
 /* ---- Scene slot: the map or the island ------------------------------------------ */
 /* The map is the play screen's main view; the island is one press away (the Map / Island
-   control, or I). Both views stay mounted once seen and cross-fade: the incoming view fades
-   in on top while the outgoing one holds still under it, so the slot never dips to blank. */
+   control, or I). Both views stay mounted once seen and cross-fade together: the outgoing
+   view fades out while the incoming one fades in. */
 .game-scene.has-tabs {
   container: scene / inline-size;
-  --st-head-inset: calc(var(--scene-tabs-w, 8.5rem) + 0.5rem);
+  /* Small text in the slot reads at 14 px on a laptop (the design's --t-xs is 12.8 px). */
+  --t-xs: 0.875rem;
+  /* The map's header leaves room for the control: on its left over the map, on its right over the list. */
+  --st-head-inset: calc(var(--scene-tabs-w, 12rem) + 0.5rem);
+  --st-head-inset-r: 0px;
+}
+.game-scene.has-tabs.is-list {
+  --st-head-inset: 0px;
+  --st-head-inset-r: calc(var(--scene-tabs-w, 10rem) + 0.5rem);
 }
 .game-scene.has-tabs > .game-scene-views {
   position: absolute;
@@ -5663,14 +5671,16 @@ html {
   opacity: 0;
   visibility: hidden;
   transition:
-    opacity 0s linear 200ms,
+    opacity 200ms var(--ease),
     visibility 0s linear 200ms;
 }
 .game-scene-view.is-on {
   z-index: 2;
   opacity: 1;
   visibility: visible;
-  transition: opacity 200ms var(--ease);
+  transition:
+    opacity 200ms var(--ease),
+    visibility 0s;
 }
 .game-scene.is-instant .game-scene-view,
 .lab.is-reduced .game-scene-view {
@@ -5688,8 +5698,12 @@ html {
 .game-scene-view.is-island {
   background: var(--lab-scene-bg);
 }
+/* Back to the map: the island's line goes at once, so it never ghosts through the fade. */
+.game-scene-view.is-island:not(.is-on) .game-scene-islandline {
+  visibility: hidden;
+}
 
-/* The control: a compact segmented pair in the slot's top-left corner, with its key. */
+/* The control: a segmented pair with small pictures and its key, in the slot's top corner. */
 .game-scene-tabs {
   position: absolute;
   top: 0.45rem;
@@ -5700,46 +5714,149 @@ html {
   gap: 2px;
   border: 1px solid var(--lab-line-strong);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--lab-paper) 96%, transparent);
-  padding: 2px;
+  background: var(--lab-paper);
+  padding: 3px;
   box-shadow: 0 2px 6px color-mix(in srgb, var(--lab-ink) 10%, transparent);
 }
+.game-scene.is-list .game-scene-tabs {
+  left: auto;
+  right: 0.6rem;
+}
 .game-scene-tabs button {
-  min-height: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.25rem;
   border-radius: 999px;
-  padding: 0.2rem 0.75rem;
-  font-size: var(--t-xs);
+  padding: 0.25rem 0.8rem 0.25rem 0.6rem;
+  font-size: var(--t-sm);
   font-weight: 700;
   line-height: 1;
-  color: var(--lab-ink-2);
+  color: var(--lab-ink);
   white-space: nowrap;
-  transition:
-    background-color var(--dur-fast) var(--ease),
-    color var(--dur-fast) var(--ease);
 }
 .game-scene-tabs button:hover {
-  color: var(--lab-ink);
+  background: color-mix(in srgb, var(--lab-ink) 7%, transparent);
 }
+/* No colour transition: mid-switch, both halves never look half-selected. */
 .game-scene-tabs button[aria-pressed="true"] {
   background: var(--lab-scenario);
   color: var(--lab-paper);
+}
+.game-scene-tabs-icon {
+  flex: none;
+  width: 1.05rem;
+  height: 1.05rem;
 }
 .game .game-scene-tabs button:focus-visible {
   outline: 2px solid var(--lab-focus);
   outline-offset: 2px;
 }
 .game-scene-tabs-kbd {
-  margin: 0 0.35rem 0 0.15rem;
+  min-width: 1.5rem;
+  margin: 0 0.35rem 0 0.2rem;
   border: 1px solid var(--lab-line-strong);
-  border-radius: 0.3rem;
-  padding: 0 0.3rem;
-  font-family: var(--lab-font-mono, ui-monospace, monospace);
+  border-bottom-width: 2px;
+  border-radius: 0.35rem;
+  background: var(--lab-surface, var(--lab-paper));
+  padding: 0.05rem 0.35rem;
+  font-family: var(--lab-font-ui);
   font-size: var(--t-xs);
-  line-height: 1.35;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
   color: var(--lab-ink-2);
 }
+/* The island builds (only if it is asked for before it has warmed up): a small turning ring on its half. */
+.game-scene-tabs-spin {
+  width: 0.75rem;
+  height: 0.75rem;
+  box-sizing: border-box;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: game-scene-spin 0.8s linear infinite;
+}
+@keyframes game-scene-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.lab.is-reduced .game-scene-tabs-spin {
+  animation: none;
+  border-right-color: currentColor;
+  opacity: 0.6;
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-scene-tabs-spin {
+    animation: none;
+    border-right-color: currentColor;
+    opacity: 0.6;
+  }
+}
 
-/* The island's one line: the map's biggest pushes, named in words. */
+/* First play screen only: a one-time pointer to the island, under the control. */
+.game-scene-coach {
+  position: absolute;
+  top: 3.6rem;
+  left: 0.6rem;
+  z-index: 5;
+  max-width: calc(100% - 1.2rem);
+  margin: 0;
+  border-radius: 0.8rem;
+  background: var(--lab-ink);
+  padding: 0.4rem 0.75rem;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--lab-paper);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--lab-ink) 22%, transparent);
+  pointer-events: none;
+  animation: game-fade var(--dur) var(--ease) both;
+}
+.game-scene-coach::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: calc(var(--scene-tabs-w, 12rem) * 0.55);
+  border: 7px solid transparent;
+  border-bottom-color: var(--lab-ink);
+}
+.game-scene.is-list .game-scene-coach {
+  left: auto;
+  right: 0.6rem;
+}
+.game-scene.is-list .game-scene-coach::before {
+  left: auto;
+  right: calc(var(--scene-tabs-w, 10rem) * 0.3);
+}
+.game-scene-coach kbd {
+  border: 1px solid color-mix(in srgb, var(--lab-paper) 60%, transparent);
+  border-bottom-width: 2px;
+  border-radius: 0.3rem;
+  padding: 0 0.35rem;
+  font-family: var(--lab-font-ui);
+  font-weight: 700;
+}
+.game-scene-coach-tap {
+  display: none;
+}
+@media (hover: none) {
+  .game-scene-coach-key {
+    display: none;
+  }
+  .game-scene-coach-tap {
+    display: inline;
+  }
+  .game-scene-tabs-kbd {
+    display: none;
+  }
+}
+.lab.is-reduced .game-scene-coach {
+  animation: none;
+}
+
+/* The island's one line: the map's biggest pushes, named in words, with when the player's lands. */
 .game-scene-islandline {
   position: absolute;
   left: 0;
@@ -5753,9 +5870,6 @@ html {
   font-size: var(--t-sm);
   line-height: 1.35;
   color: var(--lab-ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .game-scene-islandline-key {
   font-weight: 700;
@@ -5772,74 +5886,105 @@ html {
   color: var(--lab-bad);
 }
 .game-scene-islandline-when {
+  font-variant-numeric: tabular-nums;
   color: var(--lab-ink-2);
+}
+/* The play screen's island names its landmarks on their tags ("Growth 3.8% at risk"), not just the figure. */
+@media (min-width: 761px) {
+  .game .game-scene-view.is-island .lab-scene-label .lab-banner-text {
+    font-size: var(--t-xs);
+  }
 }
 
-/* While the island builds (first switch only), a quiet note over the map. */
-.game-scene-building {
+/* The map names the quarter's news in its header and on the shock's card; over the map the
+   toasts stay only for screen readers (role="status"). Over the island they show as before. */
+.game-scene.is-story.is-map .game-scene-news {
   position: absolute;
-  left: 50%;
-  bottom: 1rem;
-  z-index: 4;
-  margin: 0;
-  transform: translateX(-50%);
-  border: 1px solid var(--lab-line);
-  border-radius: 999px;
-  background: var(--lab-paper);
-  padding: 0.3rem 0.8rem;
-  font-size: var(--t-xs);
-  color: var(--lab-ink-2);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--lab-ink) 12%, transparent);
-  animation: game-fade var(--dur) var(--ease) 250ms both;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
-.lab.is-reduced .game-scene-building {
-  animation: none;
+.game-scene.is-list .game-scene-news {
+  top: 3.3rem;
+}
+
+/* Wide screens: the commit lives in the lever rail, so the advisors take the whole row under the
+   slot (three fit side by side) instead of leaving a 16rem column empty; the slot keeps the height. */
+@media (min-width: 1180px) {
+  .game-stage-foot {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* Overlays clear the control. */
 .game-scene.has-tabs .game-run {
-  top: 2.9rem;
+  top: 3.4rem;
 }
 
-/* Narrow slots (phones, and the map's goal-by-goal list): the control is a full-width bar
-   above the slot's content. */
-@container scene (max-width: 559.98px) {
-  .game-scene.has-tabs > .game-scene-views {
-    inset: 2.5rem 0 0 0;
-    --st-head-inset: 0px;
+/* Phones: no bar above the map any more; the slot grows by the room the control used to take. */
+@media (max-width: 760px) {
+  .game-scene.has-tabs {
+    min-height: calc(240px + 2.5rem);
+    max-height: calc(34vh + 2.5rem);
   }
+}
+@container scene (max-width: 559.98px) {
   .game-scene-tabs {
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2.5rem;
-    border: none;
-    border-bottom: 1px solid var(--lab-line-strong);
-    border-radius: 0;
-    background: var(--lab-paper);
-    padding: 0.3rem 0.4rem;
-    box-shadow: none;
+    padding: 2px;
   }
   .game-scene-tabs button {
-    flex: 1;
-    min-height: 0;
-    height: 100%;
+    min-height: 1.8rem;
+    gap: 0.3rem;
+    padding: 0.15rem 0.6rem 0.15rem 0.5rem;
   }
-  .game-scene-news {
-    top: 3.1rem;
+  .game-scene-coach {
+    top: 2.9rem;
   }
   .game-scene-islandline {
-    white-space: normal;
     padding: 0.35rem 0.7rem;
     font-size: var(--t-xs);
-  }
-  /* Wraps between the two pushes, never inside one. */
-  .game-scene-islandline-part {
-    white-space: nowrap;
   }
 }
 @media (max-width: 640px) {
   .game-scene-tabs-kbd {
     display: none;
+  }
+}
+/* TVs: the control and the island's line grow with the room. */
+@media (min-width: 2000px) {
+  .game-scene-tabs button {
+    min-height: 2.9rem;
+    padding-inline: 0.8rem 1rem;
+    font-size: var(--t-lg);
+  }
+  .game-scene-tabs-icon {
+    width: 1.3rem;
+    height: 1.3rem;
+  }
+  .game-scene-tabs-kbd {
+    font-size: var(--t-sm);
+  }
+  .game-scene-coach {
+    top: 4.2rem;
+    font-size: var(--t-md);
+  }
+  .game-scene-islandline {
+    font-size: var(--t-md);
+  }
+}
+
+/* Phone recap: a fade at the foot of the scrolling body says there is more below. */
+@media (max-width: 640px) {
+  :where(.lab:not([data-theme="ledger"])) .game-recap > .game-recap-body::after {
+    content: "";
+    position: sticky;
+    bottom: -0.25rem;
+    display: block;
+    height: 1.75rem;
+    margin-top: -1.75rem;
+    background: linear-gradient(to bottom, transparent, var(--lab-paper));
+    pointer-events: none;
   }
 }

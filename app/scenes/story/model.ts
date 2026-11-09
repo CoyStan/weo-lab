@@ -37,7 +37,18 @@ export type IconId =
   | "reserves"
   | "spread";
 
-export type Cause = { id: string; kind: CauseKind; title: string; sub: string; note?: string; icon: IconId };
+export type Cause = {
+  id: string;
+  kind: CauseKind;
+  title: string;
+  sub: string;
+  note?: string;
+  icon: IconId;
+  /** The goal a shock's own description names ("Inflation +2 pp"): its card adds the total with knock-ons, so the two numbers reconcile. */
+  names?: MetricId;
+  /** A shock's first quarter. */
+  from?: string;
+};
 export type Flow = { id: string; cause: string; channel: ChannelId; metric: MetricId; /** Contribution to the change since the start, by quarter. */ values: number[] };
 export type Outcome = {
   metric: MetricId;
@@ -61,6 +72,8 @@ export type Travel = {
   demand: number[];
   diffs: { metric: MetricId; values: number[] }[];
   sentence: string;
+  /** The same in two steps, for a phone: what moves at once, and the main goal at the goal date. */
+  short: string;
 };
 
 export type Story = {
@@ -88,7 +101,7 @@ export const CHANNEL_ORDER = CHANNELS.map((c) => c.id);
 const METRICS: Record<MetricId, { label: string; unit: string; digits: number; good: 1 | -1; /** One "unit of push" for arrow widths. */ ref: number }> = {
   infl: { label: "Inflation", unit: "%", digits: 1, good: -1, ref: 1 },
   growth: { label: "Growth", unit: "%", digits: 1, good: 1, ref: 1 },
-  debt: { label: "Public debt", unit: "% GDP", digits: 0, good: -1, ref: 2 },
+  debt: { label: "Public debt", unit: "% GDP", digits: 1, good: -1, ref: 2 },
   unemp: { label: "Unemployment", unit: "%", digits: 1, good: -1, ref: 0.5 },
   ob: { label: "Budget balance", unit: "% GDP", digits: 1, good: 1, ref: 1 },
   ca: { label: "Current account", unit: "% GDP", digits: 1, good: 1, ref: 1 },
@@ -98,6 +111,9 @@ const METRICS: Record<MetricId, { label: string; unit: string; digits: number; g
 export const metricRef = (m: MetricId) => METRICS[m].ref;
 /** Units of a push on a metric: pp for rates and ratios, bp for spreads, months for reserves. */
 export const pushUnit = (m: MetricId) => (m === "spread" ? " bp" : m === "reserves" ? " mo" : "");
+/** The same, spelled out for sentences: "+2.4 pp", "+30 bp", "−0.5 mo". */
+export const unitWord = (m: MetricId) => (m === "spread" ? " bp" : m === "reserves" ? " mo" : " pp");
+export const metricLabel = (m: MetricId) => METRICS[m].label;
 
 // Which channel carries a cause's effect on each goal. The decomposition says
 // who moved a goal and by how much; the model's transmission (framework.ts
@@ -133,6 +149,9 @@ export const signed = (v: number, d = 1) => {
 };
 
 const POLICY_ICON: Record<string, IconId> = { rates: "rates", budget: "budget", currency: "currency", support: "support" };
+
+/** Shocks whose one-line description names a goal the map tracks (SHOCKS[kind].short, first part). */
+const SHOCK_NAMES: Partial<Record<ShockKind, MetricId>> = { "food-price": "infl" };
 
 /** What the player changed in one instrument group, in a few words. */
 function leverText(group: string, p: Policy, u: Policy, config: ScenarioConfig, start: ScenarioConfig): { title: string; sub: string } {
@@ -170,7 +189,8 @@ function leverText(group: string, p: Policy, u: Policy, config: ScenarioConfig, 
 function goalText(mission: Mission | undefined, m: MetricId, unit: string, labels: string[]): string | null {
   const o = mission?.objectives.find((x) => x.metric === m && !x.bonus) ?? mission?.objectives.find((x) => x.metric === m);
   if (!o) return null;
-  const v = `${o.op === "<=" ? "≤" : "≥"} ${num(o.threshold, 1)}${unit === "%" ? "%" : ` ${unit}`}`;
+  const n = num(o.threshold, 1).replace("-", "−");
+  const v = `${o.op === "<=" ? "≤" : "≥"} ${n}${unit === "%" ? "%" : unit === "% GDP" ? "% of GDP" : ` ${unit}`}`;
   return o.when === "end" ? `goal ${v} by ${labels[mission!.quarters] ?? "the end"}` : o.when === "every" ? `goal ${v} every quarter` : `goal ${v}`;
 }
 
@@ -245,7 +265,8 @@ export function buildStory(input: StoryInput): Story {
         const spec = SHOCKS[s.kind];
         const size = Math.abs(s.magnitude - 1) < 0.01 ? spec.short.split(",")[0] : `${num(s.magnitude, 1)}× the usual size`;
         const title = s.id === "surprise-confidence" ? "Markets lose trust" : spec.name;
-        causes.push({ id: comp.id, kind: "shock", title, sub: `${size} · ${labels[s.quarter] ?? ""}`, icon: s.kind });
+        const names = Math.abs(s.magnitude - 1) < 0.01 ? SHOCK_NAMES[s.kind] : undefined;
+        causes.push({ id: comp.id, kind: "shock", title, sub: size, from: labels[s.quarter] ?? "", icon: s.kind, names });
         addFlows(comp.id, s.kind, comp);
       } else {
         const history = comp.id === "history";
@@ -260,7 +281,7 @@ export function buildStory(input: StoryInput): Story {
     }
   }
 
-  // The player's own effect over time.
+  // The player's own effect over time: forecast against "had you changed nothing", as the strip shows it.
   let travel: Travel | null = null;
   if (touched) {
     const levers = causes.filter((c) => c.kind === "lever");
@@ -268,13 +289,21 @@ export function buildStory(input: StoryInput): Story {
     const demand = forecast.slice(0, end + 1).map((s, t) => s.gap - untouched[t].gap);
     const diffs = metrics.slice(0, 2).map((m) => ({ metric: m, values: forecast.slice(0, end + 1).map((s, t) => s[m] - untouched[t][m]) }));
     const main = diffs[0];
-    const d1 = demand[clock + 1] ?? 0;
+    const now = Math.min(end, clock + 1);
     const mid = Math.min(end, clock + 4);
-    const name = METRICS[main.metric].label.toLowerCase();
-    const parts = [`demand ${signed(d1)} pp now`];
-    if (mid < end) parts.push(`${name} ${signed(main.values[mid])} by ${labels[mid]}`);
-    parts.push(`${mid < end ? "" : `${name} `}${signed(main.values[end])} by ${labels[end]}`);
-    travel = { lever, demand, diffs, sentence: `${lever}: ${parts.join(" → ")}` };
+    const name = (m: MetricId) => METRICS[m].label.toLowerCase();
+    const amount = (v: number, m: MetricId) => `${signed(v, Math.abs(v) < 0.095 && Math.abs(v) >= 0.005 ? 2 : 1)}${unitWord(m)}`;
+    // First what moves at once (growth, or spending when growth is not on the strip), then the main goal as it builds.
+    const fast = diffs.find((d) => d.metric === "growth");
+    const parts: string[] = [];
+    if (fast && fast !== main) parts.push(`${name(fast.metric)} ${amount(fast.values[now], fast.metric)} in ${labels[now]}`);
+    else if (!fast) parts.push(`spending ${amount(demand[now] ?? 0, "growth")} in ${labels[now]}`);
+    if (fast === main) parts.push(`${name(main.metric)} ${amount(main.values[now], main.metric)} in ${labels[now]}`);
+    if (mid < end && mid > now) parts.push(`${fast === main ? "" : `${name(main.metric)} `}${amount(main.values[mid], main.metric)} by ${labels[mid]}`);
+    if (end > now) parts.push(`${parts.length > 1 || fast === main ? "" : `${name(main.metric)} `}${amount(main.values[end], main.metric)} by ${labels[end]}`);
+    const shortParts = [parts[0]];
+    if (end > now && (fast !== main || parts.length > 1)) shortParts.push(`${fast === main ? "" : `${name(main.metric)} `}${amount(main.values[end], main.metric)} by ${labels[end]}`);
+    travel = { lever, demand, diffs, sentence: `${lever}: ${parts.join(" → ")}`, short: `${lever}: ${shortParts.join(" → ")}` };
   }
 
   return { clock, end, first, labels, causes, flows, outcomes, travel };
@@ -290,9 +319,16 @@ export function drawnAt(story: Story, t: number, max: number): { drawn: Drawn[];
   });
   const top = Math.max(0.0001, ...all.map((d) => d.n));
   const lever = new Set(story.causes.filter((c) => c.kind === "lever").map((c) => c.id));
-  const keep = all
-    .filter((d) => (lever.has(d.flow.cause) ? d.n >= 0.05 : d.n >= Math.max(0.15, 0.12 * top)))
-    .sort((a, b) => Number(lever.has(b.flow.cause)) - Number(lever.has(a.flow.cause)) || b.n - a.n)
+  const big = all.filter((d) => (lever.has(d.flow.cause) ? d.n >= 0.05 : d.n >= Math.max(0.15, 0.12 * top)));
+  // A goal moved only by small pushes (debt, often) still shows its biggest one, rather than none.
+  const own = new Set<Drawn>();
+  for (const o of story.outcomes) {
+    if (big.some((d) => d.flow.metric === o.metric)) continue;
+    const best = all.filter((d) => d.flow.metric === o.metric && d.n >= 0.04).sort((a, b) => b.n - a.n)[0];
+    if (best) own.add(best);
+  }
+  const keep = [...big, ...own]
+    .sort((a, b) => Number(lever.has(b.flow.cause)) - Number(lever.has(a.flow.cause)) || Number(own.has(b)) - Number(own.has(a)) || b.n - a.n)
     .slice(0, max);
   const hidden = all.filter((d) => d.n >= 0.05 && !keep.includes(d)).length;
   return { drawn: keep, hidden };
@@ -309,7 +345,15 @@ export function pushText(v: number, m: MetricId): string {
   return `${v >= 0 ? "▲" : "▼"} ${pushSize(v, m)}`;
 }
 
-export type HeadPush = { cause: Cause; metric: MetricId; goal: string; value: number; tone: "good" | "bad" };
+export type HeadPush = {
+  cause: Cause;
+  metric: MetricId;
+  goal: string;
+  value: number;
+  tone: "good" | "bad";
+  /** The player's own push at the goal date, as the strip shows it (forecast against "had you changed nothing"). */
+  later?: { value: number; label: string };
+};
 
 /**
  * The map's story at quarter t in one line: the biggest push from outside the player's hands
@@ -331,7 +375,14 @@ export function headline(story: Story, t: number, max: number): { top: HeadPush 
   const levers = drawn.filter((d) => cause(d.flow.cause)?.kind === "lever").sort(byPush);
   const top = outside[0] ? push(outside[0]) : null;
   const mineD = (top && levers.find((d) => d.flow.metric === top.metric)) ?? levers[0];
-  return { top, mine: mineD ? push(mineD) : null };
+  const mine = mineD ? push(mineD) : null;
+  if (mine && story.end > t) {
+    // The strip's own number where it has the goal; otherwise the same piece of the decomposition, at the goal date.
+    const strip = story.travel?.diffs.find((d) => d.metric === mine.metric);
+    const value = strip ? strip.values[story.end] : mineD!.flow.values[story.end];
+    if (value !== undefined) mine.later = { value, label: story.labels[story.end] ?? "" };
+  }
+  return { top, mine };
 }
 
 /** Largest push on any flow, any quarter shown: one scale for the whole strip of time, so arrows grow as effects build. */
