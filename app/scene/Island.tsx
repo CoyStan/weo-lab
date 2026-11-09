@@ -1,13 +1,13 @@
 "use client";
 
-import { Line } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { mulberry32 } from "../model/random";
-import { selectCurrent, useLab } from "../store";
-import { HEX, hexCorners, TOP, type TileKind } from "./hexmap";
+import type { FocusKey } from "../store";
+import { HEX, hexCorners, TOP, type SiteKey, type TileKind } from "./hexmap";
 import { P } from "./palette";
+import { useIslandQuarter, useLandmarks } from "./quarter";
 import { clamp } from "./useSmooth";
 import { WORLD } from "./world";
 
@@ -208,14 +208,12 @@ function Mountains() {
 }
 
 const STRIPS = 4;
+/** Fields on open land around the town: scenery, a fixed few (they carry no figure). */
+const FIELDS = 8;
 
-/** Farm fields: more tiles are worked, and they ripen, as output rises. */
-function Farms({ reducedMotion }: { reducedMotion: boolean }) {
-  const current = useLab(selectCurrent);
+function Farms() {
   const ref = useRef<THREE.InstancedMesh>(null);
-  const farms = WORLD.farms;
-  const worked = Math.round(clamp(6 + current.gap * 1.6 + (current.gdpLevel - 100) * 0.3, 2, farms.length));
-  const shown = useRef(worked);
+  const farms = useMemo(() => WORLD.farms.slice(0, FIELDS), []);
   const place = useMemo(
     () => (i: number, o: THREE.Object3D, c: THREE.Color) => {
       const f = farms[Math.floor(i / STRIPS)];
@@ -229,12 +227,6 @@ function Farms({ reducedMotion }: { reducedMotion: boolean }) {
     [farms],
   );
   useInstances(ref, farms.length * STRIPS, place);
-  useFrame(() => {
-    const m = ref.current;
-    if (!m) return;
-    shown.current = reducedMotion ? worked : shown.current + (worked - shown.current) * 0.08;
-    m.count = Math.round(shown.current) * STRIPS;
-  });
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, farms.length * STRIPS]} receiveShadow>
       <boxGeometry args={[0.36, 0.05, HEX * 1.3]} />
@@ -243,30 +235,64 @@ function Farms({ reducedMotion }: { reducedMotion: boolean }) {
   );
 }
 
-function Roads() {
-  const segments = useMemo(() => {
-    const out: { x: number; z: number; len: number; rot: number }[] = [];
-    for (const path of WORLD.roads) {
+/**
+ * Roads from the town to each landmark. A road whose landmark is not on the island (the
+ * mission does not need it) narrows away with it, so no road leads nowhere.
+ */
+function Roads({ shown, reducedMotion }: { shown: ReadonlySet<FocusKey>; reducedMotion: boolean }) {
+  const { segments, sites } = useMemo(() => {
+    const byKey = new Map<string, { x: number; z: number; len: number; rot: number; sites: number[] }>();
+    const siteList = Object.keys(WORLD.roadsBySite) as SiteKey[];
+    siteList.forEach((name, si) => {
+      const path = WORLD.roadsBySite[name]!;
       for (let i = 1; i < path.length; i++) {
         const [x1, z1] = path[i - 1];
         const [x2, z2] = path[i];
-        out.push({ x: (x1 + x2) / 2, z: (z1 + z2) / 2, len: Math.hypot(x2 - x1, z2 - z1) + 0.3, rot: Math.atan2(x2 - x1, z2 - z1) });
+        const key = [x1, z1, x2, z2].map((v) => v.toFixed(2)).sort().join(",");
+        const seg = byKey.get(key) ?? { x: (x1 + x2) / 2, z: (z1 + z2) / 2, len: Math.hypot(x2 - x1, z2 - z1) + 0.3, rot: Math.atan2(x2 - x1, z2 - z1), sites: [] };
+        seg.sites.push(si);
+        byKey.set(key, seg);
       }
-    }
-    return out;
+    });
+    return { segments: [...byKey.values()], sites: siteList };
   }, []);
   const ref = useRef<THREE.InstancedMesh>(null);
-  const place = useMemo(
-    () => (i: number, o: THREE.Object3D, c: THREE.Color) => {
+  /** How far each landmark's road is laid, 0 to 1. */
+  const laid = useRef<Float32Array>(Float32Array.from(sites, (k) => (shown.has(k as FocusKey) ? 1 : 0)));
+  const dirty = useRef(true);
+  useLayoutEffect(() => {
+    const m = ref.current;
+    if (!m) return;
+    for (let i = 0; i < segments.length; i++) m.setColorAt(i, new THREE.Color(P.road));
+    if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    dirty.current = true;
+  }, [segments]);
+  useFrame((_, dt) => {
+    const m = ref.current;
+    if (!m) return;
+    const l = laid.current;
+    let moved = dirty.current;
+    for (let si = 0; si < sites.length; si++) {
+      const target = shown.has(sites[si] as FocusKey) ? 1 : 0;
+      if (l[si] === target) continue;
+      l[si] = reducedMotion ? target : l[si] < target ? Math.min(target, l[si] + dt / 0.7) : Math.max(target, l[si] - dt / 0.7);
+      moved = true;
+    }
+    if (!moved) return;
+    dirty.current = false;
+    for (let i = 0; i < segments.length; i++) {
       const s = segments[i];
-      o.position.set(s.x, TOP + 0.012, s.z);
-      o.rotation.y = s.rot;
-      o.scale.set(1, 1, s.len);
-      c.set(P.road);
-    },
-    [segments],
-  );
-  useInstances(ref, segments.length, place);
+      let v = 0;
+      for (let k = 0; k < s.sites.length; k++) v = Math.max(v, l[s.sites[k]]);
+      dummy.position.set(s.x, TOP + 0.012, s.z);
+      dummy.rotation.set(0, s.rot, 0);
+      dummy.scale.set(Math.max(0.0001, v), 1, v > 0.001 ? s.len : 0.0001);
+      dummy.updateMatrix();
+      m.setMatrixAt(i, dummy.matrix);
+    }
+    m.instanceMatrix.needsUpdate = true;
+    m.computeBoundingSphere();
+  });
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, segments.length]} receiveShadow>
       <boxGeometry args={[0.34, 0.02, 1]} />
@@ -296,29 +322,6 @@ function River() {
   );
 }
 
-/** Hex outlines on land and the glowing territory border. */
-function Overlays() {
-  const grid = useMemo(() => {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute(WORLD.grid, 3));
-    return g;
-  }, []);
-  const borderPoints = useMemo(() => {
-    const pts: [number, number, number][] = [];
-    for (let i = 0; i < WORLD.border.length; i += 3) pts.push([WORLD.border[i], WORLD.border[i + 1], WORLD.border[i + 2]]);
-    return pts;
-  }, []);
-  return (
-    <group>
-      <lineSegments geometry={grid}>
-        <lineBasicMaterial color="#000000" transparent opacity={0.13} depthWrite={false} />
-      </lineSegments>
-      <Line points={borderPoints} segments color={P.border} lineWidth={7} transparent opacity={0.28} depthWrite={false} />
-      <Line points={borderPoints} segments color={P.border} lineWidth={2.4} />
-    </group>
-  );
-}
-
 /** Walled city centre with a palace and a ring of houses. */
 function CityCentre() {
   const { x, z } = WORLD.sites.center;
@@ -336,15 +339,16 @@ function CityCentre() {
       });
     const out: { x: number; z: number; s: number; rot: number; roof: number }[] = [];
     const ring = WORLD.tiles.filter((t) => t.d === 1);
+    // Fewer, bigger houses: two or so to a hex, well apart.
     for (const t of ring) {
-      for (let k = 0; k < 9 && out.length < ring.length * 4; k++) {
+      for (let k = 0; k < 9 && out.length < ring.length * 2; k++) {
         const a = rand() * Math.PI * 2;
-        const r = 0.3 + rand() * 0.75;
+        const r = 0.35 + rand() * 0.65;
         const hx = t.x + Math.cos(a) * r;
         const hz = t.z + Math.sin(a) * r;
         if (nearRoad(hx, hz)) continue;
-        if (out.some((h) => Math.hypot(h.x - hx, h.z - hz) < 0.48)) continue;
-        out.push({ x: hx, z: hz, s: 0.75 + rand() * 0.45, rot: Math.floor(rand() * 6) * (Math.PI / 3), roof: Math.floor(rand() * 3) });
+        if (out.some((h) => Math.hypot(h.x - hx, h.z - hz) < 0.75)) continue;
+        out.push({ x: hx, z: hz, s: 1.15 + rand() * 0.3, rot: Math.floor(rand() * 6) * (Math.PI / 3), roof: Math.floor(rand() * 3) });
       }
     }
     return out;
@@ -447,13 +451,14 @@ function CityCentre() {
 }
 
 export default function Island({ reducedMotion }: { reducedMotion: boolean }) {
+  const q = useIslandQuarter();
+  const shown = useLandmarks(q.now);
   return (
     <group>
       <Tiles />
-      <Overlays />
-      <Roads />
+      <Roads shown={shown} reducedMotion={reducedMotion} />
       <River />
-      <Farms reducedMotion={reducedMotion} />
+      <Farms />
       <Forests />
       <Mountains />
       <CityCentre />

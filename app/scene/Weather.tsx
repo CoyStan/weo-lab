@@ -11,8 +11,7 @@ const SKY_STORM = SC.skyStorm;
 const CLOUD_CLEAR = SC.cloud;
 const CLOUD_STORM = SC.cloudStorm;
 
-// Clouds sit high and around the rim so they frame the island rather than hide it.
-// Clouds drift over the open sea around the map, framing it without hiding it.
+// Clouds drift high over the open sea around the map, framing it without hiding it.
 const CLOUDS: { x: number; z: number; s: number; speed: number }[] = [
   { x: -24, z: -14, s: 1.3, speed: 0.25 },
   { x: 16, z: -24, s: 1.1, speed: 0.18 },
@@ -30,20 +29,26 @@ const PUFFS: [number, number, number, number][] = [
   [0.3, 0.5, -0.6, 0.7],
 ];
 
+const DROPS = 260;
+
 /**
  * Sky colour, cloud cover and rain respond to the storm level:
- * 0 is a clear day; 1 is a shock in progress.
+ * 0 is a clear day; 1 is a shock in progress. The clouds drift a little to and fro on slow
+ * sine waves (no seam); the rain fades in and out with the storm rather than switching on.
+ * With reduced motion the clouds and the rain hold still and the sky is the same.
  */
 export default function Weather({ storm, reducedMotion }: { storm: number; reducedMotion: boolean }) {
   const scene = useThree((s) => s.scene);
   const level = useRef(0);
   const cloudGroup = useRef<THREE.Group>(null);
   const rain = useRef<THREE.InstancedMesh>(null);
-  const flash = useRef<THREE.PointLight>(null);
+  const rainMaterial = useRef<THREE.MeshBasicMaterial>(null);
+  /** With reduced motion the drops are written once and then left alone. */
+  const rainStill = useRef(false);
   const cloudMaterial = useMemo(() => new THREE.MeshStandardMaterial({ color: P.cloud, transparent: true, opacity: 0.8, roughness: 1 }), []);
   const drops = useMemo(() => {
     const arr: { x: number; y: number; z: number; v: number }[] = [];
-    for (let i = 0; i < 420; i++) arr.push({ x: (Math.random() - 0.5) * 44, y: Math.random() * 12, z: (Math.random() - 0.5) * 44, v: 9 + Math.random() * 6 });
+    for (let i = 0; i < DROPS; i++) arr.push({ x: (Math.random() - 0.5) * 44, y: Math.random() * 12, z: (Math.random() - 0.5) * 44, v: 7 + Math.random() * 3 });
     return arr;
   }, []);
   const dummy = useMemo(() => new THREE.Object3D(), []);
@@ -71,26 +76,27 @@ export default function Weather({ storm, reducedMotion }: { storm: number; reduc
         c.scale.setScalar(spec.s * (1 + s * 0.35));
       }
     }
-    if (rain.current) {
-      const visible = s > 0.45;
-      rain.current.visible = visible;
-      if (visible) {
+    const r = rain.current;
+    if (r) {
+      // Rain thickens in over the second half of the storm scale.
+      const amount = clamp((s - 0.4) / 0.4, 0, 1);
+      if (rainMaterial.current) rainMaterial.current.opacity = 0.55 * amount;
+      r.visible = amount > 0.01;
+      if (r.visible && !(reducedMotion && rainStill.current)) {
         for (let i = 0; i < drops.length; i++) {
           const d = drops[i];
           if (!reducedMotion) {
             d.y -= d.v * dt;
-            if (d.y < 0) d.y = 10 + Math.random() * 3;
+            // A drop that reaches the sea starts again high above, where it is lost in the cloud.
+            if (d.y < 0) d.y += 11;
           }
           dummy.position.set(d.x, d.y, d.z);
           dummy.updateMatrix();
-          rain.current.setMatrixAt(i, dummy.matrix);
+          r.setMatrixAt(i, dummy.matrix);
         }
-        rain.current.instanceMatrix.needsUpdate = true;
+        r.instanceMatrix.needsUpdate = true;
       }
-    }
-    if (flash.current) {
-      if (s > 0.8 && !reducedMotion && Math.random() < dt * 0.35) flash.current.intensity = 60;
-      else flash.current.intensity = Math.max(0, flash.current.intensity - dt * 400);
+      rainStill.current = reducedMotion && r.visible;
     }
   });
 
@@ -107,11 +113,10 @@ export default function Weather({ storm, reducedMotion }: { storm: number; reduc
           </group>
         ))}
       </group>
-      <instancedMesh ref={rain} args={[undefined, undefined, 420]} visible={false}>
-        <cylinderGeometry args={[0.012, 0.012, 0.55, 3]} />
-        <meshBasicMaterial color={P.rain} transparent opacity={0.7} />
+      <instancedMesh ref={rain} args={[undefined, undefined, DROPS]} visible={false} frustumCulled={false}>
+        <cylinderGeometry args={[0.014, 0.014, 0.5, 3]} />
+        <meshBasicMaterial ref={rainMaterial} color={P.rain} transparent opacity={0} depthWrite={false} />
       </instancedMesh>
-      <pointLight ref={flash} position={[0, 12, 0]} intensity={0} color={P.lightning} distance={40} decay={1} />
     </group>
   );
 }
