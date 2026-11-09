@@ -1,18 +1,21 @@
 // The causal map's data: who pushed which goal, through which channel, by how
 // much, quarter by quarter. Pure (no React), built on the game's own
 // explanation logic: decompose.ts splits each goal's path into momentum, each
-// shock and each policy instrument; framework.ts channels() says how levers
-// travel and whether a channel is blocked; the staff forecast against the
-// "had you changed nothing" path gives the player's own effect over time.
+// shock and each policy instrument (the sizes); routes.ts reads the model's own
+// drivers to say by which road each piece travelled (the channels), and keeps
+// apart what the drivers leave unexplained; framework.ts channels() says
+// whether a channel is blocked; the staff forecast against the "had you changed
+// nothing" path gives the player's own effect over time.
 
 import type { Component, Decomposition } from "../../game/decompose";
 import type { Channel } from "../../game/framework";
 import type { Mission } from "../../game/missions";
 import { SHOCKS } from "../../model/shocks";
 import type { Policy, QuarterState, ScenarioConfig, ShockKind } from "../../model/types";
+import type { GoalRoads, PieceRoads, RoadMetric } from "./routes";
 
 export type MetricId = "infl" | "growth" | "debt" | "unemp" | "ob" | "ca" | "reserves" | "spread";
-export type ChannelId = "costs" | "demand" | "expect" | "fx" | "credit" | "budget";
+export type ChannelId = "costs" | "demand" | "expect" | "fx" | "credit" | "budget" | "snowball";
 export type CauseKind = "shock" | "history" | "momentum" | "lever";
 export type IconId =
   | ShockKind
@@ -28,6 +31,7 @@ export type IconId =
   | "fx"
   | "credit"
   | "purse"
+  | "snowball"
   | "infl"
   | "growth"
   | "debt"
@@ -49,7 +53,20 @@ export type Cause = {
   /** A shock's first quarter. */
   from?: string;
 };
-export type Flow = { id: string; cause: string; channel: ChannelId; metric: MetricId; /** Contribution to the change since the start, by quarter. */ values: number[] };
+export type Flow = {
+  id: string;
+  cause: string;
+  channel: ChannelId;
+  metric: MetricId;
+  /** Contribution to the change since the start, by quarter. */
+  values: number[];
+  /**
+   * The road is the fixed table's, not the model's drivers': the goal has no drivers
+   * (budget balance, current account, reserves, spreads), or most of this push is what the
+   * drivers leave unexplained (potential output, the natural rate, a one-off).
+   */
+  approx: boolean;
+};
 export type Outcome = {
   metric: MetricId;
   label: string;
@@ -74,6 +91,8 @@ export type Travel = {
   sentence: string;
   /** The same in two steps, for a phone: what moves at once, and the main goal at the goal date. */
   short: string;
+  /** The two steps alone, without the lever's name ("spending −0.4 pp in 2027Q1 → public debt −7.6 pp by 2029Q4"). */
+  steps: string;
 };
 
 export type Story = {
@@ -89,12 +108,15 @@ export type Story = {
 };
 
 export const CHANNELS: ChannelMeta[] = [
-  { id: "costs", title: "Costs", sub: "food, fuel, wages", icon: "costs" },
+  // Oil and commodity prices in the model's drivers (for an exporter, what its goods fetch), food and supply shocks.
+  { id: "costs", title: "Costs", sub: "food, fuel, commodities", icon: "costs" },
   { id: "demand", title: "Spending", sub: "people and firms", icon: "demand" },
   { id: "expect", title: "Expectations", sub: "of future prices", icon: "expect" },
   { id: "fx", title: "Exchange rate", sub: "the currency", icon: "fx" },
   { id: "credit", title: "Credit and trust", sub: "loans, spreads", icon: "credit" },
-  { id: "budget", title: "The budget", sub: "taxes, interest", icon: "purse" },
+  { id: "budget", title: "The budget", sub: "taxes, spending", icon: "purse" },
+  // Debt's own arithmetic, apart from the budget: the interest bill grows the debt, nominal growth shrinks its ratio.
+  { id: "snowball", title: "Debt snowball", sub: "interest vs growth", icon: "snowball" },
 ];
 export const CHANNEL_ORDER = CHANNELS.map((c) => c.id);
 
@@ -114,23 +136,29 @@ export const pushUnit = (m: MetricId) => (m === "spread" ? " bp" : m === "reserv
 /** The same, spelled out for sentences: "+2.4 pp", "+30 bp", "−0.5 mo". */
 export const unitWord = (m: MetricId) => (m === "spread" ? " bp" : m === "reserves" ? " mo" : " pp");
 export const metricLabel = (m: MetricId) => METRICS[m].label;
+/** A push big enough to be worth a sentence: 0.05 pp (5 bp on a spread). */
+export const matters = (v: number, m: MetricId) => Math.abs(v) >= (m === "spread" ? 5 : 0.05);
 
-// Which channel carries a cause's effect on each goal. The decomposition says
-// who moved a goal and by how much; the model's transmission (framework.ts
-// channels(), the drivers) says by which road. This table is that road.
+// The fixed road. Used for goals the model has no drivers for (budget balance, current
+// account, reserves, spreads), and for the part of a push the drivers leave unexplained
+// (potential output, the natural rate, one-offs). The map marks these roads as rough.
+// Everywhere else the road comes from the model's drivers (routes.ts).
 type Route = Partial<Record<MetricId, ChannelId>>;
 const DEFAULT_ROUTE: Record<MetricId, ChannelId> = { infl: "demand", growth: "demand", unemp: "demand", debt: "budget", ob: "budget", ca: "fx", reserves: "fx", spread: "credit" };
 const ROUTES: Record<string, Route> = {
   momentum: { infl: "expect" },
   history: { infl: "costs" },
-  rates: { ca: "demand" },
-  budget: { ca: "demand", reserves: "budget", spread: "budget" },
+  rates: { ca: "demand", debt: "snowball" },
+  // Public investment's lasting effect is on capacity, paid for from the budget.
+  budget: { growth: "budget", unemp: "budget", ca: "demand", reserves: "budget", spread: "budget" },
   currency: { infl: "fx", growth: "fx", unemp: "fx", debt: "fx", ob: "fx", ca: "fx", reserves: "fx", spread: "fx" },
-  support: { infl: "expect", growth: "credit", unemp: "credit" },
+  // What the drivers leave of reforms is capacity, what people and firms can produce: no road of its own, so
+  // it goes the way of people and firms (spending), marked rough.
+  support: { infl: "expect" },
   "food-price": { infl: "costs" },
   "oil-spike": { infl: "costs", growth: "costs", unemp: "costs" },
   "supply-shock": { infl: "costs", growth: "costs", unemp: "costs" },
-  "natural-disaster": { infl: "costs" },
+  "natural-disaster": { infl: "costs", growth: "costs", unemp: "costs" },
   pandemic: { infl: "costs" },
   "global-recession": { ca: "demand" },
   "commodity-bust": { infl: "fx" },
@@ -212,10 +240,12 @@ export type StoryInput = {
   policyUntouched: Policy;
   decomp: Decomposition;
   chans: Channel[];
+  /** Each piece's push by road, from the model's drivers (routes.ts); null to use the fixed table everywhere. */
+  roads: Map<string, PieceRoads> | null;
 };
 
 export function buildStory(input: StoryInput): Story {
-  const { config, start, mission, clock, end, forecast, untouched, touched, policy, policyUntouched, decomp, chans } = input;
+  const { config, start, mission, clock, end, forecast, untouched, touched, policy, policyUntouched, decomp, chans, roads: roadsByPiece } = input;
   const labels = forecast.map((s) => s.label);
   const first = Math.max(1, clock);
 
@@ -243,7 +273,7 @@ export function buildStory(input: StoryInput): Story {
     };
   });
 
-  // Causes and their flows, from the decomposition.
+  // Causes and their flows, from the decomposition; each flow on the road(s) the model's drivers say it took.
   const causes: Cause[] = [];
   const flows: Flow[] = [];
   const rateChannel = chans.find((c) => c.id === "rates");
@@ -251,7 +281,11 @@ export function buildStory(input: StoryInput): Story {
     for (const m of metrics) {
       const values = comp.values[m] ?? [];
       if (!values.some((v) => Math.abs(v) / METRICS[m].ref >= 0.02)) continue;
-      flows.push({ id: `${cause}|${m}`, cause, channel: route(routeKey, m), metric: m, values });
+      const fixed = route(routeKey, m);
+      const goalRoads = roadsByPiece?.get(comp.id)?.[m as RoadMetric];
+      const split = goalRoads ? splitByRoad(values, goalRoads, fixed, end) : null;
+      if (split) for (const r of split) flows.push({ id: `${cause}|${m}|${r.channel}`, cause, channel: r.channel, metric: m, values: r.values, approx: r.approx });
+      else flows.push({ id: `${cause}|${m}|${fixed}`, cause, channel: fixed, metric: m, values, approx: true });
     }
   };
   for (const comp of decomp.components) {
@@ -303,15 +337,78 @@ export function buildStory(input: StoryInput): Story {
     if (end > now) parts.push(`${parts.length > 1 || fast === main ? "" : `${name(main.metric)} `}${amount(main.values[end], main.metric)} by ${labels[end]}`);
     const shortParts = [parts[0]];
     if (end > now && (fast !== main || parts.length > 1)) shortParts.push(`${fast === main ? "" : `${name(main.metric)} `}${amount(main.values[end], main.metric)} by ${labels[end]}`);
-    travel = { lever, demand, diffs, sentence: `${lever}: ${parts.join(" → ")}`, short: `${lever}: ${shortParts.join(" → ")}` };
+    travel = { lever, demand, diffs, sentence: `${lever}: ${parts.join(" → ")}`, short: `${lever}: ${shortParts.join(" → ")}`, steps: shortParts.join(" → ") };
   }
 
   return { clock, end, first, labels, causes, flows, outcomes, travel };
 }
 
+/**
+ * Split a piece's push on a goal between at most two roads, by the model's drivers
+ * (routes.ts). The sizes stay the decomposition's: each quarter's value is shared among
+ * the roads that push the same way, so the parts add up to it exactly. What the drivers
+ * leave unexplained (`rough`) goes down the fixed road; a road whose push is mostly that
+ * is marked approximate. Returns null where nothing pushes.
+ */
+function splitByRoad(values: number[], goal: GoalRoads, fixed: ChannelId, end: number): { channel: ChannelId; values: number[]; approx: boolean }[] | null {
+  const weights = (t: number) => {
+    const w: Partial<Record<ChannelId, number>> = {};
+    for (const [k, v] of Object.entries(goal.roads) as [ChannelId, number[]][]) w[k] = (w[k] ?? 0) + (v[t] ?? 0);
+    w[fixed] = (w[fixed] ?? 0) + (goal.rough[t] ?? 0);
+    return w;
+  };
+  const T = Math.min(end, values.length - 1);
+  let peak = 0;
+  for (let t = 1; t <= T; t++) if (Math.abs(values[t] ?? 0) > Math.abs(values[peak] ?? 0)) peak = t;
+  const vmax = Math.abs(values[peak] ?? 0);
+  if (vmax < 1e-9) return null;
+  // The roads that carry at least a quarter of the push at some quarter shown; two at most.
+  const reach = new Map<ChannelId, number>();
+  for (let t = 1; t <= T; t++) {
+    const v = values[t] ?? 0;
+    const sign = v >= 0 ? 1 : -1;
+    const pos = (Object.entries(weights(t)) as [ChannelId, number][]).filter(([, x]) => x * sign > 0);
+    const total = pos.reduce((a, [, x]) => a + x * sign, 0);
+    if (total <= 0) continue;
+    for (const [k, x] of pos) reach.set(k, Math.max(reach.get(k) ?? 0, (Math.abs(v) * Math.abs(x)) / total));
+  }
+  const keep = [...reach.entries()]
+    .filter(([, r]) => r >= 0.25 * vmax)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([k]) => k);
+  if (!keep.length) return null;
+  const out = keep.map((channel) => ({ channel, values: values.map(() => 0), approx: false }));
+  values.forEach((v, t) => {
+    const w = weights(t);
+    const sign = v >= 0 ? 1 : -1;
+    const xs = keep.map((k) => Math.max(0, (w[k] ?? 0) * sign));
+    const total = xs.reduce((a, b) => a + b, 0);
+    keep.forEach((_, i) => (out[i].values[t] = total > 0 ? (v * xs[i]) / total : i === 0 ? v : 0));
+  });
+  // The fixed road is approximate where at least a third of what it carries, at its peak, is the drivers' unexplained part.
+  for (const o of out) {
+    if (o.channel !== fixed) continue;
+    let p = 0;
+    for (let t = 1; t <= T; t++) if (Math.abs(o.values[t]) > Math.abs(o.values[p])) p = t;
+    const sign = o.values[p] >= 0 ? 1 : -1;
+    const all = (weights(p)[fixed] ?? 0) * sign;
+    const rough = (goal.rough[p] ?? 0) * sign;
+    o.approx = all <= 0 || rough >= all / 3;
+  }
+  return out;
+}
+
 export type Drawn = { flow: Flow; value: number; n: number };
 
-/** The flows worth drawing at quarter t: the big ones, plus the player's own (small at first: that's the lag). */
+/**
+ * The flows worth drawing at quarter t, at most `max`:
+ *   1. every goal's biggest push, so no goal is left without one (debt moves in small
+ *      steps and must never vanish into "more pushes");
+ *   2. the player's own: on each goal, each lever's biggest road (small at first: that's
+ *      the lag), mission goals first, up to half of the slots left;
+ *   3. the rest by size: a push of 0.1 pp or more on a debt goal, then the big ones.
+ */
 export function drawnAt(story: Story, t: number, max: number): { drawn: Drawn[]; hidden: number } {
   const all = story.flows.map((flow) => {
     const value = flow.values[t] ?? 0;
@@ -319,17 +416,27 @@ export function drawnAt(story: Story, t: number, max: number): { drawn: Drawn[];
   });
   const top = Math.max(0.0001, ...all.map((d) => d.n));
   const lever = new Set(story.causes.filter((c) => c.kind === "lever").map((c) => c.id));
-  const big = all.filter((d) => (lever.has(d.flow.cause) ? d.n >= 0.05 : d.n >= Math.max(0.15, 0.12 * top)));
-  // A goal moved only by small pushes (debt, often) still shows its biggest one, rather than none.
-  const own = new Set<Drawn>();
+  const isGoal = new Set(story.outcomes.filter((o) => o.goal).map((o) => o.metric));
+  const debtGoal = isGoal.has("debt");
+  const must = (d: Drawn) => debtGoal && d.flow.metric === "debt" && Math.abs(d.value) >= 0.095;
+  const keep: Drawn[] = [];
   for (const o of story.outcomes) {
-    if (big.some((d) => d.flow.metric === o.metric)) continue;
-    const best = all.filter((d) => d.flow.metric === o.metric && d.n >= 0.04).sort((a, b) => b.n - a.n)[0];
-    if (best) own.add(best);
+    const best = all.filter((d) => d.flow.metric === o.metric && Math.abs(d.value) >= 0.005).sort((a, b) => b.n - a.n)[0];
+    if (best) keep.push(best);
   }
-  const keep = [...big, ...own]
-    .sort((a, b) => Number(lever.has(b.flow.cause)) - Number(lever.has(a.flow.cause)) || Number(own.has(b)) - Number(own.has(a)) || b.n - a.n)
-    .slice(0, max);
+  const mine = new Map<string, Drawn>();
+  for (const d of all) {
+    if (!lever.has(d.flow.cause) || d.n < 0.05 || keep.includes(d)) continue;
+    const k = `${d.flow.cause}|${d.flow.metric}`;
+    if (keep.some((x) => `${x.flow.cause}|${x.flow.metric}` === k)) continue;
+    if (!mine.has(k) || mine.get(k)!.n < d.n) mine.set(k, d);
+  }
+  const room = Math.max(0, Math.floor((max - keep.length) / 2));
+  keep.push(...[...mine.values()].sort((a, b) => Number(isGoal.has(b.flow.metric)) - Number(isGoal.has(a.flow.metric)) || b.n - a.n).slice(0, room));
+  const rest = all
+    .filter((d) => !keep.includes(d) && (lever.has(d.flow.cause) ? d.n >= 0.05 : must(d) || d.n >= Math.max(0.15, 0.12 * top)))
+    .sort((a, b) => Number(must(b)) - Number(must(a)) || b.n - a.n);
+  keep.push(...rest.slice(0, Math.max(0, max - keep.length)));
   const hidden = all.filter((d) => d.n >= 0.05 && !keep.includes(d)).length;
   return { drawn: keep, hidden };
 }
@@ -349,40 +456,66 @@ export type HeadPush = {
   cause: Cause;
   metric: MetricId;
   goal: string;
+  /** The cause's push on the goal at quarter t, all its roads together. */
   value: number;
   tone: "good" | "bad";
   /** The player's own push at the goal date, as the strip shows it (forecast against "had you changed nothing"). */
-  later?: { value: number; label: string };
+  later?: { value: number; label: string; tone: "good" | "bad" };
+  /** Too small to matter yet (under 0.05 pp): say when it lands rather than its size now. */
+  small?: boolean;
 };
 
 /**
  * The map's story at quarter t in one line: the biggest push from outside the player's hands
  * (a shock, the economy's own drift) and the player's own biggest push, on the same goal where
- * the player has one. Built from the arrows the map draws (drawnAt), so the island view names
- * exactly what the map shows.
+ * the player has one. A cause's roads are added back together. Outside pushes come from the
+ * arrows the map draws (drawnAt), so the island view names what the map shows; pushes under
+ * 0.05 pp are left out, and the player's own is named when it lands, if it is small now.
  */
 export function headline(story: Story, t: number, max: number): { top: HeadPush | null; mine: HeadPush | null } {
   const { drawn } = drawnAt(story, t, max);
   const cause = (id: string) => story.causes.find((c) => c.id === id);
-  const push = (d: Drawn): HeadPush | null => {
-    const c = cause(d.flow.cause);
-    const o = story.outcomes.find((x) => x.metric === d.flow.metric);
-    if (!c || !o) return null;
-    return { cause: c, metric: d.flow.metric, goal: o.label.toLowerCase(), value: d.value, tone: Math.sign(d.value) === o.good(t) ? "good" : "bad" };
+  const total = (c: string, m: MetricId, q: number) => story.flows.filter((f) => f.cause === c && f.metric === m).reduce((a, f) => a + (f.values[q] ?? 0), 0);
+  const tone = (m: MetricId, v: number, q: number): "good" | "bad" => (Math.sign(v) === story.outcomes.find((x) => x.metric === m)?.good(q) ? "good" : "bad");
+  const pair = (c: Cause, m: MetricId): HeadPush | null => {
+    const o = story.outcomes.find((x) => x.metric === m);
+    if (!o) return null;
+    const value = total(c.id, m, t);
+    return { cause: c, metric: m, goal: o.label.toLowerCase(), value, tone: tone(m, value, t) };
   };
-  const byPush = (a: Drawn, b: Drawn) => b.n - a.n;
-  const outside = drawn.filter((d) => cause(d.flow.cause)?.kind !== "lever").sort(byPush);
-  const levers = drawn.filter((d) => cause(d.flow.cause)?.kind === "lever").sort(byPush);
-  const top = outside[0] ? push(outside[0]) : null;
-  const mineD = (top && levers.find((d) => d.flow.metric === top.metric)) ?? levers[0];
-  const mine = mineD ? push(mineD) : null;
-  if (mine && story.end > t) {
-    // The strip's own number where it has the goal; otherwise the same piece of the decomposition, at the goal date.
-    const strip = story.travel?.diffs.find((d) => d.metric === mine.metric);
-    const value = strip ? strip.values[story.end] : mineD!.flow.values[story.end];
-    if (value !== undefined) mine.later = { value, label: story.labels[story.end] ?? "" };
-  }
-  return { top, mine };
+  const n = (p: HeadPush) => Math.abs(p.value) / metricRef(p.metric);
+  const pairs = (keep: (c: Cause) => boolean, from: { cause: string; metric: MetricId }[]) => {
+    const seen = new Set<string>();
+    const out: HeadPush[] = [];
+    for (const f of from) {
+      const c = cause(f.cause);
+      const k = `${f.cause}|${f.metric}`;
+      if (!c || !keep(c) || seen.has(k)) continue;
+      seen.add(k);
+      const p = pair(c, f.metric);
+      if (p) out.push(p);
+    }
+    return out.sort((a, b) => n(b) - n(a));
+  };
+  const top = pairs((c) => c.kind !== "lever", drawn.map((d) => d.flow)).find((p) => matters(p.value, p.metric)) ?? null;
+  // The player's own, on any goal (a move that is small now may land later): when it lands, as the strip shows it.
+  const mineAll = pairs((c) => c.kind === "lever", story.flows).map((p) => {
+    if (story.end > t) {
+      const strip = story.travel?.diffs.find((d) => d.metric === p.metric);
+      const value = strip ? strip.values[story.end] : total(p.cause.id, p.metric, story.end);
+      if (value !== undefined) p.later = { value, label: story.labels[story.end] ?? "", tone: tone(p.metric, value, story.end) };
+    }
+    p.small = !matters(p.value, p.metric);
+    return p;
+  });
+  // A later figure under 0.05 pp is not worth a word either.
+  for (const p of mineAll) if (p.later && !matters(p.later.value, p.metric)) delete p.later;
+  const counts = (p: HeadPush) => !p.small || p.later !== undefined;
+  const reach = (p: HeadPush) => Math.max(n(p), p.later ? Math.abs(p.later.value) / metricRef(p.metric) : 0);
+  const best = mineAll.filter(counts).sort((a, b) => reach(b) - reach(a));
+  // On the same goal as the outside push when the move does about as much there; otherwise where it does most.
+  const same = top ? best.find((p) => p.metric === top.metric && reach(p) >= 0.5 * reach(best[0])) : undefined;
+  return { top, mine: same ?? best[0] ?? null };
 }
 
 /** Largest push on any flow, any quarter shown: one scale for the whole strip of time, so arrows grow as effects build. */

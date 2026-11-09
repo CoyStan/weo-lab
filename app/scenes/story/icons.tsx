@@ -29,6 +29,8 @@ const P: Record<IconId, string> = {
   fx: "M8 9a4 4 0 1 0 0 .01Z M16 15a4 4 0 1 0 0 .01Z M14 5h4v4 M10 19H6v-4",
   credit: "M3 7h18v10H3Z M3 11h18 M7 15h3",
   purse: "M5 9h14v10H5Z M8 9V7a4 4 0 0 1 8 0v2 M12 13v2",
+  // Interest vs growth: a snowball rolling and growing.
+  snowball: "M2 20h20 M4.5 17.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0Z M11.5 15.5a4.5 4.5 0 1 0 9 0a4.5 4.5 0 1 0-9 0Z M3 11h4 M5 8h3",
   // Goals
   infl: "M12 4v10 M9 17a3 3 0 1 0 6 0c0-1.2-.7-2.2-1.5-2.7V5a1.5 1.5 0 0 0-3 0v9.3C9.7 14.8 9 15.8 9 17Z",
   growth: "M12 21v-9 M12 12c0-4 3-7 7-7 0 4-3 7-7 7Z M12 15c0-3-2.5-5-5.5-5 0 3 2.5 5 5.5 5Z",
