@@ -20,6 +20,9 @@ import { getStartYear, simulate } from "../../model/economy";
 import type { Mission } from "../missions";
 import { DUR_SLOW, useTween } from "./useTween";
 import { useScrollMore } from "../../components/strip";
+import { useSceneId } from "../../scenes/registry";
+import { headline, metricRef, pushSize, unitWord, type HeadPush, type MetricId, type Story } from "../../scenes/story/model";
+import { useStoryShown } from "../../scenes/story/shown";
 
 /** Gap between the debrief stars, shared by their animation delay and their sound pings. */
 const STAR_STAGGER = 120;
@@ -109,7 +112,10 @@ function RecapCard({ recap }: { recap: Recap }) {
         </div>
         <CapitalStrip recap={recap} />
       </div>
-      {/* The link from the payoff to the island, right under the verdict: always above the fold. */}
+      {/* Why, right under the verdict (always above the fold): the biggest push on the goal that
+          matters most, and the player's own, with when it lands. In both views; the island view
+          adds where to look. */}
+      <RecapWhy mission={mission} recap={recap} />
       <WatchLine mission={mission} recap={recap} />
 
       {recap.stopReasons ? (
@@ -138,6 +144,7 @@ function RecapCard({ recap }: { recap: Recap }) {
         {metrics.map((m) => {
           const meta = GAME_METRICS[m];
           const d = recap.now[m] - recap.prev[m];
+          const tone = Math.abs(d) >= 0.05 ? toneFor(mission, m, d) : "neutral";
           return (
             <div key={m} className="game-recap-stat">
               <span className="game-recap-label">{meta.label}</span>
@@ -156,13 +163,14 @@ function RecapCard({ recap }: { recap: Recap }) {
                   </>
                 )}{" "}
                 <span className="game-recap-when">{recap.from !== undefined && recap.quarter - recap.from > 1 ? "over the stretch" : "this quarter"}</span>
-                {/* The move's verdict: toward the goal helps, away from it hurts. */}
-                {Math.abs(d) >= 0.05 ? <> <Valence tone={toneFor(mission, m, d)} /></> : null}
+                {/* The move's verdict, in the past tense: this quarter's step toward the goal helped, away from it hurt.
+                    The goal's own verdict below says whether that changed its course ("Still on track"). */}
+                {tone !== "neutral" ? <> <Valence tone={tone} label={tone === "good" ? "helped" : "hurt"} /></> : null}
               </span>
               <span className="game-recap-chart">
                 <GoalChart metric={m} height={128} />
               </span>
-              <GoalLine mission={mission} metric={m} status={worstStatus(mission, recap, m)} />
+              <GoalLine mission={mission} metric={m} status={worstStatus(mission, recap, m)} was={worstStatus(mission, recap, m, "before")} move={tone} />
             </div>
           );
         })}
@@ -239,6 +247,7 @@ function CountUp({ from, to, digits }: { from: number; to: number; digits: numbe
 }
 
 function ShockCard({ ids }: { ids: string[] }) {
+  const sceneId = useSceneId();
   const close = useGame((s) => s.closeModal);
   const decide = useGame((s) => s.decide);
   const missionId = useGame((s) => s.missionId);
@@ -304,7 +313,7 @@ function ShockCard({ ids }: { ids: string[] }) {
       <p className="mt-1 text-(length:--t-xs) text-[var(--lab-ink-2)]">
         It hits in {quarterLabel(main.quarter)}. {options.length ? `How do you respond? Each option shows what it does to your goals by ${quarterLabel(mission.quarters)}, against holding policy.` : "Your tools are on the left."}
       </p>
-      {where ? (
+      {where && sceneId === "island" ? (
         <p className="game-shock-where">
           <strong>On the island:</strong> the {where.place.toLowerCase()} is pulsing ({where.what}).
         </p>
@@ -564,19 +573,32 @@ function outcomeHeadline(mission: Mission, recap: Recap): string {
   return clause.charAt(0).toUpperCase() + clause.slice(1);
 }
 
-function worstStatus(mission: Mission, recap: Recap, metric: string): ObjectiveStatus | null {
+function worstStatus(mission: Mission, recap: Recap, metric: string, when: "before" | "after" = "after"): ObjectiveStatus | null {
   const order: ObjectiveStatus[] = ["failed", "at-risk", "on-track", "met"];
-  const list = recap.statuses.filter((s) => mission.objectives.find((o) => o.id === s.id && o.metric === metric && !o.bonus)).map((s) => s.after);
+  const list = recap.statuses.filter((s) => mission.objectives.find((o) => o.id === s.id && o.metric === metric && !o.bonus)).map((s) => s[when]);
   return order.find((o) => list.includes(o)) ?? null;
 }
 
-function StatusPill({ status }: { status: ObjectiveStatus | null }) {
-  if (!status) return null;
-  return <span className={`game-status is-${status}`}>{STATUS_WORD[status].charAt(0).toUpperCase() + STATUS_WORD[status].slice(1)}</span>;
+/**
+ * The goal's verdict, worded against the quarter's move so the two never contradict each other:
+ * a move that hurt a goal still on track reads "Still on track", one that helped a goal still at
+ * risk "Still at risk"; a change of verdict says so ("Back on track", "Now at risk").
+ */
+function verdictWord(status: ObjectiveStatus, was: ObjectiveStatus | null, move: Tone): string {
+  const changed = was !== null && was !== status;
+  if (status === "on-track") return changed && (was === "at-risk" || was === "failed") ? "Back on track" : move === "bad" ? "Still on track" : "On track";
+  if (status === "at-risk") return changed && (was === "on-track" || was === "met") ? "Now at risk" : move === "good" ? "Still at risk" : "At risk";
+  if (status === "met") return move === "bad" ? "Still met" : "Met";
+  return !changed && move === "good" ? "Already missed" : "Missed";
 }
 
-/** "■ On track · forecast 3.9% by 2027Q4, goal ≤ 4.5%": the goal's one verdict, and why. */
-function GoalLine({ mission, metric, status }: { mission: Mission; metric: keyof typeof GAME_METRICS; status: ObjectiveStatus | null }) {
+function StatusPill({ status, was = null, move = "neutral" }: { status: ObjectiveStatus | null; was?: ObjectiveStatus | null; move?: Tone }) {
+  if (!status) return null;
+  return <span className={`game-status is-${status}`}>{verdictWord(status, was, move)}</span>;
+}
+
+/** "■ Still on track · forecast 3.9% by 2027Q4, goal ≤ 4.5%": the goal's one verdict, and why. */
+function GoalLine({ mission, metric, status, was = null, move = "neutral" }: { mission: Mission; metric: keyof typeof GAME_METRICS; status: ObjectiveStatus | null; was?: ObjectiveStatus | null; move?: Tone }) {
   const config = useLab((st) => st.config);
   const clock = useLab((st) => st.clock);
   const o = mission.objectives.find((x) => x.metric === metric && !x.bonus);
@@ -587,7 +609,7 @@ function GoalLine({ mission, metric, status }: { mission: Mission; metric: keyof
   const f = forecastFor(config, clock)[mission.quarters][metric];
   return (
     <span className="game-recap-goal">
-      <StatusPill status={status} />
+      <StatusPill status={status} was={was} move={move} />
       <span className="game-recap-goal-text">
         {done ? "" : <>Forecast&nbsp;{fmtNum(f, meta.digits)}{unit} by&nbsp;{quarterLabel(mission.quarters)}, </>}
         goal&nbsp;{o.op === "<=" ? "≤" : "≥"}&nbsp;{fmtNum(o.threshold, meta.digits)}
@@ -609,14 +631,108 @@ const WATCH: Partial<Record<string, string>> = {
 };
 
 function WatchLine({ mission, recap }: { mission: Mission; recap: Recap }) {
+  // The pointers name island landmarks; the other scene concepts label themselves.
+  const sceneId = useSceneId();
+  if (sceneId !== "island") return null;
   const judged = Array.from(new Set(mission.objectives.filter((o) => !o.bonus).map((o) => o.metric)));
   const top = judged.map((m) => ({ m, d: recap.now[m] - recap.prev[m] })).sort((a, b) => Math.abs(b.d) - Math.abs(a.d))[0];
   if (!top || Math.abs(top.d) < 0.1 || !WATCH[top.m]) return null;
-  const meta = GAME_METRICS[top.m];
+  // The figure itself is on the goal's card just below; the line only says where to look.
   return (
     <p className="game-recap-watch">
-      <strong>On the island:</strong> watch {WATCH[top.m]}. {meta.label} {top.d > 0 ? "rose" : "fell"} {fmtNum(Math.abs(top.d), meta.digits)}
-      {deltaUnit(meta.unit)} this quarter.
+      <strong>On the island:</strong> watch {WATCH[top.m]} ({GAME_METRICS[top.m].label.toLowerCase()}).
+    </p>
+  );
+}
+
+/** "Food price surge" → "food price surge" mid-sentence; "IMF …" keeps its capitals. */
+const lowerFirst = (s: string) => (s.length > 1 && /[A-Z]/.test(s[1]) ? s : s.charAt(0).toLowerCase() + s.slice(1));
+/** A cause named mid-sentence: the map's "Its own drift" card needs its owner in a sentence. */
+const causeName = (p: HeadPush) => (p.cause.kind === "momentum" ? "the economy's own drift" : lowerFirst(p.cause.title));
+/** "+2.4 pp", "−0.07 pp", "+30 bp", "−0.5 mo": a push in its goal's units. */
+const pushAmount = (v: number, m: MetricId) => `${pushSize(v, m)}${unitWord(m) === " pp" ? " pp" : ""}`;
+const STATUS_RANK: Record<ObjectiveStatus, number> = { failed: 0, "at-risk": 1, "on-track": 2, met: 3 };
+
+/**
+ * The goal that matters most this quarter: one in trouble first (missed, then at risk), and
+ * among equals the one that moved most for its scale; only goals the map draws.
+ */
+function whyGoal(mission: Mission, recap: Recap, story: Story): MetricId | null {
+  const shown = new Set<string>(story.outcomes.map((o) => o.metric));
+  const judged = Array.from(new Set(mission.objectives.filter((o) => !o.bonus && shown.has(o.metric)).map((o) => o.metric as MetricId)));
+  const rank = (m: MetricId) => STATUS_RANK[worstStatus(mission, recap, m) ?? "on-track"];
+  const moved = (m: MetricId) => Math.abs((recap.now[m] ?? 0) - (recap.prev[m] ?? 0)) / metricRef(m);
+  return judged.sort((a, b) => rank(a) - rank(b) || moved(b) - moved(a))[0] ?? null;
+}
+
+/**
+ * When the player's own push lands: its size at the goal date, or, when it is biggest well
+ * before then (a rate move on growth peaks within a year, then fades), its peak and when.
+ */
+function landing(story: Story, mine: HeadPush, T: number): { value: number; label: string; peak: boolean } | null {
+  if (!mine.later || story.end <= T) return mine.later ? { ...mine.later, peak: false } : null;
+  const strip = story.travel?.diffs.find((d) => d.metric === mine.metric)?.values;
+  const own = new Set(story.causes.filter((c) => c.kind === "lever").map((c) => c.id));
+  const at = (t: number) => (strip ? strip[t] : story.flows.filter((f) => own.has(f.cause) && f.metric === mine.metric).reduce((a, f) => a + (f.values[t] ?? 0), 0)) ?? 0;
+  let best = story.end;
+  for (let t = T + 1; t < story.end; t++) if (Math.abs(at(t)) > Math.abs(at(best))) best = t;
+  const end = mine.later.value;
+  if (best !== story.end && Math.abs(at(best)) >= 1.25 * Math.abs(end) && Math.abs(at(best)) - Math.abs(end) >= 0.1 * metricRef(mine.metric))
+    return { value: at(best), label: story.labels[best] ?? "", peak: true };
+  return { ...mine.later, peak: false };
+}
+
+/**
+ * The recap's "why" line, read from the cause-and-effect map's own story (model.ts headline):
+ * on the goal that matters most this quarter, the biggest push from outside the player's hands
+ * and the player's own, with when it lands, e.g.
+ * "Why: food price surge ▲ +2.4 pp on inflation · your rate hike ▼ −0.07 pp now, −1.0 pp by 2027Q4".
+ * Shown in both views (the map publishes its story whichever view is on screen).
+ */
+function RecapWhy({ mission, recap }: { mission: Mission; recap: Recap }) {
+  const story = useStoryShown((s) => s.story);
+  const max = useStoryShown((s) => s.max);
+  // The map rebuilds its story for the new quarter just after the recap opens: wait for it.
+  if (!story || story.clock !== recap.quarter) return null;
+  const m = whyGoal(mission, recap, story);
+  if (!m) return null;
+  // The map's story on that one goal: headline() then names its biggest push and the player's own there.
+  const one: Story = { ...story, flows: story.flows.filter((f) => f.metric === m), outcomes: story.outcomes.filter((o) => o.metric === m) };
+  const T = Math.max(story.first, Math.min(story.end, recap.quarter));
+  const { top, mine } = headline(one, T, max);
+  if (!top && !mine) return null;
+  const goal = (top ?? mine)!.goal;
+  const arrow = (v: number) => <Glyph name={v >= 0 ? "up" : "down"} />;
+  const lands = mine ? landing(one, mine, T) : null;
+  return (
+    <p className="game-recap-why">
+      <strong className="game-recap-why-key">Why:</strong>{" "}
+      {top ? (
+        <span className="game-recap-why-part">
+          {causeName(top)}{" "}
+          <b>
+            {arrow(top.value)} {pushAmount(top.value, m)}
+          </b>{" "}
+          on {goal}
+        </span>
+      ) : null}
+      {top ? <span aria-hidden="true"> · </span> : null}
+      {mine ? (
+        <span className="game-recap-why-part">
+          {causeName(mine)}{" "}
+          <b>
+            {arrow(mine.value)} {pushAmount(mine.value, m)}
+          </b>{" "}
+          {top ? "now" : `on ${goal} now`}
+          {lands ? (
+            <span className="game-recap-why-when">
+              , <b>{pushAmount(lands.value, m)}</b> {lands.peak ? `at its peak in ${lands.label}` : `by ${lands.label}`}
+            </span>
+          ) : null}
+        </span>
+      ) : (
+        <span className="game-recap-why-part">{story.travel ? `your moves barely touch ${goal} yet` : "no move of yours yet"}</span>
+      )}
     </p>
   );
 }

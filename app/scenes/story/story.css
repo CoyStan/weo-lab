@@ -1,0 +1,928 @@
+/* "Cause and effect" scene: soft paper cards, rounded arrows, friendly icons. */
+
+.st-root {
+  --st-bg: color-mix(in srgb, var(--lab-paper) 70%, var(--lab-bg));
+  --st-row-h: 30px;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  container-type: inline-size;
+  background: var(--st-bg);
+  color: var(--lab-ink);
+}
+.st-root.is-list {
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+}
+.st-map {
+  position: relative;
+  width: 100%;
+}
+/* Big screens: the map is drawn at laptop size and scaled up as one piece (index.tsx). */
+.st-map.is-h {
+  transform-origin: 0 0;
+}
+
+.st-head {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 8px;
+  margin: 0;
+}
+/* Room for the Map / Island control: a float the header's first lines wrap beside. */
+.st-head::before {
+  content: "";
+  float: left;
+  width: calc(var(--st-head-inset, 0px) / var(--st-s, 1));
+  height: calc(2.6rem / var(--st-s, 1));
+}
+.st-map.is-v .st-head::before {
+  float: right;
+  width: var(--st-head-inset-r, 0px);
+  height: 2.4rem;
+}
+/* Phones: the title shares its line with the control; the one-line hint runs full width below. */
+@container (max-width: 479px) {
+  .st-map.is-v .st-head::before {
+    height: 2rem;
+  }
+  .st-map.is-v .st-head .st-title {
+    line-height: 2rem;
+  }
+  .st-map.is-v .st-hint {
+    clear: both;
+    margin: 0;
+  }
+}
+.st-title {
+  margin: 0;
+  font-size: var(--t-md);
+  font-weight: 700;
+  line-height: 1.25;
+}
+.st-title-q {
+  font-weight: 500;
+  color: var(--lab-ink-2);
+}
+.st-hint {
+  margin: 0.15rem 0 0;
+  font-size: var(--t-xs);
+  line-height: 1.3;
+  color: var(--lab-ink-2);
+}
+.st-hint b {
+  color: var(--lab-ink);
+}
+.st-good {
+  color: var(--lab-good);
+  font-weight: 700;
+}
+.st-bad {
+  color: var(--lab-bad);
+  font-weight: 700;
+}
+
+/* The quarter's news, one line under the header. */
+.st-news {
+  margin: 0.2rem 0 0;
+  overflow: hidden;
+  font-size: var(--t-xs);
+  line-height: 1.3;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--lab-ink);
+}
+.st-news-key {
+  margin-right: 0.15rem;
+  border-radius: 0.4rem;
+  background: var(--lab-info-bg, color-mix(in srgb, var(--lab-ink) 8%, transparent));
+  padding: 0 0.4rem;
+  font-weight: 700;
+}
+.st-news.is-bad .st-news-key {
+  background: var(--lab-bad-surface, var(--lab-warn-bg));
+  color: var(--lab-bad);
+}
+.st-news.is-good .st-news-key {
+  background: var(--lab-good-surface, var(--lab-info-bg));
+  color: var(--lab-good);
+}
+
+.st-colheads > span {
+  position: absolute;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  color: var(--lab-ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.st-colheads {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+
+.st-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.st-svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+}
+.st-flow path {
+  fill: none;
+  stroke-linecap: butt;
+  stroke-linejoin: round;
+}
+.st-flow-edge {
+  stroke: var(--lab-paper);
+}
+.st-flow-body {
+  stroke-opacity: 0.62;
+}
+.st-flow.is-good .st-flow-body {
+  stroke: var(--lab-good-mark);
+}
+.st-flow.is-bad .st-flow-body {
+  stroke: var(--lab-alert);
+}
+.st-flow.is-lever .st-flow-body {
+  stroke-opacity: 0.8;
+}
+.st-dot {
+  fill: var(--lab-paper);
+  stroke-width: 3;
+}
+.st-dot.is-good {
+  stroke: var(--lab-good);
+}
+.st-dot.is-bad {
+  stroke: var(--lab-bad);
+}
+
+/* Cards */
+.st-card {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1.5px solid var(--lab-line-strong);
+  border-radius: 18px;
+  background: var(--lab-paper);
+  padding: 0.35rem 0.6rem;
+  box-shadow:
+    0 2px 0 color-mix(in srgb, var(--lab-ink) 7%, transparent),
+    0 6px 14px color-mix(in srgb, var(--lab-ink) 5%, transparent);
+}
+.st-blob {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--lab-ink) 7%, var(--lab-paper));
+  color: var(--lab-ink);
+}
+.st-blob svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+.st-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.st-text b {
+  font-size: var(--t-sm);
+  font-weight: 700;
+}
+.st-text small {
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+.st-text .st-knock {
+  font-size: inherit;
+  font-weight: 700;
+  color: var(--lab-ink);
+}
+.st-yours {
+  font-size: var(--t-xs);
+  font-style: normal;
+  font-weight: 700;
+  color: var(--lab-ink-2);
+}
+.st-yours.is-news {
+  color: var(--lab-bad);
+}
+.st-cause.is-lever {
+  border: 2px solid var(--lab-ink);
+}
+.st-cause.is-lever .st-blob {
+  background: var(--lab-ink);
+  color: var(--lab-paper);
+}
+.st-cause.is-shock .st-blob {
+  background: var(--lab-warn-bg);
+}
+.st-chan {
+  gap: 0.4rem;
+  border-style: dashed;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--lab-paper) 85%, var(--lab-bg));
+  padding: 0.3rem 0.55rem 0.3rem 0.45rem;
+}
+.st-chan .st-blob {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+.st-chan .st-blob svg {
+  width: 1rem;
+  height: 1rem;
+}
+.st-chan .st-text small {
+  line-height: 1.15;
+}
+.st-goal {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.1rem;
+  padding: 0.45rem 0.7rem;
+}
+.st-goal.is-watch {
+  border-style: dashed;
+}
+.st-goal-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: var(--t-sm);
+}
+.st-goal-head .st-blob {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+.st-goal-value {
+  font-size: var(--t-xl);
+  font-weight: 800;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+.st-goal-value small {
+  font-size: var(--t-md);
+  font-weight: 700;
+}
+.st-goal-line {
+  font-size: var(--t-xs);
+  line-height: 1.25;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.st-goal-line.is-quiet {
+  white-space: normal;
+  color: var(--lab-ink-2);
+}
+/* A tracked figure that is not one of the mission's goals. */
+.st-watch {
+  border: 1px solid var(--lab-line-strong);
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  font-size: var(--t-xs);
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: var(--lab-ink-2);
+}
+
+.st-more {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  border: 1.5px dashed var(--lab-line-strong);
+  border-radius: 999px;
+  padding: 0 0.7rem;
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+
+/* The arrow's push where it meets its goal. Helps: outlined; hurts: filled. The fill carries the
+   meaning as well as the colour (the key in the header shows the two). */
+.st-tag {
+  position: absolute;
+  transform: translate(-100%, -50%);
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+  background: var(--lab-paper);
+  padding: 0 0.4rem;
+  font-size: var(--t-xs);
+  font-weight: 800;
+  line-height: 1.35;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.st-tag.is-good {
+  color: var(--lab-good);
+}
+.st-tag.is-bad {
+  border-color: var(--lab-bad);
+  background: var(--lab-bad);
+  color: var(--lab-paper);
+}
+/* The key's two words, drawn like the tags. */
+.st-key {
+  display: inline-block;
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+  padding: 0 0.35rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.st-key.is-good {
+  color: var(--lab-good);
+}
+.st-key.is-bad {
+  border-color: var(--lab-bad);
+  background: var(--lab-bad);
+  color: var(--lab-paper);
+}
+
+/* A rough road: dashed, in the arrows and in the words that name it. */
+.st-roughmark {
+  display: inline-block;
+  width: 1.35em;
+  height: 0.4em;
+  vertical-align: 0.15em;
+}
+.st-roughmark path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-dasharray: 4.5 3;
+}
+.st-roughkey {
+  margin-left: 0.5rem;
+  font-weight: 600;
+}
+.st-roughkey .st-roughmark,
+.st-note .st-roughmark {
+  margin-right: 0.2rem;
+}
+.st-flow.is-rough .st-flow-body {
+  stroke-opacity: 0.7;
+}
+
+/* Where the sizes and roads come from: one line between the map and the strip. */
+.st-note {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  font-size: var(--t-xs);
+  line-height: 1.2;
+  color: var(--lab-ink-2);
+}
+.st-note span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The quarter strip: per row, one bar per quarter on the row's own scale, so the lag reads as bars growing. */
+.st-strip {
+  --st-row: 28px;
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  box-sizing: border-box;
+  flex-direction: column;
+  gap: 0.3rem;
+  border: 1px solid var(--lab-line);
+  border-radius: 16px;
+  background: var(--lab-paper);
+  padding: 0.4rem 0.55rem 0.45rem;
+}
+.st-strip.is-static {
+  position: static;
+  margin: 0 12px;
+}
+.st-strip-head {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: var(--t-xs);
+  line-height: 1.3;
+  color: var(--lab-ink-2);
+}
+.st-strip-head b {
+  font-size: var(--t-sm);
+  color: var(--lab-ink);
+}
+.st-cells {
+  display: flex;
+  min-height: 0;
+  gap: 0.4rem;
+}
+/* Row names line up with the bars: the unit on the cells' quarter line, then one name per row. */
+.st-rowkeys {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  padding-top: calc(1.5px + 0.1rem);
+  font-size: var(--t-xs);
+  font-weight: 700;
+}
+.st-rowkeys > span {
+  display: flex;
+  height: var(--st-row);
+  align-items: center;
+  gap: 0.25rem;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.st-rowkeys small {
+  font-size: var(--t-xs);
+  font-weight: 500;
+  color: var(--lab-ink-2);
+}
+.st-rowkeys-unit {
+  height: 1.2em;
+  line-height: 1.2;
+}
+.st-cells-track {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  gap: 4px;
+  overflow: auto hidden;
+}
+.st-cell {
+  position: relative;
+  display: flex;
+  min-width: 4.3rem;
+  flex: 1 0 4.3rem;
+  flex-direction: column;
+  align-items: stretch;
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--lab-ink) 4%, transparent);
+  padding: 0.1rem 0.2rem;
+  font: inherit;
+  font-size: var(--t-xs);
+  color: var(--lab-ink);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.st-cell:hover {
+  background: color-mix(in srgb, var(--lab-ink) 8%, transparent);
+}
+.st-cell.is-on {
+  border-color: var(--lab-ink);
+  background: var(--lab-paper);
+  font-weight: 700;
+}
+.st-cell:focus-visible {
+  outline: 2px solid var(--lab-focus);
+  outline-offset: 1px;
+}
+.st-cell-q {
+  height: 1.2em;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-align: center;
+}
+.st-cell-tag {
+  height: 1.2em;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-align: center;
+  color: var(--lab-ink-2);
+}
+.st-cell.is-on .st-cell-tag {
+  color: var(--lab-ink);
+}
+/* One bar: up to 24 px in a 28 px row, its zero line in a narrow zone left of the number (never through digits). */
+.st-bar {
+  position: relative;
+  display: block;
+  height: var(--st-row);
+  flex: none;
+}
+.st-bar-zone {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 3px;
+  width: 13px;
+}
+.st-bar-zero {
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  border-top: 1.5px solid var(--lab-line-strong);
+}
+.st-bar i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-radius: 2px;
+}
+.st-bar.is-good i {
+  background: var(--lab-good-mark);
+}
+.st-bar.is-bad i {
+  background: var(--lab-alert);
+}
+.st-bar em {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+.st-bar.is-good em {
+  color: var(--lab-good);
+}
+.st-bar.is-bad em {
+  color: var(--lab-bad);
+}
+.st-bar.is-flat em {
+  color: var(--lab-ink-2);
+}
+
+.st-root .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---- The goal-by-goal list: phones, and slots too short for the columns ---------------- */
+/* Each goal one line with its two biggest pushes, the ones in trouble first; a tap opens every push. */
+.st-map.is-v {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.st-map.is-v .st-head {
+  position: static;
+  padding: 6px 12px 0;
+}
+.st-list {
+  display: grid;
+  align-items: start;
+  gap: 0.3rem;
+  padding: 0 12px;
+}
+@container (min-width: 600px) {
+  .st-list {
+    grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+    gap: 0.4rem;
+  }
+  .st-lmore {
+    grid-column: 1 / -1;
+  }
+}
+.st-lgoal {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.15rem;
+  border: 1.5px solid var(--lab-line-strong);
+  border-radius: 14px;
+  background: var(--lab-paper);
+  padding: 0.2rem 0.5rem 0.25rem;
+}
+.st-lgoal.is-watch {
+  border-style: dashed;
+}
+/* In trouble: a stronger edge and a word ("at risk", "off track"), never the colour alone. */
+.st-lgoal.is-at-risk,
+.st-lgoal.is-failed {
+  border-width: 2px;
+  border-color: var(--lab-ink);
+}
+.st-lhead {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.05rem;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+.st-lhead:focus-visible {
+  border-radius: 8px;
+  outline: 2px solid var(--lab-focus);
+  outline-offset: 2px;
+}
+.st-lline {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: var(--t-sm);
+  line-height: 1.35;
+}
+.st-lline .st-blob {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+.st-lline .st-blob svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+.st-lname {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.st-lvalue {
+  font-size: var(--t-md);
+  font-weight: 800;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.st-ldelta {
+  font-size: var(--t-xs);
+  white-space: nowrap;
+  color: var(--lab-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.st-lstatus {
+  border: 1.5px solid var(--lab-ink);
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.st-lstatus.is-failed {
+  border-color: var(--lab-bad);
+  background: var(--lab-bad);
+  color: var(--lab-paper);
+}
+.st-lchev {
+  margin-left: auto;
+  color: var(--lab-ink-2);
+}
+.st-lsum {
+  overflow: hidden;
+  padding-left: calc(1.4rem + 0.4rem);
+  font-size: var(--t-xs);
+  line-height: 1.4;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--lab-ink);
+}
+.st-lsum.is-quiet {
+  color: var(--lab-ink-2);
+}
+.st-lsep {
+  color: var(--lab-ink-2);
+}
+.st-lnew {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--lab-bad);
+}
+.st-lsum .st-ltag {
+  display: inline-block;
+  min-width: 0;
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+  padding: 0 0.3rem;
+  line-height: 1.2;
+}
+.st-lsum .st-ltag.is-bad {
+  border-color: var(--lab-bad);
+  background: var(--lab-bad);
+  color: var(--lab-paper);
+}
+.st-lrows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  border-top: 1px solid var(--lab-line);
+  padding-top: 0.25rem;
+}
+.st-lrow {
+  display: grid;
+  min-height: 1.6rem;
+  grid-template-columns: 1.4rem minmax(0, 1fr) 2.8rem auto;
+  align-items: center;
+  gap: 0.4rem;
+}
+.st-lrow .st-blob {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+.st-lrow .st-blob svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+.st-ltext {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--t-xs);
+  line-height: 1.25;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.st-ltext b {
+  font-weight: 700;
+}
+.st-ltext small {
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+.st-lrow.is-lever .st-blob {
+  background: var(--lab-ink);
+  color: var(--lab-paper);
+}
+.st-lbar {
+  display: block;
+  height: 10px;
+}
+.st-lbar i {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+}
+.st-lbar i.is-good {
+  background: var(--lab-good-mark);
+}
+.st-lbar i.is-bad {
+  background: var(--lab-alert);
+}
+/* A rough road's bar is striped, as its arrow is dashed. */
+.st-lbar i.is-rough {
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 9px);
+  mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 9px);
+}
+.st-ltag {
+  min-width: 3.6rem;
+  font-size: var(--t-xs);
+  font-weight: 800;
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.st-ltag.is-good {
+  color: var(--lab-good);
+}
+.st-ltag.is-bad {
+  color: var(--lab-bad);
+}
+/* Wider lists: each row's road on a second line, so names are never cut. */
+@container (min-width: 600px) {
+  .st-lrow {
+    min-height: 2.2rem;
+  }
+  .st-ltext {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+  }
+  .st-ltext b,
+  .st-ltext small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+.st-lnone,
+.st-lmore,
+.st-lfoot {
+  margin: 0;
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+}
+
+/* The strip's sentence stays pinned at the slot's foot: when the player's move lands, always in view. */
+.st-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  margin-top: auto;
+  border-top: 1px solid var(--lab-line-strong);
+  background: var(--st-bg);
+  padding: 0.35rem 12px 0.4rem;
+  font-size: var(--t-xs);
+  line-height: 1.35;
+  color: var(--lab-ink);
+}
+.st-foot p {
+  margin: 0;
+}
+.st-foot.has-more::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 0.6rem;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--st-bg) 0%, transparent), var(--st-bg));
+  pointer-events: none;
+}
+/* "+2 goals below" (only while a goal is out of sight): sits on the foot's top rule, so it covers neither the list nor the sentence. */
+.st-foot.has-cue {
+  padding-top: 0.8rem;
+}
+.st-foot-more {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  border: 1.5px solid var(--lab-ink);
+  border-radius: 999px;
+  background: var(--lab-paper);
+  padding: 0.1rem 0.65rem;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--lab-ink);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--lab-ink) 14%, transparent);
+  cursor: pointer;
+}
+.st-foot-more:focus-visible {
+  outline: 2px solid var(--lab-focus);
+  outline-offset: 2px;
+}
+
+/* ---- The first-play pointer to the island, over the map ----------------------------------
+   Play.tsx shows it once, for about seven seconds, under the Map / Island control: over the map
+   that is right on the "What pushed" column head and the first cause. Over the column map it sits
+   beside the control instead, its arrow pointing back at it, over the start of the header's key
+   (a legend, the least needed line on the map) and clear of the title, the column heads and the
+   cards. The list keeps its own placement (top right, under the control, where the title has room). */
+/* Over the list: where it was, under the control, but one slim line, so it covers the key and no goal. */
+.game-scene.is-story.is-map.is-list > .game-scene-coach {
+  padding: 0.15rem 0.6rem;
+  font-size: var(--t-xs);
+  line-height: 1.35rem;
+  white-space: nowrap;
+}
+@media (min-width: 761px) and (max-width: 1999.98px) {
+  .game-scene.is-story.is-map:not(.is-list) > .game-scene-coach {
+    top: calc(1.6rem + 3px);
+    left: calc(0.6rem + var(--scene-tabs-w, 12rem) + 0.7rem);
+    max-width: 18rem;
+    padding: 0.15rem 0.65rem;
+    font-size: var(--t-xs);
+    line-height: 1.35rem;
+    white-space: nowrap;
+  }
+  .game-scene.is-story.is-map:not(.is-list) > .game-scene-coach::before {
+    top: 50%;
+    bottom: auto;
+    left: auto;
+    right: 100%;
+    transform: translateY(-50%);
+    border: 6px solid transparent;
+    border-right-color: var(--lab-ink);
+  }
+}
+/* TVs: the map is scaled up, so the band under the control is empty down to the column heads; the
+   pointer stays there, one slim line, and ends above them. */
+@media (min-width: 2000px) {
+  .game-scene.is-story.is-map:not(.is-list) > .game-scene-coach {
+    top: calc(3.35rem + 10px);
+    padding: 0.1rem 0.7rem;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+}
