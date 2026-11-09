@@ -20,6 +20,7 @@ import { getStartYear, simulate } from "../../model/economy";
 import type { Mission } from "../missions";
 import { DUR_SLOW, useTween } from "./useTween";
 import { useScrollMore } from "../../components/strip";
+import { useSceneId } from "../../scenes/registry";
 
 /** Gap between the debrief stars, shared by their animation delay and their sound pings. */
 const STAR_STAGGER = 120;
@@ -239,6 +240,7 @@ function CountUp({ from, to, digits }: { from: number; to: number; digits: numbe
 }
 
 function ShockCard({ ids }: { ids: string[] }) {
+  const sceneId = useSceneId();
   const close = useGame((s) => s.closeModal);
   const decide = useGame((s) => s.decide);
   const missionId = useGame((s) => s.missionId);
@@ -304,7 +306,7 @@ function ShockCard({ ids }: { ids: string[] }) {
       <p className="mt-1 text-(length:--t-xs) text-[var(--lab-ink-2)]">
         It hits in {quarterLabel(main.quarter)}. {options.length ? `How do you respond? Each option shows what it does to your goals by ${quarterLabel(mission.quarters)}, against holding policy.` : "Your tools are on the left."}
       </p>
-      {where ? (
+      {where && sceneId === "island" ? (
         <p className="game-shock-where">
           <strong>On the island:</strong> the {where.place.toLowerCase()} is pulsing ({where.what}).
         </p>
@@ -609,6 +611,9 @@ const WATCH: Partial<Record<string, string>> = {
 };
 
 function WatchLine({ mission, recap }: { mission: Mission; recap: Recap }) {
+  // The pointers name island landmarks; the other scene concepts label themselves.
+  const sceneId = useSceneId();
+  if (sceneId !== "island") return null;
   const judged = Array.from(new Set(mission.objectives.filter((o) => !o.bonus).map((o) => o.metric)));
   const top = judged.map((m) => ({ m, d: recap.now[m] - recap.prev[m] })).sort((a, b) => Math.abs(b.d) - Math.abs(a.d))[0];
   if (!top || Math.abs(top.d) < 0.1 || !WATCH[top.m]) return null;
