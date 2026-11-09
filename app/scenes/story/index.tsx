@@ -6,17 +6,21 @@
 // is one piece of the game's shocks-vs-policy decomposition (decompose.ts), on
 // the road the model's own drivers say it took (routes.ts); a road the drivers
 // cannot vouch for is dashed and marked "roughly". Its width is how hard it
-// pushes, its tag says which way and by how much. A quarter strip underneath
-// picks the moment shown and shows the player's own change still travelling
-// (forecast against "had you changed nothing").
+// pushes; one tag per cause on each goal says whose push it is, which way and by
+// how much (all its roads together). A quarter strip underneath picks the moment
+// shown and shows the player's own change still travelling (forecast against
+// "had you changed nothing").
 //
-// Two layouts: the map (columns) when the slot has the room, and a goal-by-goal
-// list when it is narrow (phones) or short (small laptops): the goals in trouble
-// first, each one line with its two biggest pushes, opened with a tap. On big
-// screens the map is drawn at laptop size and scaled up as one piece, so a TV
-// shows the same picture, larger, rather than bigger empty cards.
+// Three layouts: the map (columns) when the slot has the room; a compact map for
+// short laptop slots (430 to 600 px tall: the source note joins the header, a
+// shorter strip, at most four roads); and a goal-by-goal list when it is narrow
+// (phones) or shorter still: the goals in trouble first, each a line with its
+// biggest pushes, opened with a tap. On big screens the map is drawn at laptop
+// size and scaled up as one piece, so a TV shows the same picture, larger, rather
+// than bigger empty cards.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { decompose } from "../../game/decompose";
 import { channels, policyTouched, untouchedConfig, type FrameworkInput } from "../../game/framework";
 import { knownConfig, policyForTurn } from "../../game/missions";
@@ -28,31 +32,57 @@ import { useReducedMotionFlag } from "../../scene/useSmooth";
 import { Anim } from "./anim";
 import { Icon } from "./icons";
 import { columns, layout, type Box, type LFlow, type Mode, type Ports } from "./placement";
-import { buildStory, CHANNEL_ORDER, CHANNELS, drawnAt, maxPush, pushText, signed, unitWord, type Cause, type ChannelId, type Drawn, type Flow, type MetricId, type Outcome, type Story } from "./model";
+import {
+  buildStory,
+  causeTotal,
+  CHANNEL_ORDER,
+  CHANNELS,
+  drawnAt,
+  maxPush,
+  metricLabel,
+  pushSize,
+  pushText,
+  signed,
+  unitWord,
+  widthNote,
+  type Cause,
+  type ChannelId,
+  type Drawn,
+  type Flow,
+  type MetricId,
+  type Outcome,
+  type Story,
+} from "./model";
 import { roads } from "./routes";
-import { useStoryShown } from "./shown";
+import { useStoryShown, type Trouble } from "./shown";
 import "./story.css";
 
-type Shown = { flow: Flow; value: number; tone: "good" | "bad"; lever: boolean };
+type Shown = { flow: Flow; value: number; tone: "good" | "bad"; lever: boolean; tag: boolean };
 type Dot = { flow: string; t0: number; dur: number };
-type Trouble = Partial<Record<MetricId, "at-risk" | "failed">>;
 
+/** The header's first guess (title and key); measured once drawn. */
 const HEAD_H = 52;
 /** The quarter's news, one line under the header. */
 const NEWS_H = 22;
 const COLHEAD_H = 22;
-/** "Sizes and roads come from the model": one line between the map and the strip. */
+/** "Sizes and roads come from the model": a line between the map and the strip (first guess; measured). */
 const NOTE_H = 22;
+/** The strip's first guesses; measured once drawn. */
 const STRIP_H = 156;
+const STRIP_H_COMPACT = 112;
 const MAX_ARROWS = 10;
 /** The goal-by-goal list folds each goal to its top two pushes, so it can carry more. */
 const MAX_ARROWS_V = 14;
-/** The map's design size at a 16 px root: smaller slots get the list, larger ones scale the map up. */
+/** The map's design size at a 16 px root: smaller slots get the compact map or the list, larger ones scale the map up. */
 const BASE_W = 770;
 const BASE_H = 660;
-/** Below this the columns cannot hold three goal cards, the strip and the headers: the list instead. */
-const MAP_MIN_H = 560;
+/** Below this the columns cannot hold the goal cards, the strip and the headers, even compact: the list instead. */
+const MAP_MIN_H = 430;
 const MAP_MIN_W = 560;
+/** Below this the map is drawn compact. */
+const COMPACT_H = 600;
+/** The compact map draws at most this many roads (channels); the rest join "and N more pushes". */
+const COMPACT_CHANNELS = 4;
 
 export default function StoryScene() {
   const { mission, config, clock, actual, forecast, policy, policyStart, events, statuses } = useTurn();
@@ -73,7 +103,7 @@ export default function StoryScene() {
   }, [config, start, mission, clock, end, forecast, untouched, touched, policy, policyUntouched, decomp, byRoad, actual, policyStart]);
   // The quarter's news (the island view shows it as toasts; the map names it in its header).
   const news = useMemo(() => events.filter((e) => e.quarter === clock && e.kind !== "decision"), [events, clock]);
-  // Goals in trouble, from the same statuses the goals panel shows: the list puts them first.
+  // Goals in trouble, from the same statuses the goals panel shows: the list puts them first, the island's line leads with them.
   const trouble = useMemo(() => {
     const out: Trouble = {};
     for (const o of mission?.objectives ?? []) {
@@ -83,6 +113,7 @@ export default function StoryScene() {
     }
     return out;
   }, [mission, statuses]);
+  const troubleKey = JSON.stringify(trouble);
 
   const reducedPref = useReducedMotion();
   const reducedFlag = useReducedMotionFlag();
@@ -104,6 +135,9 @@ export default function StoryScene() {
 
   // The quarter shown: the one being decided, unless the player picks another on the strip.
   const [pick, setPick] = useState<{ clock: number; t: number } | null>(null);
+  // The map could not fit two cause cards at this size: the list, until the size or the quarter changes.
+  const [cramped, setCramped] = useState<string | null>(null);
+  const crampKey = `${size.W}x${size.H}|${clock}`;
 
   // The cards drop in once the briefing and shock card are out of the way, so the entrance is seen.
   const modal = useGame((s) => s.modal);
@@ -112,12 +146,13 @@ export default function StoryScene() {
     if (!modal && !seen) setSeen(true);
   }, [modal, seen]);
   const T = Math.max(story.first, Math.min(end, pick && pick.clock === clock ? pick.t : clock + 1));
-  const list = size.W > 0 && (size.W < MAP_MIN_W || size.H < MAP_MIN_H);
+  const list = size.W > 0 && (size.W < MAP_MIN_W || size.H < MAP_MIN_H || cramped === crampKey);
   // The map drawn at its design size and scaled up as one piece; capped so a laptop never shows text over 40 px.
   const scale = list ? 1 : Math.max(1, Math.min(size.wide ? 2.2 : 1.3, size.W / (BASE_W * size.r), size.H / (BASE_H * size.r)));
-  // The island view names the map's biggest pushes in one line: it reads this story, at this quarter.
-  useEffect(() => useStoryShown.setState({ story, T, max: list ? MAX_ARROWS_V : MAX_ARROWS, list }), [story, T, list]);
-  useEffect(() => () => useStoryShown.setState({ story: null, list: false }), []);
+  const compact = !list && size.H / scale < COMPACT_H;
+  // The island view names the map's pushes in one line: it reads this story, at this quarter, and the goals in trouble.
+  useEffect(() => useStoryShown.setState({ story, T, max: list ? MAX_ARROWS_V : MAX_ARROWS, list, trouble }), [story, T, list, troubleKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => useStoryShown.setState({ story: null, list: false, trouble: {} }), []);
 
   return (
     <div ref={rootRef} className={`st-root${list ? " is-list" : ""}`} role="region" aria-label="Cause and effect: what is moving your goals, and why">
@@ -130,12 +165,14 @@ export default function StoryScene() {
           s={scale}
           r={size.r}
           list={list}
+          compact={compact}
           news={news}
           trouble={trouble}
           scroller={rootRef}
           reduced={reduced}
           policySig={`${clock}|${JSON.stringify(policy)}`}
           onPick={(t) => setPick({ clock, t })}
+          onCramped={() => setCramped(crampKey)}
         />
       ) : null}
     </div>
@@ -153,15 +190,21 @@ type MapProps = {
   /** Root font size over 16 px. */
   r: number;
   list: boolean;
+  /** A short slot: the source note in the header, a shorter strip, at most four roads. */
+  compact: boolean;
   news: SimEvent[];
   trouble: Trouble;
   scroller: React.RefObject<HTMLDivElement | null>;
   reduced: boolean;
   policySig: string;
   onPick: (t: number) => void;
+  onCramped: () => void;
 };
 
-function StoryMap({ story, T, W, H, s, r, list, news, trouble, scroller, reduced, policySig, onPick }: MapProps) {
+/** Each lever's name on the folded "Your moves" card: "Budget squeeze", "Rate hike". */
+const leverName = (c: Cause) => c.title.replace(/^Your /, "").replace(/^\w/, (x) => x.toUpperCase());
+
+function StoryMap({ story, T, W, H, s, r, list, compact, news, trouble, scroller, reduced, policySig, onPick, onCramped }: MapProps) {
   const mode: Mode = list ? "v" : "h";
   const u = mode === "h" ? Math.max(1, Math.min(1.8, Math.min(W / (BASE_W * r), H / (BASE_H * r)))) : 1;
   const anim = useRef(new Anim()).current;
@@ -169,12 +212,34 @@ function StoryMap({ story, T, W, H, s, r, list, news, trouble, scroller, reduced
   const intro = useRef(true);
   const dots = useRef<Dot[]>([]);
   const [, setFrame] = useState(0);
+  // The cause whose roads stand out (hover or focus on its card); the rest dim.
+  const [spot, setSpot] = useState<string | null>(null);
+
+  // The header, the source note and the strip, as drawn (unscaled px): the map takes what they leave.
+  const headRef = useRef<HTMLElement>(null);
+  const noteRef = useRef<HTMLParagraphElement>(null);
+  const stripRef = useRef<HTMLElement>(null);
+  const [meas, setMeas] = useState({ head: 0, note: 0, strip: 0 });
+  useLayoutEffect(() => {
+    if (mode !== "h") return;
+    const read = () => {
+      const head = headRef.current?.offsetHeight ?? 0;
+      const note = noteRef.current?.offsetHeight ?? 0;
+      const strip = stripRef.current?.offsetHeight ?? 0;
+      setMeas((m) => (m.head === head && m.note === note && m.strip === strip ? m : { head, note, strip }));
+    };
+    read();
+    // A size change re-lays the map before the frame is painted, so nothing shows in its old place for a frame.
+    const ro = new ResizeObserver(() => flushSync(read));
+    for (const el of [headRef.current, noteRef.current, stripRef.current]) if (el) ro.observe(el);
+    return () => ro.disconnect();
+  }, [mode, compact]);
 
   const causeById = useMemo(() => new globalThis.Map(story.causes.map((c) => [c.id, c])), [story.causes]);
   const isLever = (id: string) => causeById.get(id)?.kind === "lever";
 
   // What to draw at T, and how wide: one scale for every quarter, so arrows grow as effects build.
-  const { drawn, hidden } = drawnAt(story, T, mode === "h" ? MAX_ARROWS : MAX_ARROWS_V);
+  const base = drawnAt(story, T, mode === "h" ? MAX_ARROWS : MAX_ARROWS_V);
   const maxT = (mode === "h" ? 30 : 18) * u;
   const k = maxT / maxPush(story);
   const thick = (n: number) => Math.max(2.5, Math.min(maxT, n * k));
@@ -184,70 +249,185 @@ function StoryMap({ story, T, W, H, s, r, list, news, trouble, scroller, reduced
     const kindRank = { shock: 0, history: 1, momentum: 2, lever: 3 } as const;
     return [...story.causes].sort((a, b) => kindRank[a.kind] - kindRank[b.kind]).map((c) => c.id);
   }, [story.causes]);
-  const usedCauses = causeOrder.filter((id) => drawn.some((d) => d.flow.cause === id));
-  const usedChannels = CHANNEL_ORDER.filter((id) => drawn.some((d) => d.flow.channel === id));
   const outcomes = story.outcomes.map((o) => o.metric);
-  const lflows: LFlow[] = drawn.map((d) => ({ id: d.flow.id, cause: d.flow.cause, channel: d.flow.channel, metric: d.flow.metric, thick: thick(d.n) }));
-  const headH = mode === "h" ? HEAD_H + (news.length ? NEWS_H : 0) : 74;
+  const headGuess = mode === "h" ? HEAD_H + (news.length ? NEWS_H : 0) : 74;
+  const headH = mode === "h" && meas.head ? Math.max(headGuess - 8, meas.head + 12) : headGuess;
   const mapTop = headH + (mode === "h" ? COLHEAD_H : 18);
-  const mapH = Math.max(220, H - mapTop - NOTE_H - STRIP_H - 8);
+  const stripH = meas.strip || (compact ? STRIP_H_COMPACT : STRIP_H);
+  const noteH = compact ? 0 : meas.note || NOTE_H;
+  const mapH = Math.max(160, H - mapTop - noteH - stripH - 10);
   const newsShocks = new Set(news.filter((e) => e.kind === "shock").map((e) => e.title));
-  // A shock card whose description names a goal ("Inflation +2 pp") also gives its total on that goal, with knock-ons (all its roads).
-  const knockOf = (c: Cause) => {
-    if (!c.names || !drawn.some((x) => x.flow.cause === c.id && x.flow.metric === c.names)) return null;
-    const v = story.flows.filter((f) => f.cause === c.id && f.metric === c.names).reduce((a, f) => a + (f.values[T] ?? 0), 0);
-    return `${signed(v, 1)}${unitWord(c.names)} with knock-ons`;
-  };
-  // Some arrow on show takes a road the drivers cannot vouch for: the column head and the note say so.
-  const rough = drawn.some((d) => d.flow.approx);
   // Card heights from their text, so no line runs out of its card (Figtree: about half an em a character).
-  const col = columns(W, u);
+  const col = columns(W, u, compact);
   const px = 14 * r;
   const lineH = 17.5 * r;
   const lines = (text: string, avail: number, bold = false) => Math.max(1, Math.ceil((text.length * px * (bold ? 0.56 : 0.5)) / Math.max(40, avail)));
+
+  // ---- Fitting: what is drawn, folded until every card sits above the note and the strip ----
+  let drawn: Drawn[] = base.drawn;
+  let hidden = base.hidden;
+  const drop = (gone: (d: Drawn) => boolean) => {
+    hidden += drawn.filter(gone).length;
+    drawn = drawn.filter((d) => !gone(d));
+  };
+  // A road's rank: the player's first, then by push.
+  const chanRank = (id: ChannelId) => drawn.filter((d) => d.flow.channel === id).reduce((a, d) => a + d.n + (isLever(d.flow.cause) ? 1000 : 0), 0);
+  const usedChans = () => CHANNEL_ORDER.filter((id) => drawn.some((d) => d.flow.channel === id));
+  if (mode === "h" && compact) {
+    const keepChans = new Set(usedChans().sort((a, b) => chanRank(b) - chanRank(a)).slice(0, COMPACT_CHANNELS));
+    drop((d) => !keepChans.has(d.flow.channel));
+  }
+  // A shock card whose description names a goal ("Inflation +2 pp") also gives its total on that goal, with knock-ons (all its roads).
+  // (Its tag at the goal gives the same total, with the card's icon: in a short slot the card can do without it.)
+  let knockless = false;
+  const knockOf = (c: Cause) => {
+    if (knockless || !c.names || !drawn.some((x) => x.flow.cause === c.id && x.flow.metric === c.names)) return null;
+    return `${signed(causeTotal(story, c.id, c.names, T), 1)}${unitWord(c.names)} with knock-ons`;
+  };
+  let fit = 0; // goal cards: 0 every line; 1 without the goal line; 2 also without "without your moves"
+  let chanFit = compact ? 1 : 0; // channel cards: 1 without their second line (always in a compact map)
+  let moreInHead = false; // "and N more pushes" moved into the column head
+  let folded = false; // the player's levers folded into one "Your moves (N)" card
   const minH = (id: string) => {
     if (id.startsWith("c:")) {
       const c = causeById.get(id.slice(2));
       if (!c) return 0;
-      const avail = col.causeW - 3 - 19 * r - 32 * r - 8 * r;
+      if (folded && c.kind === "lever") return 8 * r + lines(leverName(c), col.causeW - 3 - 19 * r - 24 * r - 8 * r, true) * lineH;
+      // Padding, the icon and the gap beside it (smaller in a compact map).
+      const avail = col.causeW - 3 - (compact ? 14.4 + 25.6 + 6.4 : 19 + 32 + 8) * r;
       let n = lines(c.title, avail, true) + lines(c.sub + (c.note ? ` · ${c.note}` : "") + (knockOf(c) ? " → +2.4 pp with knock-ons" : ""), avail);
-      if (c.kind === "lever" || c.from) n += 1;
-      return 15 * r + n * lineH;
+      const em = causeEm(c, newsShocks.has(c.title), compact);
+      if (em) n += lines(em, avail, true);
+      return (compact ? 13 : 15) * r + n * lineH;
     }
     if (id.startsWith("h:")) {
       const ch = CHANNELS.find((x) => x.id === id.slice(2));
       if (!ch) return 0;
-      const avail = col.chanW - 3 - 16 * r - 26 * r - 6 * r;
-      return 13 * r + (lines(ch.title, avail, true) + lines(ch.sub, avail)) * lineH;
+      const avail = col.chanW - 3 - (compact ? 13.6 + 22.4 + 4.8 : 16 + 26 + 6) * r;
+      return 13 * r + (lines(ch.title, avail, true) + (chanFit ? 0 : lines(ch.sub, avail))) * lineH;
     }
     const o = story.outcomes.find((x) => x.metric === id.slice(2));
     if (!o) return 0;
     const avail = col.outW - 3 - 22 * r;
-    const n = 1 + (o.ghost && fit < 2 ? 1 : 0) + (fit < 1 ? lines(o.goal ?? "not a mission goal: one to watch", avail) : 0);
-    return 18 * r + 27 * r + 32 * r + n * lineH;
+    const n = 1 + (fit < 2 ? 1 : 0) + (fit < 1 ? lines(o.goal ?? "not a mission goal: one to watch", avail) : 0);
+    if (!compact) return 18 * r + 27 * r + 32 * r + n * lineH;
+    // Compact: the name and the figure share a row; when both do not fit ("Public debt 62.5%") the figure takes a row of its own.
+    const head = (22.4 + 5.6 + o.label.length * 0.46 * 14.4 + 5.6 + o.path[T].toFixed(o.digits).length * 0.58 * 21.6 + (o.unit === "%" ? 12 : 26)) * r;
+    return 15 * r + 24 * r + (head > col.outW - 3 - 17.6 * r ? 24 * r : 0) + n * lineH;
   };
-  // A short slot: goal cards drop their goal line (the goals column beside says it), then the "without your
-  // moves" line; the "more pushes" note moves into the column head. Nothing runs under the strip.
-  let fit = 0;
-  let fold = false;
-  const run = () => layout({ mode, W, top: mapTop, H: mapH, causes: hidden > 0 && mode === "h" && !fold ? [...usedCauses, "__more"] : usedCauses, channels: usedChannels, outcomes, flows: lflows, u, minH });
-  let lay = run();
+  // One tag per cause on each goal, on its widest road; the tag gives the cause's whole push there.
+  const tagged = () => {
+    const best = new globalThis.Map<string, Drawn>();
+    for (const d of drawn) {
+      const key = `${d.flow.cause}|${d.flow.metric}`;
+      const b = best.get(key);
+      if (!b || d.n > b.n) best.set(key, d);
+    }
+    return new Set([...best.values()].map((d) => d.flow.id));
+  };
+  const usedCauses = () => causeOrder.filter((id) => drawn.some((d) => d.flow.cause === id));
+  const plan = () => {
+    const causes = usedCauses();
+    const chans = usedChans();
+    const tags = tagged();
+    const lflows: LFlow[] = drawn.map((d) => ({ id: d.flow.id, cause: d.flow.cause, channel: d.flow.channel, metric: d.flow.metric, thick: thick(d.n), tag: tags.has(d.flow.id) }));
+    const more = hidden > 0 && mode === "h" && !moreInHead;
+    const levers = causes.filter(isLever);
+    const lay = layout({
+      mode,
+      W,
+      top: mapTop,
+      H: mapH,
+      causes: more ? [...causes, "__more"] : causes,
+      channels: chans,
+      outcomes,
+      flows: lflows,
+      u,
+      minH,
+      compact,
+      group: folded ? { ids: levers, head: 10 * r + lineH, foot: 8 * r, line: 26 * r } : undefined,
+      base: compact ? { cause: 52, chan: 40, goal: 60 } : undefined,
+    });
+    return { lay, causes, chans, tags, more };
+  };
+  let p = plan();
   // (The "more pushes" note is drawn as a 30 px line in the middle of its slot.)
-  const over = (prefix: string) => [...lay.nodes].some(([id, b]) => id.startsWith(prefix) && (id === "c:__more" ? b.y + b.h / 2 + 15 : b.y + b.h) > mapTop + mapH + 1);
-  while (mode === "h" && fit < 2 && over("o:")) {
-    fit += 1;
-    lay = run();
+  const over = (prefix: string) => [...p.lay.nodes].some(([id, b]) => id.startsWith(prefix) && (id === "c:__more" ? b.y + b.h / 2 + 15 : b.y + b.h) > mapTop + mapH + 1);
+  const cards = () => p.causes.filter((id) => !folded || !isLever(id)).length + (folded ? 1 : 0);
+  let cramped = false;
+  if (mode === "h") {
+    // Goal cards drop their goal line (the goals column beside says it), then "without your moves".
+    while (fit < 2 && over("o:")) {
+      fit += 1;
+      p = plan();
+    }
+    // Channel cards drop their second line, then the smallest roads join "and N more pushes".
+    if (over("h:")) {
+      chanFit = 1;
+      p = plan();
+    }
+    while (over("h:") && p.chans.length > 1) {
+      const last = [...p.chans].sort((a, b) => chanRank(a) - chanRank(b))[0];
+      drop((d) => d.flow.channel === last);
+      p = plan();
+    }
+    // Causes: the "more pushes" note into the column head, and a shock card's knock-on total left to its tag (the
+    // cards at their least height); then (a) the player's levers into one card; then (b) the smallest pushes from
+    // outside the player's hands into "and N more pushes"; (c) the list if fewer than two cards fit.
+    if (hidden > 0 && over("c:")) {
+      moreInHead = true;
+      p = plan();
+    }
+    if (over("c:") && p.causes.some((id) => knockOf(causeById.get(id)!) !== null)) {
+      knockless = true;
+      p = plan();
+    }
+    if (over("c:") && p.causes.filter(isLever).length >= 2) {
+      folded = true;
+      p = plan();
+    }
+    const causeRank = (id: string) => drawn.filter((d) => d.flow.cause === id).reduce((a, d) => a + d.n, 0);
+    while (over("c:") && cards() > 2) {
+      const outside = p.causes.filter((id) => !isLever(id));
+      if (!outside.length) break;
+      const last = [...outside].sort((a, b) => causeRank(a) - causeRank(b))[0];
+      drop((d) => d.flow.cause === last);
+      moreInHead = true;
+      p = plan();
+    }
+    cramped = over("c:");
+    // Goals still too tall for their tags: the smallest push from outside the player's hands on a goal (one
+    // cause's roads there, never a goal's biggest) joins "and N more pushes", a cause with other pushes first.
+    while (over("o:")) {
+      const biggest = new Set(story.outcomes.map((o) => drawn.filter((d) => d.flow.metric === o.metric).sort((a, b) => b.n - a.n)[0]?.flow.id));
+      const pairs = new globalThis.Map<string, Drawn[]>();
+      for (const d of drawn) if (!isLever(d.flow.cause)) pairs.set(`${d.flow.cause}|${d.flow.metric}`, [...(pairs.get(`${d.flow.cause}|${d.flow.metric}`) ?? []), d]);
+      const size = (l: Drawn[]) => l.reduce((a, d) => a + d.n, 0);
+      const elsewhere = (l: Drawn[]) => drawn.some((d) => d.flow.cause === l[0].flow.cause && d.flow.metric !== l[0].flow.metric);
+      const cands = [...pairs.values()].filter((l) => !l.some((d) => biggest.has(d.flow.id))).sort((a, b) => Number(elsewhere(b)) - Number(elsewhere(a)) || size(a) - size(b));
+      if (!cands.length) break;
+      const gone = new Set(cands[0]);
+      drop((d) => gone.has(d));
+      moreInHead = true;
+      p = plan();
+    }
   }
-  if (mode === "h" && hidden > 0 && over("c:")) {
-    fold = true;
-    lay = run();
-  }
-  const causeIds = hidden > 0 && mode === "h" && !fold ? [...usedCauses, "__more"] : usedCauses;
-  if (hidden > 0 && mode === "h") {
+  useEffect(() => {
+    if (cramped) onCramped();
+  }, [cramped, onCramped]);
+  const { lay, causes: usedCauseIds, chans: usedChannels, tags } = p;
+  const causeIds = p.more ? [...usedCauseIds, "__more"] : usedCauseIds;
+  if (p.more) {
     // The "more pushes" note is a short line, not a full card.
     const more = lay.nodes.get("c:__more");
     if (more) lay.nodes.set("c:__more", { ...more, y: more.y + more.h / 2 - 15, h: 30 });
   }
+  // Some arrow on show takes a road the drivers cannot vouch for: the column head says so. The source note
+  // and the arrow-width note read the arrows before any folding: they are measured, and the folding
+  // reads the room they leave, so they must not depend on it (or the map would flip between two layouts).
+  const rough = drawn.some((d) => d.flow.approx);
+  const roughNote = base.drawn.some((d) => d.flow.approx);
+  const widths = widthNote([...new Set(base.drawn.map((d) => d.flow.metric))]);
 
   // ---- Animation targets ---------------------------------------------------
   const prevNodes = useRef(new globalThis.Map<string, Box>());
@@ -260,7 +440,7 @@ function StoryMap({ story, T, W, H, s, r, list, news, trouble, scroller, reduced
   const delayOf = (id: string) => {
     // After the entrance, a new card waits a moment for its neighbours to make room.
     if (!intro.current) return 220;
-    const i = order.indexOf(id);
+    const i = order.indexOf(id === "c:__group" ? "c:" + (usedCauseIds.find(isLever) ?? "") : id);
     return id.startsWith("c:") ? 120 + i * 140 : id.startsWith("h:") ? 520 + i * 60 : 700 + i * 60;
   };
   for (const [id, b] of lay.nodes) {
@@ -287,11 +467,11 @@ function StoryMap({ story, T, W, H, s, r, list, news, trouble, scroller, reduced
     const o = story.outcomes.find((x) => x.metric === d.flow.metric)!;
     const tone = Math.sign(d.value) === o.good(T) ? "good" : "bad";
     const ports = lay.ports.get(d.flow.id)!;
-    shownNow.set(d.flow.id, { shown: { flow: d.flow, value: d.value, tone, lever: isLever(d.flow.cause) }, ports });
+    shownNow.set(d.flow.id, { shown: { flow: d.flow, value: d.value, tone, lever: isLever(d.flow.cause), tag: tags.has(d.flow.id) }, ports });
     const fid = `f:${d.flow.id}`;
     const delay = intro.current ? delayOf("c:" + d.flow.cause) + 380 : 0;
     anim.set(`${fid}:t`, thick(d.n), { from: 0, delay });
-    ports.forEach((p, i) => anim.set(`${fid}:p${i}`, p));
+    ports.forEach((pt, i) => anim.set(`${fid}:p${i}`, pt));
     anim.set(`${fid}:d`, 1, { from: reduced ? 1 : 0, delay, rate: 1.4 });
     prevFlows.current.set(d.flow.id, shownNow.get(d.flow.id)!);
   }
@@ -309,7 +489,10 @@ function StoryMap({ story, T, W, H, s, r, list, news, trouble, scroller, reduced
   // so they always agree while it counts. The arrow tags show their final figure (no count of their own).
   for (const o of story.outcomes) {
     anim.set(`v:${o.metric}`, o.path[T], { from: o.path[Math.max(0, story.first - 1)], delay: intro.current ? 900 : 0 });
-    if (o.ghost) anim.set(`g:${o.metric}`, o.ghost[T], { from: o.ghost[Math.max(0, story.first - 1)], delay: intro.current ? 900 : 0 });
+    // "Without your moves" counts up only in the entrance; after a move it appears at its own value, so it never
+    // seems to react to the player's move.
+    if (o.ghost) anim.set(`g:${o.metric}`, o.ghost[T], intro.current ? { from: o.ghost[Math.max(0, story.first - 1)], delay: 900 } : undefined);
+    else anim.drop(`g:${o.metric}`);
   }
   // Time strip bars: the player's own effect by quarter, each row on its own scale.
   const cells: number[] = [];
@@ -368,9 +551,9 @@ function StoryMap({ story, T, W, H, s, r, list, news, trouble, scroller, reduced
     const C = box("c:" + sh.flow.cause);
     const M = box("h:" + sh.flow.channel);
     const O = box("o:" + sh.flow.metric);
-    const p = [0, 1, 2, 3].map((i) => anim.get(`f:${id}:p${i}`));
-    if (mode === "h") return [{ x: C.x + C.w, y: C.y + p[0] }, { x: M.x, y: M.y + p[1] }, { x: M.x + M.w, y: M.y + p[2] }, { x: O.x, y: O.y + p[3] }];
-    return [{ x: C.x + p[0], y: C.y + C.h }, { x: M.x + p[1], y: M.y }, { x: M.x + p[2], y: M.y + M.h }, { x: O.x + p[3], y: O.y }];
+    const pt = [0, 1, 2, 3].map((i) => anim.get(`f:${id}:p${i}`));
+    if (mode === "h") return [{ x: C.x + C.w, y: C.y + pt[0] }, { x: M.x, y: M.y + pt[1] }, { x: M.x + M.w, y: M.y + pt[2] }, { x: O.x, y: O.y + pt[3] }];
+    return [{ x: C.x + pt[0], y: C.y + C.h }, { x: M.x + pt[1], y: M.y }, { x: M.x + pt[2], y: M.y + M.h }, { x: O.x + pt[3], y: O.y }];
   };
   const curve = (a: Pt, b: Pt) => (mode === "h" ? [a, { x: (a.x + b.x) / 2, y: a.y }, { x: (a.x + b.x) / 2, y: b.y }, b] : [a, { x: a.x, y: (a.y + b.y) / 2 }, { x: b.x, y: (a.y + b.y) / 2 }, b]);
   const pathOf = (g: Pt[]) => {
@@ -423,23 +606,59 @@ function StoryMap({ story, T, W, H, s, r, list, news, trouble, scroller, reduced
     );
   }
 
+  // A cause's pushes in words, for its card's label: "inflation −0.07 pp, helps (through spending −0.05, expectations −0.02)".
+  const pushesOf = (c: Cause) =>
+    story.outcomes
+      .map((o) => {
+        const fl = story.flows.filter((x) => x.cause === c.id && x.metric === o.metric);
+        const v = causeTotal(story, c.id, o.metric, T);
+        if (!fl.length || Math.abs(v) < 0.005) return null;
+        const roadsText = fl.length > 1 ? ` (${fl.map((x) => `through ${CHANNELS.find((ch) => ch.id === x.channel)?.title.toLowerCase()} ${pushSize(x.values[T] ?? 0, o.metric)}`).join(", ")})` : ` through ${CHANNELS.find((ch) => ch.id === fl[0].channel)?.title.toLowerCase()}`;
+        return `${o.label.toLowerCase()} ${pushSize(v, o.metric)}${unitWord(o.metric) === " pp" ? " pp" : ""}, ${Math.sign(v) === o.good(T) ? "helps" : "hurts"}${roadsText}`;
+      })
+      .filter(Boolean)
+      .join("; ");
+  const spotProps = (id: string) => ({
+    onMouseEnter: () => setSpot(id),
+    onMouseLeave: () => setSpot((x) => (x === id ? null : x)),
+    onFocus: () => setSpot(id),
+    onBlur: () => setSpot((x) => (x === id ? null : x)),
+  });
+  const levers = usedCauseIds.filter(isLever);
+  const shownSpot = spot && usedCauseIds.includes(spot) ? spot : null;
+  const dim = (cause: string) => (shownSpot && shownSpot !== cause ? 0.2 : 1);
+  const hint = (
+    <>
+      Wider arrow, bigger push. <b>▲</b> up, <b>▼</b> down, in pp; <Key tone="good" /> or <Key tone="bad" /> your goal.
+    </>
+  );
+  const source = roughNote ? (
+    <>
+      Sizes and roads come from the model; dashed roads (<RoughMark />) are rough.
+    </>
+  ) : (
+    "Sizes and roads come from the model."
+  );
+
   return (
     <div
-      className="st-map is-h"
+      className={`st-map is-h${compact ? " is-compact" : ""}${shownSpot ? " has-spot" : ""}${reduced ? " is-reduced" : ""}`}
       style={{ width: W, height: H, transform: s !== 1 ? `scale(${s})` : undefined, ["--st-s" as string]: s, ["--st-u" as string]: u }}
     >
-      <header className="st-head">
+      <header className="st-head" ref={headRef}>
         <p className="st-title">
-          What moves your goals <span className="st-title-q">· {quarter}, {when}</span>
+          What moves your goals <span className="st-title-q">· {quarter}, {compact && ahead === 0 ? "deciding" : when}</span>
         </p>
         <p className="st-hint">
-          Wider arrow, bigger push. <b>▲</b> up, <b>▼</b> down, in pp; <Key tone="good" /> or <Key tone="bad" /> your goal.
+          {hint}
+          {/* A compact map: where sizes and roads come from, in the header (the column head's "--- roughly" keys the dashed roads). */}
+          {compact ? ` Sizes and roads come from the model.${widths ? ` ${widths}` : ""}` : null}
         </p>
         <NewsLine news={news} label={story.labels[story.clock] ?? ""} />
       </header>
 
       <div className="st-colheads" aria-hidden="true" style={{ top: headH }}>
-        <span style={{ left: col.causeX, width: col.causeW }}>What pushed{fold && hidden ? ` (+${hidden} more)` : ""}</span>
+        <span style={{ left: col.causeX, width: col.causeW }}>What pushed{moreInHead && hidden ? ` (+${hidden} more)` : ""}</span>
         <span style={{ left: col.chanX - 24, width: col.chanW + 48, textAlign: "center" }}>
           Through
           {rough ? (
@@ -451,8 +670,8 @@ function StoryMap({ story, T, W, H, s, r, list, news, trouble, scroller, reduced
         <span style={{ left: col.outX, width: col.outW }}>Where it lands, {quarter}</span>
       </div>
 
-      <div className="st-canvas" aria-hidden="true">
-        <svg className="st-svg" width={W} height={H}>
+      <div className="st-canvas">
+        <svg className="st-svg" width={W} height={H} aria-hidden="true">
           {flowsShown.map(([id, { shown }]) => {
             const t = anim.get(`f:${id}:t`);
             if (t < 0.2) return null;
@@ -460,8 +679,11 @@ function StoryMap({ story, T, W, H, s, r, list, news, trouble, scroller, reduced
             const draw = anim.get(`f:${id}:d`, 1);
             // Drawing in: a dash that reveals the arrow. A rough road: dashed once drawn.
             const dash = draw < 1 ? { pathLength: 1, strokeDasharray: "1 1", strokeDashoffset: 1 - draw } : shown.flow.approx ? { strokeDasharray: `${f(Math.max(7, t * 0.8))} ${f(Math.max(5, t * 0.45))}` } : {};
+            const c = causeById.get(shown.flow.cause);
+            const road = `${c?.title ?? shown.flow.cause} through ${CHANNELS.find((x) => x.id === shown.flow.channel)?.title.toLowerCase()}${shown.flow.approx ? " (roughly)" : ""}: ${metricLabel(shown.flow.metric).toLowerCase()} ${pushSize(shown.value, shown.flow.metric)}${unitWord(shown.flow.metric) === " pp" ? " pp" : ""} on this road`;
             return (
-              <g key={id} className={`st-flow is-${shown.tone}${shown.lever ? " is-lever" : ""}${shown.flow.approx ? " is-rough" : ""}`}>
+              <g key={id} className={`st-flow is-${shown.tone}${shown.lever ? " is-lever" : ""}${shown.flow.approx ? " is-rough" : ""}`} opacity={dim(shown.flow.cause)}>
+                <title>{road}</title>
                 <path d={d} className="st-flow-edge" strokeWidth={t + 3} {...(draw < 1 ? dash : {})} />
                 <path d={d} className="st-flow-body" strokeWidth={t} {...dash} />
               </g>
@@ -473,10 +695,10 @@ function StoryMap({ story, T, W, H, s, r, list, news, trouble, scroller, reduced
             const at = (now - dot.t0) / dot.dur;
             if (at < 0 || at > 1) return null;
             const e = at < 0.5 ? 2 * at * at : 1 - Math.pow(-2 * at + 2, 2) / 2;
-            const p = pointAt(geom(dot.flow, rec.shown), e);
+            const pt = pointAt(geom(dot.flow, rec.shown), e);
             // Grows out of the lever card and shrinks into the goal card, so it never pops.
             const rad = Math.max(5, anim.get(`f:${dot.flow}:t`) / 2 + 2.5) * Math.min(1, at / 0.08, (1 - at) / 0.12);
-            return <circle key={`${dot.flow}-${i}`} className={`st-dot is-${rec.shown.tone}`} cx={p.x} cy={p.y} r={rad} />;
+            return <circle key={`${dot.flow}-${i}`} className={`st-dot is-${rec.shown.tone}`} cx={pt.x} cy={pt.y} r={rad} opacity={dim(rec.shown.flow.cause)} />;
           })}
         </svg>
 
@@ -486,58 +708,89 @@ function StoryMap({ story, T, W, H, s, r, list, news, trouble, scroller, reduced
           const style = { left: b.x, top: b.y, width: b.w, height: b.h, opacity: o };
           if (id === "c:__more")
             return (
-              <div key={id} className="st-more" style={style}>
+              <div key={id} className="st-more" style={style} aria-hidden="true">
                 and {moreCount} more push{moreCount === 1 ? "" : "es"}
+              </div>
+            );
+          if (id === "c:__group")
+            return (
+              <div key={id} className="st-card st-cause is-lever st-group" style={style} aria-hidden="true">
+                <em className="st-yours">Your moves ({levers.length})</em>
               </div>
             );
           if (id.startsWith("c:")) {
             const c = causeById.get(id.slice(2));
-            return c ? <CauseCard key={id} c={c} style={style} isNews={newsShocks.has(c.title)} knock={knockOf(c)} /> : null;
+            if (!c) return null;
+            const label = `${c.kind === "lever" ? "Your move: " : ""}${c.title}${c.sub ? `, ${c.sub}` : ""}. ${pushesOf(c) || "No push on your goals yet"}.`;
+            if (folded && c.kind === "lever")
+              return (
+                <div key={id} className={`st-yline${shownSpot === c.id ? " is-spot" : ""}`} style={style} tabIndex={0} role="group" aria-label={label} title={`${c.title}: ${c.sub}`} {...spotProps(c.id)}>
+                  <span className="st-blob">
+                    <Icon id={c.icon} />
+                  </span>
+                  <b>{leverName(c)}</b>
+                </div>
+              );
+            return <CauseCard key={id} c={c} style={style} isNews={newsShocks.has(c.title)} knock={knockOf(c)} label={label} spot={shownSpot === c.id} compact={compact} {...spotProps(c.id)} />;
           }
           if (id.startsWith("h:")) {
             const ch = CHANNELS.find((x) => x.id === (id.slice(2) as ChannelId))!;
             return (
-              <div key={id} className="st-card st-chan" style={style}>
+              <div key={id} className="st-card st-chan" style={style} aria-hidden="true">
                 <span className="st-blob">
                   <Icon id={ch.icon} />
                 </span>
                 <span className="st-text">
                   <b>{ch.title}</b>
-                  <small>{ch.sub}</small>
+                  {chanFit ? null : <small>{ch.sub}</small>}
                 </span>
               </div>
             );
           }
           const oc = story.outcomes.find((x) => x.metric === (id.slice(2) as MetricId));
-          return oc ? <GoalCard key={id} o={oc} anim={anim} T={T} story={story} style={style} fit={fit} /> : null;
+          return oc ? <GoalCard key={id} o={oc} anim={anim} T={T} story={story} style={style} fit={fit} compact={compact} /> : null;
         })}
 
         {flowsShown.map(([id, { shown }]) => {
           const t = anim.get(`f:${id}:t`);
           const draw = anim.get(`f:${id}:d`, 1);
-          if (t < 1 || draw < 0.9) return null;
-          const c = geom(id, shown)[3];
+          if (!shown.tag || t < 1 || draw < 0.9) return null;
+          const c = causeById.get(shown.flow.cause);
+          const o = story.outcomes.find((x) => x.metric === shown.flow.metric)!;
+          const total = causeTotal(story, shown.flow.cause, shown.flow.metric, T);
+          const tone = Math.sign(total) === o.good(T) ? "good" : "bad";
+          const end = geom(id, shown)[3];
+          const label = `${c?.title ?? shown.flow.cause}: ${o.label.toLowerCase()} ${pushSize(total, o.metric)}${unitWord(o.metric) === " pp" ? " pp" : ""}, ${tone === "good" ? "helps" : "hurts"}`;
           return (
-            <span key={id} className={`st-tag is-${shown.tone}`} style={{ left: c.x - 5, top: c.y, opacity: Math.min(1, (draw - 0.9) * 10) }}>
-              {pushText(shown.value, shown.flow.metric)}
+            <span
+              key={id}
+              className={`st-tag is-${tone}${shownSpot === shown.flow.cause ? " is-spot" : ""}`}
+              style={{ left: end.x + 8, top: end.y, opacity: Math.min(1, (draw - 0.9) * 10) * dim(shown.flow.cause) }}
+              role="img"
+              aria-label={label}
+              title={label}
+            >
+              {c ? (
+                <span className="st-tag-src" aria-hidden="true">
+                  <Icon id={c.icon} />
+                </span>
+              ) : null}
+              {pushText(total, shown.flow.metric)}
             </span>
           );
         })}
       </div>
 
-      <p className="st-note" style={{ top: H - STRIP_H - NOTE_H - 2, height: NOTE_H }}>
-        <span>
-          {rough ? (
-            <>
-              Sizes and roads come from the model; dashed roads (<RoughMark /> roughly) are approximate.
-            </>
-          ) : (
-            "Sizes and roads come from the model."
-          )}
-        </span>
-      </p>
+      {compact ? null : (
+        <p className="st-note" ref={noteRef} style={{ bottom: stripH + 2 }}>
+          <span>
+            {source}
+            {widths ? ` ${widths}` : ""}
+          </span>
+        </p>
+      )}
 
-      <Strip story={story} T={T} cells={cells} anim={anim} onPick={onPick} top={H - STRIP_H} sentence />
+      <Strip story={story} T={T} cells={cells} anim={anim} onPick={onPick} positioned sentence compact={compact} stripRef={stripRef} />
 
       <Summary story={story} T={T} drawn={drawn.map((d) => d.flow)} causeById={causeById} hidden={hidden} />
     </div>
@@ -688,7 +941,7 @@ function ListMap({
           </p>
         ) : null}
       </div>
-      <Strip story={story} T={T} cells={cells} anim={anim} onPick={onPick} top={null} sentence={false} />
+      <Strip story={story} T={T} cells={cells} anim={anim} onPick={onPick} positioned={false} sentence={false} compact={false} />
       <div ref={footRef} className={`st-foot${more ? " has-more" : ""}${below.length ? " has-cue" : ""}`}>
         {below.length ? (
           <button type="button" className="st-foot-more" onClick={toNext}>
@@ -725,14 +978,31 @@ function NewsLine({ news, label }: { news: SimEvent[]; label: string }) {
   );
 }
 
-function CauseCard({ c, style, isNews, knock }: { c: Cause; style: React.CSSProperties; isNews: boolean; knock: string | null }) {
+type SpotHandlers = { onMouseEnter: () => void; onMouseLeave: () => void; onFocus: () => void; onBlur: () => void };
+
+/**
+ * The small line over a cause's name: whose it is, or when it started. A compact map drops it: the
+ * player's own cards say "Your …" in their names and wear a dark border, the news line under the
+ * header names the quarter's shock, and a shock's name says what it is.
+ */
+function causeEm(c: Cause, isNews: boolean, compact: boolean): string | null {
+  if (compact) return null;
+  if (c.kind === "lever") return "Your move";
+  if (isNews) return "News this quarter";
+  if (c.from) return `Shock, from ${c.from}`;
+  return null;
+}
+
+/** A cause's card: focusable, so hovering or focusing it picks out its roads (the others dim). */
+function CauseCard({ c, style, isNews, knock, label, spot, compact, ...on }: { c: Cause; style: React.CSSProperties; isNews: boolean; knock: string | null; label: string; spot: boolean; compact: boolean } & SpotHandlers) {
+  const em = causeEm(c, isNews, compact);
   return (
-    <div className={`st-card st-cause is-${c.kind}`} style={style}>
-      <span className="st-blob">
+    <div className={`st-card st-cause is-${c.kind}${spot ? " is-spot" : ""}`} style={style} tabIndex={0} role="group" aria-label={label} {...on}>
+      <span className="st-blob" aria-hidden="true">
         <Icon id={c.icon} />
       </span>
-      <span className="st-text">
-        {c.kind === "lever" ? <em className="st-yours">Your move</em> : isNews ? <em className="st-yours is-news">News this quarter</em> : c.from ? <em className="st-yours">Shock, from {c.from}</em> : null}
+      <span className="st-text" aria-hidden="true">
+        {em ? <em className={`st-yours${isNews && c.kind !== "lever" ? " is-news" : ""}`}>{em}</em> : null}
         <b>{c.title}</b>
         <small>
           {c.sub}
@@ -755,28 +1025,35 @@ function sinceText(o: Outcome, v: number, from: string) {
   return s === (0).toFixed(o.digits) ? `no change since ${from}` : `${delta > 0 ? "▲" : "▼"} ${s} since ${from}`;
 }
 
-/** `fit`: 0 shows every line; 1 drops the goal line; 2 also drops "without your moves" (short slots). */
-function GoalCard({ o, anim, T, story, style, fit }: { o: Outcome; anim: Anim; T: number; story: Story; style: React.CSSProperties; fit: number }) {
+/**
+ * `fit`: 0 shows every line; 1 drops the goal line; 2 also drops "without your moves" (short slots).
+ * "Without your moves" always has its line, "same" before any move, so the column never jumps when it appears.
+ * Compact: the figure sits beside the goal's name.
+ */
+function GoalCard({ o, anim, T, story, style, fit, compact }: { o: Outcome; anim: Anim; T: number; story: Story; style: React.CSSProperties; fit: number; compact: boolean }) {
   const v = anim.get(`v:${o.metric}`, o.path[T]);
   const unit = unitOf(o);
   const g = o.ghost ? anim.get(`g:${o.metric}`, o.ghost[T]) : null;
+  const value = (
+    <span className="st-goal-value">
+      {v.toFixed(o.digits)}
+      <small>{unit}</small>
+    </span>
+  );
   return (
-    <div className={`st-card st-goal${o.goal ? "" : " is-watch"}`} style={style}>
+    <div className={`st-card st-goal${o.goal ? "" : " is-watch"}${compact ? " is-compact" : ""}`} style={style} aria-hidden="true">
       <span className="st-goal-head">
         <span className="st-blob">
           <Icon id={o.metric} />
         </span>
         <b>{o.label}</b>
+        {compact ? value : null}
       </span>
-      <span className="st-goal-value">
-        {v.toFixed(o.digits)}
-        <small>{unit}</small>
-      </span>
+      {compact ? null : value}
       <span className="st-goal-line">{sinceText(o, v, story.labels[0])}</span>
-      {g !== null && fit < 2 ? (
+      {fit < 2 ? (
         <span className="st-goal-line is-quiet">
-          without your moves: {g.toFixed(o.digits)}
-          {unit}
+          without your moves: {g !== null ? `${g.toFixed(o.digits)}${unit}` : "same"}
         </span>
       ) : null}
       {fit < 1 ? <span className="st-goal-line is-quiet">{o.goal ?? "not a mission goal: one to watch"}</span> : null}
@@ -786,7 +1063,8 @@ function GoalCard({ o, anim, T, story, style, fit }: { o: Outcome; anim: Anim; T
 
 /**
  * One goal in the list: a single line (the figure, its change, whether it is in trouble) and its two
- * biggest pushes, each cause's roads added together; a tap opens every push with its road and a bar.
+ * biggest pushes, the player's own first, each a cause's whole push (all its roads, drawn or not);
+ * a tap opens every push with its road and a bar.
  */
 function ListGoal({
   o,
@@ -813,8 +1091,10 @@ function ListGoal({
   const v = anim.get(`v:${o.metric}`, o.path[T]);
   const delta = Number(v.toFixed(o.digits)) - Number(o.path[0].toFixed(o.digits));
   const byCause = new globalThis.Map<string, number>();
-  for (const [, { shown }] of rows) byCause.set(shown.flow.cause, (byCause.get(shown.flow.cause) ?? 0) + shown.value);
-  const top = [...byCause.entries()].sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 2);
+  for (const [, { shown }] of rows) if (!byCause.has(shown.flow.cause)) byCause.set(shown.flow.cause, causeTotal(story, shown.flow.cause, o.metric, T));
+  const ranked = [...byCause.entries()].sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+  const lever = ranked.find(([cid]) => causeById.get(cid)?.kind === "lever");
+  const top = lever ? [lever, ...ranked.filter((x) => x !== lever)].slice(0, 2) : ranked.slice(0, 2);
   const tone = (x: number) => (Math.sign(x) === o.good(T) ? "good" : "bad");
   const id = `st-lgoal-${o.metric}`;
   return (
@@ -891,21 +1171,135 @@ function short(c: Cause): string {
   return c.title.length > 18 ? c.title.replace(/^Your /, "").replace(/^\w/, (x) => x.toUpperCase()) : c.title;
 }
 
-function Strip({ story, T, cells, anim, onPick, top, sentence }: { story: Story; T: number; cells: number[]; anim: Anim; onPick: (t: number) => void; top: number | null; sentence: boolean }) {
+type Cell = { t: number } | { hide: number[] };
+
+/**
+ * The quarter strip. Every cell shows whole or not at all: when the quarters do not fit at their
+ * least width, the ones that answer "when" stay (last, deciding, the next one or two, the
+ * sentence's midpoint, the goal date, and the one picked), and each run between them folds into a
+ * "…" cell that names the quarters it hides and shows the middle one when picked.
+ */
+function Strip({
+  story,
+  T,
+  cells,
+  anim,
+  onPick,
+  positioned,
+  sentence,
+  compact,
+  stripRef,
+}: {
+  story: Story;
+  T: number;
+  cells: number[];
+  anim: Anim;
+  onPick: (t: number) => void;
+  positioned: boolean;
+  sentence: boolean;
+  compact: boolean;
+  stripRef?: React.RefObject<HTMLElement | null>;
+}) {
   const tr = story.travel;
+  const trackRef = useRef<HTMLSpanElement>(null);
+  const [room, setRoom] = useState<{ w: number; rem: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    const read = () => {
+      const w = el.clientWidth;
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      setRoom((p) => (p && p.w === w && p.rem === rem ? p : { w, rem }));
+    };
+    read();
+    const ro = new ResizeObserver(() => flushSync(read));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const deciding = story.clock + 1;
+  const mid = Math.min(story.end, story.clock + 4);
   // One name for the quarter everywhere: "deciding" is the quarter being decided (the map's "2026Q1, the quarter you are deciding").
-  const tag = (t: number) => (t === story.clock ? "last" : t === story.clock + 1 ? "deciding" : t === story.end ? "goal date" : "");
+  const tag = (t: number) => (t === story.clock ? "last" : t === deciding ? "deciding" : t === story.end ? "goal date" : "");
+  const word = (tone: "good" | "bad") => (tone === "good" ? "helps" : "hurts");
   // Each row on its own scale; the zero line sits where the row's values need it (top: only down; bottom: only up; middle: both).
+  // A row whose every bar helps (or hurts) says so in its name; otherwise the deciding and goal-date cells say it by their number.
   const rows = tr
     ? tr.diffs.map((d) => {
+        const o = story.outcomes.find((x) => x.metric === d.metric)!;
         const vals = cells.map((t) => d.values[t] ?? 0);
         const up = vals.some((v) => v > 0.005);
         const down = vals.some((v) => v < -0.005);
-        return { d, o: story.outcomes.find((x) => x.metric === d.metric)!, zero: up && down ? 0.5 : down ? 0 : 1 };
+        const tones = new Set(cells.filter((t) => Math.abs(d.values[t] ?? 0) >= 0.005).map((t) => (Math.sign(d.values[t] ?? 0) === o.good(t) ? "good" : "bad")));
+        return { d, o, zero: up && down ? 0.5 : down ? 0 : 1, uniform: tones.size === 1 ? ([...tones][0] as "good" | "bad") : null, mixed: tones.size > 1 };
       })
     : [];
+  const mixed = rows.some((row) => row.mixed);
+  const sayAt = (t: number) => mixed && (t === deciding || t === story.end);
+  // A cell whose figures need two decimals ("−0.07") is a little wider, so no figure runs into the next cell.
+  const fine = (t: number) =>
+    rows.some((row) => {
+      const v = Math.abs(row.d.values[t] ?? 0);
+      return v >= 0.005 && v < 0.095;
+    });
+
+  // Which quarters show whole; the rest fold into "…" cells.
+  let show = new Set(cells);
+  let scrolls = false;
+  if (room) {
+    const cellW = 3.6 * room.rem;
+    const wideW = 6.4 * room.rem;
+    const tagW = 4.6 * room.rem;
+    const fineW = 4.3 * room.rem;
+    const gapW = 1.9 * room.rem;
+    const gap = 4;
+    const fits = (set: Set<number>) => {
+      let w = 0;
+      let n = 0;
+      let inGap = false;
+      for (const t of cells) {
+        if (set.has(t)) {
+          w += sayAt(t) ? wideW : Math.max(t === deciding || t === story.end ? tagW : cellW, fine(t) ? fineW : cellW);
+          n += 1;
+          inGap = false;
+        } else if (!inGap) {
+          w += gapW;
+          n += 1;
+          inGap = true;
+        }
+      }
+      return w + gap * Math.max(0, n - 1) <= room.w + 0.5;
+    };
+    if (!fits(show)) {
+      const near = [...cells].sort((a, b) => Math.abs(a - deciding) - Math.abs(b - deciding) || a - b);
+      const prio = [T, deciding, story.end, story.clock, deciding + 1, mid, deciding + 2, ...near].filter((t, i, a) => cells.includes(t) && a.indexOf(t) === i);
+      show = new Set();
+      for (const t of prio) {
+        const next = new Set(show).add(t);
+        if (fits(next)) show = next;
+      }
+      if (!show.size) {
+        show = new Set([T]);
+        scrolls = true;
+      }
+    }
+  }
+  const items: Cell[] = [];
+  for (const t of cells) {
+    if (show.has(t)) items.push({ t });
+    else {
+      const last = items[items.length - 1];
+      if (last && "hide" in last) last.hide.push(t);
+      else items.push({ hide: [t] });
+    }
+  }
+  const unitShared = new Set(rows.map((row) => unitWord(row.d.metric))).size === 1;
   return (
-    <section className={`st-strip${top === null ? " is-static" : ""}`} style={top === null ? undefined : { top, height: STRIP_H }} aria-label="When effects land: pick a quarter to show on the map">
+    <section
+      ref={stripRef}
+      className={`st-strip${positioned ? "" : " is-static"}${compact ? " is-compact" : ""}`}
+      style={positioned ? { bottom: 0 } : undefined}
+      aria-label="When effects land: pick a quarter to show on the map"
+    >
       <p className="st-strip-head">
         <b>{sentence ? "When does it land?" : "Quarter by quarter"}</b>{" "}
         <span>{sentence ? (tr ? tr.sentence : "Move a lever: this strip shows, quarter by quarter, when its effect arrives.") : tr ? "your moves' effect, as it builds. Pick a quarter to show it above." : "pick a quarter to show it above."}</span>
@@ -914,40 +1308,60 @@ function Strip({ story, T, cells, anim, onPick, top, sentence }: { story: Story;
         {tr ? (
           <span className="st-rowkeys" aria-hidden="true">
             {/* The unit once, on the quarters' line, when the rows share it ("in pp"); otherwise beside each row. */}
-            <small className="st-rowkeys-unit">{new Set(rows.map((row) => unitWord(row.d.metric))).size === 1 ? `in ${unitWord(rows[0].d.metric).trim()}` : ""}</small>
+            <small className="st-rowkeys-unit">{unitShared && rows.length ? `in ${unitWord(rows[0].d.metric).trim()}` : ""}</small>
             {rows.map((row) => (
               <span key={row.d.metric}>
                 {row.o.label}
-                {new Set(rows.map((x) => unitWord(x.d.metric))).size > 1 ? <small> {unitWord(row.d.metric).trim()}</small> : null}
+                {!unitShared ? <small> {unitWord(row.d.metric).trim()}</small> : null}
+                {row.uniform ? <span className={`st-key st-rowtone is-${row.uniform}`}>{word(row.uniform)}</span> : null}
               </span>
             ))}
           </span>
         ) : null}
-        <span className="st-cells-track">
-          {cells.map((t) => (
-            <button key={t} type="button" className={`st-cell${t === T ? " is-on" : ""}`} aria-pressed={t === T} onClick={() => onPick(t)} title={`Show ${story.labels[t]} on the map`}>
-              <span className="st-cell-q">{shortQ(story.labels[t])}</span>
-              {rows.map(({ d, o, zero }) => {
-                const h = anim.get(`b:${d.metric}:${t}`);
-                const v = d.values[t] ?? 0;
-                const flat = Math.abs(v) < 0.005;
-                const tone = flat ? "flat" : Math.sign(v) === o.good(t) ? "good" : "bad";
-                const span = zero === 0.5 ? 50 : 100;
-                const size = flat ? 0 : Math.max(0.08, Math.min(1, Math.abs(h))) * span;
-                const bar: React.CSSProperties = h >= 0 ? { bottom: `${(1 - zero) * 100}%`, height: `${size.toFixed(1)}%` } : { top: `${zero * 100}%`, height: `${size.toFixed(1)}%` };
-                return (
-                  <span key={d.metric} className={`st-bar is-${tone}`} aria-label={`${o.label} ${signed(v, 2)}${unitWord(d.metric)} from your moves`}>
-                    <span className="st-bar-zone">
-                      <span className="st-bar-zero" style={{ top: `${zero * 100}%` }} />
-                      <i style={bar} />
+        <span ref={trackRef} className={`st-cells-track${scrolls ? " is-scroll" : ""}`}>
+          {items.map((item) => {
+            if ("hide" in item) {
+              const pickT = item.hide[Math.floor((item.hide.length - 1) / 2)];
+              const names = item.hide.map((t) => story.labels[t]).join(", ");
+              const label = `Quarters not shown here: ${names}. Show ${story.labels[pickT]} on the map`;
+              return (
+                <button key={`gap-${item.hide[0]}`} type="button" className="st-cell is-gap" onClick={() => onPick(pickT)} title={label} aria-label={label}>
+                  <span aria-hidden="true">…</span>
+                </button>
+              );
+            }
+            const t = item.t;
+            return (
+              <button key={t} type="button" className={`st-cell${t === T ? " is-on" : ""}${sayAt(t) ? " is-wide" : t === deciding || t === story.end ? " is-tagged" : ""}${fine(t) ? " is-fine" : ""}`} aria-pressed={t === T} onClick={() => onPick(t)} title={`Show ${story.labels[t]} on the map`}>
+                <span className="st-cell-q">{shortQ(story.labels[t])}</span>
+                {/* Before any move, two rows held empty, so the strip keeps its height when the first move lands. */}
+                {!tr && positioned ? [0, 1].map((i) => <span key={i} className="st-bar is-ghost" aria-hidden="true" />) : null}
+                {rows.map(({ d, o, zero, mixed: rowMixed }) => {
+                  const h = anim.get(`b:${d.metric}:${t}`);
+                  const v = d.values[t] ?? 0;
+                  const flat = Math.abs(v) < 0.005;
+                  const tone = flat ? "flat" : Math.sign(v) === o.good(t) ? "good" : "bad";
+                  const span = zero === 0.5 ? 50 : 100;
+                  const size = flat ? 0 : Math.max(0.08, Math.min(1, Math.abs(h))) * span;
+                  const bar: React.CSSProperties = h >= 0 ? { bottom: `${(1 - zero) * 100}%`, height: `max(5px, ${size.toFixed(1)}%)` } : { top: `${zero * 100}%`, height: `max(5px, ${size.toFixed(1)}%)` };
+                  const num = flat ? "0" : signed(v, Math.abs(v) < 0.095 ? 2 : 1);
+                  return (
+                    <span key={d.metric} className={`st-bar is-${tone}`} role="img" aria-label={`${o.label} ${signed(v, 2)}${unitWord(d.metric)} from your moves${flat ? "" : `, ${word(tone as "good" | "bad")}`}`}>
+                      <span className="st-bar-zone">
+                        <span className="st-bar-zero" style={{ top: `${zero * 100}%` }} />
+                        {flat ? null : <i style={bar} />}
+                      </span>
+                      <em>
+                        {num}
+                        {rowMixed && !flat && sayAt(t) ? <small> {word(tone as "good" | "bad")}</small> : null}
+                      </em>
                     </span>
-                    <em>{flat ? "0" : signed(v, Math.abs(v) < 0.095 ? 2 : 1)}</em>
-                  </span>
-                );
-              })}
-              <span className="st-cell-tag">{tag(t)}</span>
-            </button>
-          ))}
+                  );
+                })}
+                <span className="st-cell-tag">{tag(t)}</span>
+              </button>
+            );
+          })}
         </span>
       </div>
     </section>
@@ -956,12 +1370,14 @@ function Strip({ story, T, cells, anim, onPick, top, sentence }: { story: Story;
 
 const shortQ = (label: string | undefined) => (label ? `Q${label.slice(5)} ’${label.slice(2, 4)}` : "");
 
-/** The same story in words, for screen readers (the drawing itself is hidden from them). */
+/** The same story in words, for screen readers (the drawing itself is hidden from them): each cause's whole push on each goal. */
 function Summary({ story, T, drawn, causeById, hidden }: { story: Story; T: number; drawn: Flow[]; causeById: globalThis.Map<string, Cause>; hidden: number }) {
   const lines = story.outcomes.map((o) => {
-    const parts = drawn
-      .filter((fl) => fl.metric === o.metric)
-      .map((fl) => `${causeById.get(fl.cause)?.title ?? fl.cause} ${signed(fl.values[T] ?? 0, 2)}${unitWord(fl.metric)} through ${CHANNELS.find((c) => c.id === fl.channel)?.title.toLowerCase()}${fl.approx ? " (roughly)" : ""}`);
+    const causes = [...new Set(drawn.filter((fl) => fl.metric === o.metric).map((fl) => fl.cause))];
+    const parts = causes.map((c) => {
+      const via = drawn.filter((fl) => fl.metric === o.metric && fl.cause === c);
+      return `${causeById.get(c)?.title ?? c} ${signed(causeTotal(story, c, o.metric, T), 2)}${unitWord(o.metric)} through ${via.map((fl) => `${CHANNELS.find((ch) => ch.id === fl.channel)?.title.toLowerCase()}${fl.approx ? " (roughly)" : ""}`).join(" and ")}`;
+    });
     return `${o.label} ${o.path[T].toFixed(o.digits)} in ${story.labels[T]}${parts.length ? `: ${parts.join("; ")}` : ""}.`;
   });
   return (

@@ -6,7 +6,7 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  container-type: inline-size;
+  container: stroot / inline-size;
   background: var(--st-bg);
   color: var(--lab-ink);
 }
@@ -43,7 +43,7 @@
   height: 2.4rem;
 }
 /* Phones: the title shares its line with the control; the one-line hint runs full width below. */
-@container (max-width: 479px) {
+@container stroot (max-width: 479px) {
   .st-map.is-v .st-head::before {
     height: 2rem;
   }
@@ -145,6 +145,8 @@
 }
 .st-flow-body {
   stroke-opacity: 0.62;
+  /* A road's own figure in its hover title (the tag at the goal gives the cause's whole push). */
+  pointer-events: visibleStroke;
 }
 .st-flow.is-good .st-flow-body {
   stroke: var(--lab-good-mark);
@@ -152,8 +154,30 @@
 .st-flow.is-bad .st-flow-body {
   stroke: var(--lab-alert);
 }
+/* The player's own roads: a dark ink edge under the body, as their cards have a dark border. */
+.st-flow.is-lever .st-flow-edge {
+  stroke: var(--lab-ink);
+}
 .st-flow.is-lever .st-flow-body {
   stroke-opacity: 0.8;
+}
+/* Hover or focus on a cause card: its roads and tags stay, the others dim (opacity set inline). */
+.st-flow,
+.st-tag,
+.st-dot {
+  transition: opacity 160ms var(--ease, ease);
+}
+.st-map.is-reduced .st-flow,
+.st-map.is-reduced .st-tag,
+.st-map.is-reduced .st-dot {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-flow,
+  .st-tag,
+  .st-dot {
+    transition: none;
+  }
 }
 .st-dot {
   fill: var(--lab-paper);
@@ -231,6 +255,59 @@
   background: var(--lab-ink);
   color: var(--lab-paper);
 }
+/* A compact map: a little less padding and smaller icons, so names keep to fewer lines. */
+.st-map.is-compact .st-cause {
+  gap: 0.4rem;
+  padding: 0.3rem 0.45rem;
+}
+.st-map.is-compact .st-cause .st-blob {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+.st-map.is-compact .st-cause .st-blob svg {
+  width: 1rem;
+  height: 1rem;
+}
+/* Cause cards and the lines of the folded "Your moves" card take hover and focus: their roads stand out. */
+.st-cause[tabindex],
+.st-yline {
+  pointer-events: auto;
+}
+.st-cause[tabindex]:focus-visible,
+.st-yline:focus-visible {
+  outline: 2px solid var(--lab-focus);
+  outline-offset: 2px;
+}
+/* The player's levers folded into one card: its title on top, each lever a line below, each line the start of its own roads. */
+.st-group {
+  align-items: flex-start;
+  padding-top: 0.3rem;
+}
+.st-yline {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 10px;
+  padding: 0 0.6rem;
+  font-size: var(--t-sm);
+  line-height: 1.25;
+}
+.st-yline .st-blob {
+  width: 1.4rem;
+  height: 1.4rem;
+  background: var(--lab-ink);
+  color: var(--lab-paper);
+}
+.st-yline .st-blob svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+.st-yline b {
+  font-weight: 700;
+}
 .st-cause.is-shock .st-blob {
   background: var(--lab-warn-bg);
 }
@@ -251,6 +328,18 @@
 }
 .st-chan .st-text small {
   line-height: 1.15;
+}
+.st-map.is-compact .st-chan {
+  gap: 0.3rem;
+  padding: 0.25rem 0.5rem 0.25rem 0.35rem;
+}
+.st-map.is-compact .st-chan .st-blob {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+.st-map.is-compact .st-chan .st-blob svg {
+  width: 0.9rem;
+  height: 0.9rem;
 }
 .st-goal {
   flex-direction: column;
@@ -291,6 +380,27 @@
 .st-goal-line.is-quiet {
   white-space: normal;
   color: var(--lab-ink-2);
+}
+/* A short slot: the figure beside the goal's name, one row less. */
+.st-goal.is-compact {
+  padding: 0.35rem 0.55rem;
+}
+/* The figure beside the name, or on a row of its own when both do not fit ("Public debt"). */
+.st-goal.is-compact .st-goal-head {
+  flex-wrap: wrap;
+  gap: 0 0.35rem;
+  width: 100%;
+}
+.st-goal.is-compact .st-goal-head .st-blob {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+.st-goal.is-compact .st-goal-value {
+  margin-left: auto;
+  font-size: var(--t-lg);
+}
+.st-goal.is-compact .st-goal-value small {
+  font-size: var(--t-sm);
 }
 /* A tracked figure that is not one of the mission's goals. */
 .st-watch {
@@ -339,6 +449,17 @@
   border-color: var(--lab-bad);
   background: var(--lab-bad);
   color: var(--lab-paper);
+}
+/* Whose push: the cause card's own icon before the figure. */
+.st-tag {
+  pointer-events: auto;
+}
+.st-tag-src svg {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.2em;
+  vertical-align: -0.12em;
 }
 /* The key's two words, drawn like the tags. */
 .st-key {
@@ -393,14 +514,18 @@
   align-items: center;
   justify-content: center;
   margin: 0;
+  padding: 2px 0;
   font-size: var(--t-xs);
-  line-height: 1.2;
+  line-height: 1.25;
+  text-align: center;
   color: var(--lab-ink-2);
 }
+/* One line, two when the arrow-width note joins it; the map gives up the room (measured). */
 .st-note span {
+  display: -webkit-box;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 /* The quarter strip: per row, one bar per quarter on the row's own scale, so the lag reads as bars growing. */
@@ -422,6 +547,12 @@
   position: static;
   margin: 0 12px;
 }
+/* A short slot: shorter rows and less padding; the sentence keeps its two lines. */
+.st-strip.is-compact {
+  --st-row: 22px;
+  gap: 0.15rem;
+  padding: 0.3rem 0.55rem 0.3rem;
+}
 .st-strip-head {
   display: -webkit-box;
   margin: 0;
@@ -435,6 +566,13 @@
 .st-strip-head b {
   font-size: var(--t-sm);
   color: var(--lab-ink);
+}
+/* Over the map the sentence keeps room for its two lines, before a move as after, so the strip does not grow under the map. */
+.st-strip:not(.is-static) .st-strip-head {
+  min-height: 2.7em;
+}
+.st-bar.is-ghost {
+  visibility: hidden;
 }
 .st-cells {
   display: flex;
@@ -467,19 +605,31 @@
   height: 1.2em;
   line-height: 1.2;
 }
+/* "helps" or "hurts" for a row whose every bar does the same, drawn like the header's key. */
+.st-rowtone {
+  margin-left: 0.15rem;
+  font-size: var(--t-xs);
+  line-height: 1.15;
+}
+/* Every cell shows whole (the strip folds the rest into "…" cells), so nothing scrolls and a focused
+   cell's ring is never clipped. Only a slot too narrow for a single cell scrolls. */
 .st-cells-track {
   position: relative;
   display: flex;
   min-width: 0;
   flex: 1;
   gap: 4px;
+  overflow: visible;
+}
+.st-cells-track.is-scroll {
   overflow: auto hidden;
+  padding-block: 8px;
 }
 .st-cell {
   position: relative;
   display: flex;
-  min-width: 4.3rem;
-  flex: 1 0 4.3rem;
+  min-width: 3.6rem;
+  flex: 1 1 0;
   flex-direction: column;
   align-items: stretch;
   border: 1.5px solid transparent;
@@ -503,6 +653,30 @@
 .st-cell:focus-visible {
   outline: 2px solid var(--lab-focus);
   outline-offset: 1px;
+}
+/* Figures with two decimals ("−0.07") need a little more room; so do the deciding and goal-date
+   cells, for their word ("deciding", "goal date") whole. */
+.st-cell.is-fine {
+  min-width: 4.3rem;
+}
+.st-cell.is-tagged {
+  min-width: 4.6rem;
+}
+/* The deciding and goal-date cells carry "helps" or "hurts" after their number when a row changes sides. */
+.st-cell.is-wide {
+  min-width: 6.4rem;
+  flex-grow: 1.5;
+}
+/* Quarters folded away: one narrow "…" cell per run; picking it shows the middle one. */
+.st-cell.is-gap {
+  min-width: 1.9rem;
+  flex: 0 0 1.9rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: var(--t-md);
+  font-weight: 700;
+  color: var(--lab-ink-2);
 }
 .st-cell-q {
   height: 1.2em;
@@ -544,13 +718,20 @@
   position: absolute;
   left: 0;
   right: 0;
+  box-sizing: border-box;
   border-radius: 2px;
 }
+/* As the map's key and tags: helps outlined, hurts filled, so the two never differ by colour alone. */
 .st-bar.is-good i {
-  background: var(--lab-good-mark);
+  border: 2px solid var(--lab-good-mark);
+  background: none;
 }
 .st-bar.is-bad i {
   background: var(--lab-alert);
+}
+.st-bar em small {
+  font-size: inherit;
+  font-weight: 700;
 }
 .st-bar em {
   position: absolute;
@@ -599,7 +780,7 @@
   gap: 0.3rem;
   padding: 0 12px;
 }
-@container (min-width: 600px) {
+@container stroot (min-width: 600px) {
   .st-list {
     grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
     gap: 0.4rem;
@@ -699,14 +880,32 @@
   margin-left: auto;
   color: var(--lab-ink-2);
 }
+/* The pushes wrap to a second line rather than lose their figures; each pill stays whole. */
 .st-lsum {
-  overflow: hidden;
+  overflow: visible;
   padding-left: calc(1.4rem + 0.4rem);
   font-size: var(--t-xs);
-  line-height: 1.4;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  line-height: 1.45;
+  white-space: normal;
+  text-overflow: clip;
   color: var(--lab-ink);
+}
+.st-lsum .st-ltag {
+  white-space: nowrap;
+}
+/* Three goals side by side, each under 340 px: one push per line. */
+@container stroot (min-width: 600px) {
+  .st-lgoal {
+    container: stlgoal / inline-size;
+  }
+  @container stlgoal (max-width: 339.98px) {
+    .st-lsum-part {
+      display: block;
+    }
+    .st-lsep {
+      display: none;
+    }
+  }
 }
 .st-lsum.is-quiet {
   color: var(--lab-ink-2);
@@ -808,7 +1007,7 @@
   color: var(--lab-bad);
 }
 /* Wider lists: each row's road on a second line, so names are never cut. */
-@container (min-width: 600px) {
+@container stroot (min-width: 600px) {
   .st-lrow {
     min-height: 2.2rem;
   }
