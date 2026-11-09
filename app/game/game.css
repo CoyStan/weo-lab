@@ -638,51 +638,6 @@
   background: var(--lab-scene-bg);
 }
 
-.game-scene > *:first-child {
-  position: absolute;
-  inset: 0;
-}
-
-.game-scene-news {
-  position: absolute;
-  right: 0.75rem;
-  top: 0.75rem;
-  display: flex;
-  max-width: min(22rem, 70%);
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.4rem;
-  pointer-events: none;
-}
-
-.game-toast {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--lab-line-strong);
-  border-radius: 0.7rem;
-  background: color-mix(in srgb, var(--lab-paper) 94%, transparent);
-  padding: 0.4rem 0.65rem;
-  text-align: right;
-  font-size: var(--t-xs);
-  line-height: 1.35;
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--lab-ink) 12%, transparent);
-  backdrop-filter: blur(6px);
-  animation: game-slide var(--dur-slow) var(--ease) both;
-}
-
-.game-toast strong {
-  font-size: var(--t-xs);
-}
-
-.game-toast.is-bad {
-  border-color: color-mix(in srgb, var(--lab-alert) 50%, transparent);
-  background: var(--lab-bad-surface);
-}
-
-.game-toast.is-good {
-  background: var(--lab-good-surface);
-}
-
 .game-stage-foot {
   display: grid;
   gap: 0.75rem;
@@ -3649,9 +3604,6 @@ html:not(.is-kbd) .game button:focus-visible {
 .lab-scene-label.is-docked-bottom-left {
   transform: translateY(-100%) !important;
 }
-.game-scene:has(.lab-scene-label.is-docked-top-right) .game-scene-news {
-  top: 4.25rem;
-}
 .lab-scene-label.is-docked::after {
   display: none;
 }
@@ -4171,42 +4123,6 @@ html:not(.is-kbd) .game button:focus-visible {
   padding-right: 0.35rem;
 }
 
-/* Island: the goals' figures sit in one ruled strip along the scene's top edge; tags stay
-   on the island only where something is happening. */
-.game-scene-strip {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
-  display: flex;
-  flex-wrap: wrap;
-  row-gap: 0.1rem;
-  margin: 0;
-  border-bottom: 1px solid var(--lab-ink);
-  background: color-mix(in srgb, var(--lab-paper) 94%, transparent);
-  padding: 0.35rem 0.85rem;
-  font-size: var(--t-sm);
-  line-height: 1.3;
-  color: var(--lab-ink);
-  pointer-events: none;
-}
-.game-scene-strip > span + span {
-  margin-left: 0.85rem;
-  border-left: 1px solid var(--lab-line-strong);
-  padding-left: 0.85rem;
-}
-.game-scene-strip b {
-  font-weight: 700;
-}
-.game-scene:has(.game-scene-strip) .game-scene-news {
-  top: 3rem;
-}
-@media (max-width: 640px) {
-  .game-scene-strip {
-    display: none;
-  }
-}
 .lab-banner-word {
   font-weight: 400;
   color: var(--lab-ink-2);
@@ -4252,10 +4168,8 @@ html:not(.is-kbd) .game button:focus-visible {
   }
 }
 
-/* While any card or the framework is open, the island's tags, news and strip step back. */
-.lab.has-modal .lab-scene-label,
-.lab.has-modal .game-scene-news,
-.lab.has-modal .game-scene-strip {
+/* While any card or the framework is open, the island's tags step back. */
+.lab.has-modal .lab-scene-label {
   visibility: hidden;
 }
 
@@ -4748,6 +4662,29 @@ html {
   font-size: var(--t-sm);
   line-height: 1.4;
 }
+/* The recap's "why": the biggest push on the goal that matters most, and the player's own with
+   when it lands. Plain ink, numbers in bold; the triangles and signs carry the direction. */
+.game-recap-why {
+  margin: 0 0 0.6rem;
+  font-size: var(--t-sm);
+  line-height: 1.45;
+  color: var(--lab-ink);
+  text-wrap: pretty;
+}
+.game-recap-why b {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.game-recap-why-when {
+  color: var(--lab-ink-2);
+}
+.game-recap-why-when b {
+  color: var(--lab-ink);
+}
+.game-recap-why + .game-recap-watch {
+  margin-top: -0.35rem;
+}
 
 /* The goal figures: label, hero number with its unit, the quarter's move, the chart, the verdict. */
 :where(.lab:not([data-theme="ledger"])) .game-recap-stat {
@@ -4803,10 +4740,6 @@ html {
 :where(.lab:not([data-theme="ledger"])) .game-recap-more > summary {
   font-weight: 600;
   color: var(--lab-info);
-}
-/* The island line under the scene is for themes that dock the recap beside a phone island. */
-:where(.lab:not([data-theme="ledger"])) .game-scene-recapline {
-  display: none;
 }
 @media (max-width: 640px) {
   :where(.lab:not([data-theme="ledger"])) .game-recap-chart {
@@ -5698,8 +5631,9 @@ html {
 .game-scene-view.is-island {
   background: var(--lab-scene-bg);
 }
-/* Back to the map: the island's line goes at once, so it never ghosts through the fade. */
-.game-scene-view.is-island:not(.is-on) .game-scene-islandline {
+/* Back to the map: the island's line and news go at once, so they never ghost through the fade. */
+.game-scene-view.is-island:not(.is-on) .game-scene-islandline,
+.game-scene-view.is-island:not(.is-on) .game-scene-islandnews {
   visibility: hidden;
 }
 
@@ -5723,6 +5657,7 @@ html {
   right: 0.6rem;
 }
 .game-scene-tabs button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -5748,9 +5683,23 @@ html {
   width: 1.05rem;
   height: 1.05rem;
 }
-.game .game-scene-tabs button:focus-visible {
-  outline: 2px solid var(--lab-focus);
+/* Keyboard focus: a thick ring outside the pill, clear of the pressed half's fill. */
+html.is-kbd .game .game-scene-tabs button:focus-visible {
+  z-index: 1;
+  outline: 3px solid var(--lab-focus);
   outline-offset: 2px;
+}
+/* Touch screens: each half is a finger-sized target (44 px tall) around the compact pill. */
+@media (pointer: coarse), (max-width: 760px) {
+  .game-scene-tabs button::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 0;
+    left: 0;
+    height: 44px;
+    transform: translateY(-50%);
+  }
 }
 .game-scene-tabs-kbd {
   min-width: 1.5rem;
@@ -5896,25 +5845,70 @@ html {
   }
 }
 
-/* The map names the quarter's news in its header and on the shock's card; over the map the
-   toasts stay only for screen readers (role="status"). Over the island they show as before. */
-.game-scene.is-story.is-map .game-scene-news {
+/* The island view's news: one band along the island's top edge, beside the control; the island
+   is drawn below it, so it covers nothing (the map names the same news under its header). */
+.game-scene.has-news {
+  /* As tall as the control plus its margin above, repeated below. */
+  --scene-news-h: calc(var(--scene-tabs-h, 2.75rem) + 0.9rem);
+}
+.game-scene.has-news .game-scene-island {
+  top: var(--scene-news-h);
+}
+.game-scene-islandnews {
   position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: var(--scene-news-h);
+  margin: 0;
+  border-bottom: 1px solid var(--lab-line-strong);
+  background: var(--lab-paper);
+  padding: 0 0.85rem 0 calc(var(--scene-tabs-w, 12rem) + 1.1rem);
+  font-size: var(--t-sm);
+  line-height: 1.3;
+  color: var(--lab-ink);
   white-space: nowrap;
 }
-.game-scene.is-list .game-scene-news {
-  top: 3.3rem;
+.game-scene-islandnews b {
+  flex: none;
+  font-weight: 700;
+}
+.game-scene-islandnews-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.game-scene-islandnews-detail {
+  color: var(--lab-ink-2);
+}
+@container scene (max-width: 559.98px) {
+  .game-scene-islandnews-q,
+  .game-scene-islandnews-detail {
+    display: none;
+  }
+}
+/* The control sits on the band, flush with it. */
+.game-scene.has-news.is-island .game-scene-tabs {
+  box-shadow: none;
+}
+.game-scene.is-list .game-scene-islandnews {
+  padding: 0 calc(var(--scene-tabs-w, 10rem) + 1rem) 0 0.7rem;
 }
 
 /* Wide screens: the commit lives in the lever rail, so the advisors take the whole row under the
-   slot (three fit side by side) instead of leaving a 16rem column empty; the slot keeps the height. */
+   slot (three fit side by side) instead of leaving a 16rem column empty; the slot keeps the height.
+   Each note keeps room for two lines, and the row keeps its tallest height (Play.tsx
+   useSteadyHeight), so the slot above does not jump as a lever move shortens the advice. */
 @media (min-width: 1180px) {
   .game-stage-foot {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .game-stage-foot .game-advice-text {
+    min-height: 2lh;
   }
 }
 
@@ -5970,7 +5964,8 @@ html {
     top: 4.2rem;
     font-size: var(--t-md);
   }
-  .game-scene-islandline {
+  .game-scene-islandline,
+  .game-scene-islandnews {
     font-size: var(--t-md);
   }
 }

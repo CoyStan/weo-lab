@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { describeChanges, quarterLabel } from "../../model/economy";
 import { SHOCKS } from "../../model/shocks";
 import { getPreset } from "../../model/presets";
@@ -26,13 +26,12 @@ import { PlayIsland, SCENES, setSceneView, toggleSceneView, useMapId, useSceneVi
 import StoryIslandLine from "../../scenes/story/IslandLine";
 import { useStoryShown } from "../../scenes/story/shown";
 import { useReducedMotionFlag } from "../../scene/useSmooth";
-import { PLACE } from "../../scene/places";
-import { deltaUnit, fmtNum, GAME_METRICS, unitShort } from "../metrics";
+import type { SimEvent } from "../../model/types";
+import { deltaUnit, fmtNum, GAME_METRICS } from "../metrics";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export default function Play({ scene }: { scene: ReactNode }) {
-  const view = useSceneView();
   const { mission, clock, deciding, events, changed, statuses } = useTurn();
   const tips = useSettings((s) => s.tips);
   const [panel, setPanel] = useState<"levers" | "reforms">("levers");
@@ -94,9 +93,10 @@ export default function Play({ scene }: { scene: ReactNode }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
-      if (t && (t.closest("input, select, textarea") || t.isContentEditable)) return;
+      // Typing, or on a slider (native or custom): every key, arrows and letters, stays with it.
+      if (t && (t.closest("input, select, textarea, [role=slider]") || t.isContentEditable)) return;
       const game = useGame.getState();
-      // I: the scene slot switches between the map and the island (sliders keep their arrow keys: inputs return above).
+      // I: the scene slot switches between the map and the island.
       if ((e.key === "i" || e.key === "I") && !e.repeat && !game.modal && !game.framework) {
         e.preventDefault();
         toggleSceneView();
@@ -133,6 +133,9 @@ export default function Play({ scene }: { scene: ReactNode }) {
   // narrower ones dock it to the bottom of the screen.
   const wide = useMedia("(min-width: 1180px)");
   useStickyH(footRef, wide);
+  // Wide screens: the advisors' row under the slot keeps its tallest height, so the slot never jumps.
+  const stageFootRef = useRef<HTMLDivElement>(null);
+  useSteadyHeight(stageFootRef, ".game-advisors", wide);
   const commit = (
       <div className={`game-end ${wide ? "is-rail" : ""}`} ref={footRef}>
         <div className="game-agenda-bar">
@@ -229,20 +232,19 @@ export default function Play({ scene }: { scene: ReactNode }) {
         </aside>
 
         <section className="game-stage" aria-label="Cause and effect map, or the island">
-          <SceneSlot map={scene}>
-            {/* The recap line describes the island; the map explains itself. */}
-            {view === "island" ? <RecapIslandLine /> : null}
+          <SceneSlot map={scene} news={news}>
             {run ? <RunTicker /> : null}
-            <div className="game-scene-news">
+            {/* The quarter's news, for screen readers: on screen the map names it under its header
+                and the island in a band along its top edge, so nothing floats over a card. */}
+            <div className="sr-only">
               {news.map((e, i) => (
-                <div key={`${e.title}-${i}`} className={`game-toast is-${e.severity}`} role="status">
-                  <strong>{e.title}</strong>
-                  <span>{e.detail}</span>
-                </div>
+                <p key={`${e.title}-${i}`} role="status">
+                  {e.title}: {e.detail}
+                </p>
               ))}
             </div>
           </SceneSlot>
-          <div className="game-stage-foot">
+          <div className="game-stage-foot" ref={stageFootRef}>
             <Advisors />
             {wide ? null : commit}
           </div>
@@ -285,7 +287,7 @@ type IdleWindow = Window & { requestIdleCallback?: (cb: () => void, o?: { timeou
  * the first switch is immediate; it stays mounted but paused while the map is up. The two
  * views cross-fade together (200 ms; at once with reduced motion).
  */
-function SceneSlot({ map, children }: { map: ReactNode; children: ReactNode }) {
+function SceneSlot({ map, news, children }: { map: ReactNode; news: SimEvent[]; children: ReactNode }) {
   const view = useSceneView();
   const mapId = useMapId();
   const reduced = useReducedMotionFlag();
@@ -318,6 +320,19 @@ function SceneSlot({ map, children }: { map: ReactNode; children: ReactNode }) {
   const island = view === "island" && ready;
   const building = view === "island" && !ready;
 
+  // The view being left goes inert: if focus was in it, it moves to the control's pressed half
+  // instead of dropping to the page (a keyboard player keeps their place).
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const shown = island ? "island" : "map";
+  const lastShown = useRef(shown);
+  useLayoutEffect(() => {
+    if (lastShown.current === shown) return;
+    const left = document.getElementById(lastShown.current === "island" ? "game-view-island" : "game-view-map");
+    lastShown.current = shown;
+    const active = document.activeElement;
+    if (left && active && left.contains(active)) tabsRef.current?.querySelector<HTMLButtonElement>(`button[data-view="${shown}"]`)?.focus({ preventScroll: true });
+  }, [shown]);
+
   // The first play screen points at the toggle once, for a few seconds; switching retires it.
   const [coach, setCoach] = useState(false);
   useEffect(() => {
@@ -336,14 +351,18 @@ function SceneSlot({ map, children }: { map: ReactNode; children: ReactNode }) {
     if (view === "island") retireCoach();
   }, [view]);
 
-  // The map's header leaves room for the control: its width, as --scene-tabs-w on the slot.
+  // The map's header leaves room for the control, and the island's news band is as tall as it:
+  // its size, as --scene-tabs-w and --scene-tabs-h on the slot.
   const slotRef = useRef<HTMLDivElement>(null);
-  const tabsRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const slot = slotRef.current;
     const tabs = tabsRef.current;
     if (!slot || !tabs || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => slot.style.setProperty("--scene-tabs-w", `${Math.ceil(tabs.getBoundingClientRect().width)}px`));
+    const ro = new ResizeObserver(() => {
+      const r = tabs.getBoundingClientRect();
+      slot.style.setProperty("--scene-tabs-w", `${Math.ceil(r.width)}px`);
+      slot.style.setProperty("--scene-tabs-h", `${Math.ceil(r.height)}px`);
+    });
     ro.observe(tabs);
     return () => ro.disconnect();
   }, []);
@@ -352,7 +371,7 @@ function SceneSlot({ map, children }: { map: ReactNode; children: ReactNode }) {
   return (
     <div
       ref={slotRef}
-      className={`game-scene has-tabs is-${island ? "island" : "map"}${mapId === "story" ? " is-story" : ""}${list ? " is-list" : ""}${reduced ? " is-instant" : ""}`}
+      className={`game-scene has-tabs is-${island ? "island" : "map"}${mapId === "story" ? " is-story" : ""}${list ? " is-list" : ""}${news.length ? " has-news" : ""}${reduced ? " is-instant" : ""}`}
     >
       <div className="game-scene-views">
         <div id="game-view-map" className={`game-scene-view is-map${island ? "" : " is-on"}`} inert={island} aria-hidden={island || undefined}>
@@ -360,17 +379,21 @@ function SceneSlot({ map, children }: { map: ReactNode; children: ReactNode }) {
         </div>
         {mounted ? (
           <div id="game-view-island" className={`game-scene-view is-island${island ? " is-on" : ""}`} inert={!island} aria-hidden={!island || undefined}>
-            <PlayIsland paused={view !== "island" && ready} onReady={onReady} />
+            {/* The island and its tag layer in one box, so a news band can sit above both. */}
+            <div className="game-scene-island">
+              <PlayIsland paused={view !== "island" && ready} onReady={onReady} />
+            </div>
+            <IslandNews news={news} />
             {mapId === "story" ? <StoryIslandLine /> : null}
           </div>
         ) : null}
       </div>
       <div ref={tabsRef} className="game-scene-tabs" role="group" aria-label="Show the map or the island (key I)">
-        <button type="button" aria-pressed={view === "map"} aria-controls="game-view-map" aria-keyshortcuts="I" onClick={() => setSceneView("map")}>
+        <button type="button" data-view="map" aria-pressed={view === "map"} aria-controls="game-view-map" aria-keyshortcuts="I" onClick={() => setSceneView("map")}>
           <SlotIcon name="map" />
           {mapLabel}
         </button>
-        <button type="button" aria-pressed={view === "island"} aria-controls={mounted ? "game-view-island" : undefined} aria-keyshortcuts="I" aria-busy={building || undefined} onClick={() => setSceneView("island")}>
+        <button type="button" data-view="island" aria-pressed={view === "island"} aria-controls={mounted ? "game-view-island" : undefined} aria-keyshortcuts="I" aria-busy={building || undefined} onClick={() => setSceneView("island")}>
           <SlotIcon name="island" />
           Island
           {building ? <span className="game-scene-tabs-spin" aria-hidden="true" /> : null}
@@ -395,6 +418,34 @@ function SceneSlot({ map, children }: { map: ReactNode; children: ReactNode }) {
       ) : null}
       {children}
     </div>
+  );
+}
+
+/**
+ * The island view's news: the quarter's events in one band along the island's top edge, beside
+ * the Map / Island control. The island is drawn below the band (game.css), so the news covers
+ * nothing; the map names the same news under its own header.
+ */
+function IslandNews({ news }: { news: SimEvent[] }) {
+  const clock = useLab((s) => s.clock);
+  if (!news.length) return null;
+  const text = news.map((e) => `${e.title}: ${e.detail}`).join(" · ");
+  // Narrow slots (phones) keep the titles alone, so the news reads in full beside the control.
+  return (
+    <p className="game-scene-islandnews" title={text} aria-hidden="true">
+      <b>
+        News<span className="game-scene-islandnews-q">, {quarterLabel(clock)}</span>
+      </b>
+      <span className="game-scene-islandnews-text">
+        {news.map((e, i) => (
+          <span key={`${e.title}-${i}`}>
+            {i ? " · " : ""}
+            {e.title}
+            <span className="game-scene-islandnews-detail">: {e.detail}</span>
+          </span>
+        ))}
+      </span>
+    </p>
   );
 }
 
@@ -538,6 +589,39 @@ function DecisionLog() {
   );
 }
 
+/**
+ * Keeps an element at the tallest height it has had at this window size (its min-height), so
+ * whatever shares its column does not jump as its text shortens: the advisors' notes change
+ * length as a lever moves, and the scene slot above them would grow and shrink by a line.
+ * A new window size starts afresh.
+ */
+function useSteadyHeight(host: RefObject<HTMLElement | null>, selector: string, on: boolean) {
+  useEffect(() => {
+    const el = host.current?.querySelector<HTMLElement>(selector);
+    if (!el || !on || typeof ResizeObserver === "undefined") return;
+    let max = 0;
+    const grow = () => {
+      const h = Math.ceil(el.getBoundingClientRect().height);
+      if (h <= max) return;
+      max = h;
+      el.style.minHeight = `${h}px`;
+    };
+    const reset = () => {
+      max = 0;
+      el.style.minHeight = "";
+      grow();
+    };
+    const ro = new ResizeObserver(grow);
+    ro.observe(el);
+    window.addEventListener("resize", reset);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", reset);
+      el.style.minHeight = "";
+    };
+  }, [host, selector, on]);
+}
+
 /** A media query, kept live (false on the server and in the first render). */
 function useMedia(query: string) {
   const [match, setMatch] = useState(false);
@@ -645,7 +729,7 @@ function Agenda() {
   );
 }
 
-/** Shown over the island while quarters play by themselves. */
+/** Shown over the scene slot (map or island) while quarters play by themselves. */
 function RunTicker() {
   const run = useGame((s) => s.run);
   const stopRun = useGame((s) => s.stopRun);
@@ -700,29 +784,5 @@ function MenuHint({ close }: { close: () => void }) {
         </p>
       ) : null}
     </>
-  );
-}
-
-/**
- * Phones, while the recap is open: the island strip stays unlabelled and the districts that
- * moved are named in one ruled line under it ("On the island: Campus · inflation up 1.4 pp"),
- * so the payoff's one full-colour picture is not a backdrop for tags. CSS shows it only there.
- */
-function RecapIslandLine() {
-  const cue = useLab((s) => s.sceneCue);
-  const modal = useGame((s) => s.modal);
-  if (modal?.kind !== "recap") return null;
-  const items = (Object.entries(cue) as [FocusKey, SceneCue | undefined][]).filter((e): e is [FocusKey, SceneCue] => Boolean(e[1]));
-  if (!items.length) return null;
-  return (
-    <p className="game-scene-recapline">
-      <strong>On the island:</strong>{" "}
-      {items.map(([k, c], i) => (
-        <span key={k}>
-          {i ? " · " : ""}
-          {PLACE[k] ?? k} {c.label} <Glyph name={c.up ? "up" : "down"} label={c.up ? "up" : "down"} /> <b>{c.size}</b>
-        </span>
-      ))}
-    </p>
   );
 }
