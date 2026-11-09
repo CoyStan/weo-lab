@@ -298,6 +298,42 @@ export function drawnAt(story: Story, t: number, max: number): { drawn: Drawn[];
   return { drawn: keep, hidden };
 }
 
+/** "+2.4", "−0.07", "+30 bp": a push's size, in its goal's units. */
+export function pushSize(v: number, m: MetricId): string {
+  const d = m === "spread" ? 0 : Math.abs(v) < 0.095 ? 2 : 1;
+  return `${signed(v, d)}${pushUnit(m)}`;
+}
+
+/** "▲ +2.4", "▼ −0.07": the arrow's push, with a shape and a sign as well as a colour. */
+export function pushText(v: number, m: MetricId): string {
+  return `${v >= 0 ? "▲" : "▼"} ${pushSize(v, m)}`;
+}
+
+export type HeadPush = { cause: Cause; metric: MetricId; goal: string; value: number; tone: "good" | "bad" };
+
+/**
+ * The map's story at quarter t in one line: the biggest push from outside the player's hands
+ * (a shock, the economy's own drift) and the player's own biggest push, on the same goal where
+ * the player has one. Built from the arrows the map draws (drawnAt), so the island view names
+ * exactly what the map shows.
+ */
+export function headline(story: Story, t: number, max: number): { top: HeadPush | null; mine: HeadPush | null } {
+  const { drawn } = drawnAt(story, t, max);
+  const cause = (id: string) => story.causes.find((c) => c.id === id);
+  const push = (d: Drawn): HeadPush | null => {
+    const c = cause(d.flow.cause);
+    const o = story.outcomes.find((x) => x.metric === d.flow.metric);
+    if (!c || !o) return null;
+    return { cause: c, metric: d.flow.metric, goal: o.label.toLowerCase(), value: d.value, tone: Math.sign(d.value) === o.good(t) ? "good" : "bad" };
+  };
+  const byPush = (a: Drawn, b: Drawn) => b.n - a.n;
+  const outside = drawn.filter((d) => cause(d.flow.cause)?.kind !== "lever").sort(byPush);
+  const levers = drawn.filter((d) => cause(d.flow.cause)?.kind === "lever").sort(byPush);
+  const top = outside[0] ? push(outside[0]) : null;
+  const mineD = (top && levers.find((d) => d.flow.metric === top.metric)) ?? levers[0];
+  return { top, mine: mineD ? push(mineD) : null };
+}
+
 /** Largest push on any flow, any quarter shown: one scale for the whole strip of time, so arrows grow as effects build. */
 export function maxPush(story: Story): number {
   let top = 0;

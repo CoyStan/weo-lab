@@ -155,14 +155,41 @@ function WeatherBridge({ reducedMotion }: { reducedMotion: boolean }) {
   );
 }
 
-export default function IslandScene() {
+/**
+ * Pausing (the play screen's island view while the map is up) stops the frame loop. Changing
+ * the frame loop restarts the canvas clock at zero, which would throw every animation keyed
+ * to clock.elapsedTime (flashes, the camera's idle timer) back in time; this runs first in
+ * every frame and carries the clock on from where it stopped, so on resume nothing jumps by
+ * the time spent hidden. `onReady` fires once the first frames are drawn, so the view can
+ * fade in on a finished picture.
+ */
+function PauseAndReady({ onReady }: { onReady?: () => void }) {
+  const last = useRef(0);
+  const frames = useRef(0);
+  const ready = useRef(onReady);
+  useEffect(() => {
+    ready.current = onReady;
+  });
+  useFrame((state, dt) => {
+    const clock = state.clock;
+    if (clock.elapsedTime < last.current) clock.elapsedTime = last.current + dt;
+    last.current = clock.elapsedTime;
+    if (frames.current > 2) return;
+    frames.current += 1;
+    if (frames.current === 2) ready.current?.();
+  }, -2);
+  return null;
+}
+
+export default function IslandScene({ paused = false, onReady }: { paused?: boolean; onReady?: () => void }) {
   const reducedMotion = useReducedMotionFlag();
   const themeId = useLab((s) => s.theme);
   // Set the palette before the canvas (re)mounts; the key below remounts it on a theme change.
   applyScenePalette(getTheme(themeId).scene);
   return (
     <SceneErrorBoundary>
-      <Canvas key={themeId} shadows="percentage" dpr={[1, 1.5]} camera={{ position: [6, 31, 29], fov: 34, near: 0.5, far: 220 }} gl={{ antialias: true, powerPreference: "high-performance" }} onPointerMissed={() => useLab.getState().setFocus(null)}>
+      <Canvas key={themeId} frameloop={paused ? "never" : "always"} shadows="percentage" dpr={[1, 1.5]} camera={{ position: [6, 31, 29], fov: 34, near: 0.5, far: 220 }} gl={{ antialias: true, powerPreference: "high-performance" }} onPointerMissed={() => useLab.getState().setFocus(null)}>
+        <PauseAndReady onReady={onReady} />
         <fog attach="fog" args={[P.sky, 55, 130]} />
         <Lights />
         <Island reducedMotion={reducedMotion} />

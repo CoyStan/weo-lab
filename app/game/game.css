@@ -5642,3 +5642,204 @@ html {
     font-size: var(--t-lg);
   }
 }
+
+/* ---- Scene slot: the map or the island ------------------------------------------ */
+/* The map is the play screen's main view; the island is one press away (the Map / Island
+   control, or I). Both views stay mounted once seen and cross-fade: the incoming view fades
+   in on top while the outgoing one holds still under it, so the slot never dips to blank. */
+.game-scene.has-tabs {
+  container: scene / inline-size;
+  --st-head-inset: calc(var(--scene-tabs-w, 8.5rem) + 0.5rem);
+}
+.game-scene.has-tabs > .game-scene-views {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.game-scene-view {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0s linear 200ms,
+    visibility 0s linear 200ms;
+}
+.game-scene-view.is-on {
+  z-index: 2;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 200ms var(--ease);
+}
+.game-scene.is-instant .game-scene-view,
+.lab.is-reduced .game-scene-view {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-scene-view {
+    transition: none;
+  }
+}
+.game-scene-view > *:first-child {
+  position: absolute;
+  inset: 0;
+}
+.game-scene-view.is-island {
+  background: var(--lab-scene-bg);
+}
+
+/* The control: a compact segmented pair in the slot's top-left corner, with its key. */
+.game-scene-tabs {
+  position: absolute;
+  top: 0.45rem;
+  left: 0.6rem;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--lab-line-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--lab-paper) 96%, transparent);
+  padding: 2px;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--lab-ink) 10%, transparent);
+}
+.game-scene-tabs button {
+  min-height: 1.75rem;
+  border-radius: 999px;
+  padding: 0.2rem 0.75rem;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--lab-ink-2);
+  white-space: nowrap;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+.game-scene-tabs button:hover {
+  color: var(--lab-ink);
+}
+.game-scene-tabs button[aria-pressed="true"] {
+  background: var(--lab-scenario);
+  color: var(--lab-paper);
+}
+.game .game-scene-tabs button:focus-visible {
+  outline: 2px solid var(--lab-focus);
+  outline-offset: 2px;
+}
+.game-scene-tabs-kbd {
+  margin: 0 0.35rem 0 0.15rem;
+  border: 1px solid var(--lab-line-strong);
+  border-radius: 0.3rem;
+  padding: 0 0.3rem;
+  font-family: var(--lab-font-mono, ui-monospace, monospace);
+  font-size: var(--t-xs);
+  line-height: 1.35;
+  color: var(--lab-ink-2);
+}
+
+/* The island's one line: the map's biggest pushes, named in words. */
+.game-scene-islandline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  margin: 0;
+  border-top: 1px solid var(--lab-line-strong);
+  background: color-mix(in srgb, var(--lab-paper) 95%, transparent);
+  padding: 0.45rem 0.85rem;
+  font-size: var(--t-sm);
+  line-height: 1.35;
+  color: var(--lab-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.game-scene-islandline-key {
+  font-weight: 700;
+}
+.game-scene-islandline b {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.game-scene-islandline b.is-good {
+  color: var(--lab-good);
+}
+.game-scene-islandline b.is-bad {
+  color: var(--lab-bad);
+}
+.game-scene-islandline-when {
+  color: var(--lab-ink-2);
+}
+
+/* While the island builds (first switch only), a quiet note over the map. */
+.game-scene-building {
+  position: absolute;
+  left: 50%;
+  bottom: 1rem;
+  z-index: 4;
+  margin: 0;
+  transform: translateX(-50%);
+  border: 1px solid var(--lab-line);
+  border-radius: 999px;
+  background: var(--lab-paper);
+  padding: 0.3rem 0.8rem;
+  font-size: var(--t-xs);
+  color: var(--lab-ink-2);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--lab-ink) 12%, transparent);
+  animation: game-fade var(--dur) var(--ease) 250ms both;
+}
+.lab.is-reduced .game-scene-building {
+  animation: none;
+}
+
+/* Overlays clear the control. */
+.game-scene.has-tabs .game-run {
+  top: 2.9rem;
+}
+
+/* Narrow slots (phones, and the map's goal-by-goal list): the control is a full-width bar
+   above the slot's content. */
+@container scene (max-width: 559.98px) {
+  .game-scene.has-tabs > .game-scene-views {
+    inset: 2.5rem 0 0 0;
+    --st-head-inset: 0px;
+  }
+  .game-scene-tabs {
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2.5rem;
+    border: none;
+    border-bottom: 1px solid var(--lab-line-strong);
+    border-radius: 0;
+    background: var(--lab-paper);
+    padding: 0.3rem 0.4rem;
+    box-shadow: none;
+  }
+  .game-scene-tabs button {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+  }
+  .game-scene-news {
+    top: 3.1rem;
+  }
+  .game-scene-islandline {
+    white-space: normal;
+    padding: 0.35rem 0.7rem;
+    font-size: var(--t-xs);
+  }
+  /* Wraps between the two pushes, never inside one. */
+  .game-scene-islandline-part {
+    white-space: nowrap;
+  }
+}
+@media (max-width: 640px) {
+  .game-scene-tabs-kbd {
+    display: none;
+  }
+}

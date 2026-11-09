@@ -1,11 +1,15 @@
 "use client";
 
-// Alternative play-screen scenes, chosen with ?scene=<id> in the URL. The
-// island (app/scene/IslandScene.tsx) stays the default; the others are
-// concepts being explored. Each concept owns its folder app/scenes/<id>/ and
-// its default export fills the play screen's scene slot (the box between the
-// levers and the goals, full width on phones). Scenes read the game through
-// the stores (app/store.ts useLab, app/game/store.ts useGame), never change them.
+// Play-screen scenes. The play screen's scene slot (the box between the levers
+// and the goals, full width on phones) has two views, switched with the
+// "Map / Island" control or the I key:
+//   - the map: the cause-and-effect map ("story") by default, or another
+//     concept chosen with ?scene=<id> in the URL;
+//   - the island (app/scene/IslandScene.tsx), also the backdrop of the title,
+//     mission and briefing screens.
+// ?scene=island opens the play screen on the island view. Each concept owns
+// its folder app/scenes/<id>/; scenes read the game through the stores
+// (app/store.ts useLab, app/game/store.ts useGame), never change them.
 
 import dynamic from "next/dynamic";
 import { useSyncExternalStore, type ComponentType } from "react";
@@ -23,23 +27,61 @@ export const SCENES: Record<string, { label: string; Component: ComponentType }>
   story: { label: "Cause and effect", Component: dynamic(() => import("./story"), { ssr: false, loading }) },
 };
 
-const read = () => {
-  if (typeof window === "undefined") return "island";
-  const id = new URLSearchParams(window.location.search).get("scene") ?? "island";
-  return id in SCENES ? id : "island";
-};
-const subscribe = (cb: () => void) => {
-  window.addEventListener("popstate", cb);
-  return () => window.removeEventListener("popstate", cb);
+/** The map the play screen opens on. */
+export const DEFAULT_SCENE = "story";
+
+/** The island as the play screen's second view: it can pause while hidden and says when its first frames are drawn. */
+export const PlayIsland = dynamic<{ paused?: boolean; onReady?: () => void }>(() => import("../scene/IslandScene"), { ssr: false, loading: () => null });
+
+const urlScene = () => {
+  if (typeof window === "undefined") return DEFAULT_SCENE;
+  const id = new URLSearchParams(window.location.search).get("scene") ?? DEFAULT_SCENE;
+  return id in SCENES ? id : DEFAULT_SCENE;
 };
 
-/** The scene chosen in the URL (?scene=flow), or the island. */
-export function useSceneId(): string {
-  return useSyncExternalStore(subscribe, read, () => "island");
+export type SceneView = "map" | "island";
+/** The view the player picked this session; until then the URL decides (?scene=island opens on the island). */
+let picked: SceneView | null = null;
+const listeners = new Set<() => void>();
+const readView = (): SceneView => picked ?? (urlScene() === "island" ? "island" : "map");
+const subscribe = (cb: () => void) => {
+  listeners.add(cb);
+  window.addEventListener("popstate", cb);
+  return () => {
+    listeners.delete(cb);
+    window.removeEventListener("popstate", cb);
+  };
+};
+
+/** Which view the scene slot shows: the map or the island. */
+export function useSceneView(): SceneView {
+  return useSyncExternalStore(subscribe, readView, () => "map");
 }
 
-/** The play screen's scene. */
+export function setSceneView(v: SceneView) {
+  if (readView() === v) return;
+  picked = v;
+  listeners.forEach((l) => l());
+}
+
+export function toggleSceneView() {
+  setSceneView(readView() === "map" ? "island" : "map");
+}
+
+/** The map scene's id: the one chosen in the URL, or the cause-and-effect map. */
+export function useMapId(): string {
+  const id = useSyncExternalStore(subscribe, urlScene, () => DEFAULT_SCENE);
+  return id === "island" ? DEFAULT_SCENE : id;
+}
+
+/** The scene showing in the slot now ("island" while the island view is up). */
+export function useSceneId(): string {
+  const map = useMapId();
+  return useSceneView() === "island" ? "island" : map;
+}
+
+/** The play screen's map view. */
 export function PlayScene() {
-  const { Component } = SCENES[useSceneId()];
+  const { Component } = SCENES[useMapId()];
   return <Component />;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { describeChanges, quarterLabel } from "../../model/economy";
 import { SHOCKS } from "../../model/shocks";
 import { getPreset } from "../../model/presets";
@@ -22,14 +22,16 @@ import Levers from "./Levers";
 import { attention } from "../pacing";
 import { useLab, type FocusKey, type SceneCue } from "../../store";
 import { nameDistricts } from "../../scene/labelLayer";
-import { useSceneId } from "../../scenes/registry";
+import { PlayIsland, SCENES, setSceneView, toggleSceneView, useMapId, useSceneView } from "../../scenes/registry";
+import StoryIslandLine from "../../scenes/story/IslandLine";
+import { useReducedMotionFlag } from "../../scene/useSmooth";
 import { PLACE } from "../../scene/places";
 import { deltaUnit, fmtNum, GAME_METRICS, unitShort } from "../metrics";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export default function Play({ scene }: { scene: ReactNode }) {
-  const sceneId = useSceneId();
+  const view = useSceneView();
   const { mission, clock, deciding, events, changed, statuses } = useTurn();
   const tips = useSettings((s) => s.tips);
   const [panel, setPanel] = useState<"levers" | "reforms">("levers");
@@ -93,6 +95,12 @@ export default function Play({ scene }: { scene: ReactNode }) {
       const t = e.target as HTMLElement | null;
       if (t && (t.closest("input, select, textarea") || t.isContentEditable)) return;
       const game = useGame.getState();
+      // I: the scene slot switches between the map and the island (sliders keep their arrow keys: inputs return above).
+      if ((e.key === "i" || e.key === "I") && !e.repeat && !game.modal && !game.framework) {
+        e.preventDefault();
+        toggleSceneView();
+        return;
+      }
       if (game.run) {
         if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -219,12 +227,10 @@ export default function Play({ scene }: { scene: ReactNode }) {
           {panel === "levers" && !wide ? <DecisionLog /> : null}
         </aside>
 
-        <section className="game-stage" aria-label="Island">
-          <div className="game-scene">
-            {scene}
-            {/* The island's decoder strip and recap line describe the island; other scene concepts explain themselves. */}
-            {sceneId === "island" ? <SceneStrip /> : null}
-            {sceneId === "island" ? <RecapIslandLine /> : null}
+        <section className="game-stage" aria-label="Cause and effect map, or the island">
+          <SceneSlot map={scene}>
+            {/* The recap line describes the island; the map explains itself. */}
+            {view === "island" ? <RecapIslandLine /> : null}
             {run ? <RunTicker /> : null}
             <div className="game-scene-news">
               {news.map((e, i) => (
@@ -234,7 +240,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
                 </div>
               ))}
             </div>
-          </div>
+          </SceneSlot>
           <div className="game-stage-foot">
             <Advisors />
             {wide ? null : commit}
@@ -247,6 +253,73 @@ export default function Play({ scene }: { scene: ReactNode }) {
           {wide ? <DecisionLog /> : null}
         </aside>
       </main>
+    </div>
+  );
+}
+
+/**
+ * The scene slot: the cause-and-effect map, or the island, switched with the Map / Island
+ * control in its top-left corner (a full-width bar on narrow slots) or the I key. The island
+ * mounts on the first switch, fades in once its first frames are drawn, and stays mounted
+ * but paused while the map is up. The views cross-fade (200 ms; at once with reduced motion).
+ */
+function SceneSlot({ map, children }: { map: ReactNode; children: ReactNode }) {
+  const view = useSceneView();
+  const mapId = useMapId();
+  const reduced = useReducedMotionFlag();
+  const [mounted, setMounted] = useState(view === "island");
+  if (view === "island" && !mounted) setMounted(true);
+  const [ready, setReady] = useState(false);
+  const onReady = useCallback(() => setReady(true), []);
+  // No WebGL (the island shows its own note instead of a canvas): show that after a moment.
+  useEffect(() => {
+    if (!mounted || ready) return;
+    const id = window.setTimeout(() => setReady(true), 1500);
+    return () => window.clearTimeout(id);
+  }, [mounted, ready]);
+  const island = view === "island" && ready;
+
+  // The map's title starts after the control: its width, as --scene-tabs-w on the slot.
+  const slotRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const slot = slotRef.current;
+    const tabs = tabsRef.current;
+    if (!slot || !tabs || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => slot.style.setProperty("--scene-tabs-w", `${Math.ceil(tabs.getBoundingClientRect().width)}px`));
+    ro.observe(tabs);
+    return () => ro.disconnect();
+  }, []);
+
+  const mapLabel = mapId === "story" ? "Map" : SCENES[mapId].label;
+  return (
+    <div ref={slotRef} className={`game-scene has-tabs is-${island ? "island" : "map"}${reduced ? " is-instant" : ""}`}>
+      <div className="game-scene-views">
+        <div id="game-view-map" className={`game-scene-view is-map${island ? "" : " is-on"}`} inert={island} aria-hidden={island || undefined}>
+          {map}
+        </div>
+        {mounted ? (
+          <div id="game-view-island" className={`game-scene-view is-island${island ? " is-on" : ""}`} inert={!island} aria-hidden={!island || undefined}>
+            <PlayIsland paused={view !== "island"} onReady={onReady} />
+            {mapId === "story" ? <StoryIslandLine /> : null}
+          </div>
+        ) : null}
+      </div>
+      <div ref={tabsRef} className="game-scene-tabs" role="group" aria-label="Show the map or the island (key I)" title="Switch between the map and the island (I)">
+        <button type="button" aria-pressed={view === "map"} aria-controls="game-view-map" aria-keyshortcuts="I" onClick={() => setSceneView("map")}>
+          {mapLabel}
+        </button>
+        <button type="button" aria-pressed={view === "island"} aria-controls={mounted ? "game-view-island" : undefined} aria-keyshortcuts="I" onClick={() => setSceneView("island")}>
+          Island
+        </button>
+        <kbd className="game-scene-tabs-kbd" aria-hidden="true">I</kbd>
+      </div>
+      {view === "island" && !ready ? (
+        <p className="game-scene-building" role="status">
+          Building the island…
+        </p>
+      ) : null}
+      {children}
     </div>
   );
 }
@@ -318,49 +391,6 @@ function useSceneCues() {
     useLab.setState({ sceneCalm: modal?.kind === "recap" });
   }, [modal]);
   useEffect(() => () => useLab.setState({ sceneCalm: false }), []);
-}
-
-/** What each district shows, for the island's key: the thing to watch, and what it tracks. */
-const DISTRICT_KEY: { key: "infl" | "growth" | "ca" | "reserves" | "unemp" | "debt"; what: string; tracks: string }[] = [
-  { key: "infl", what: "Campus flags", tracks: "inflation" },
-  { key: "growth", what: "Smoke", tracks: "output" },
-  { key: "ca", what: "Ships", tracks: "exports" },
-  { key: "reserves", what: "Vault", tracks: "reserves" },
-  { key: "unemp", what: "House lights", tracks: "jobs" },
-  { key: "debt", what: "Tower", tracks: "debt" },
-];
-
-/**
- * The island's key, in one ruled strip along its top edge: what each district's motion
- * means (campus flags = inflation, smoke = output, ships = exports, the vault = reserves),
- * each with the way it is heading now. The mission's own goals come first. The figures
- * themselves live on the goal cards; this strip only teaches the map. Hidden when the
- * player asks for every tag on the island, or none.
- */
-function SceneStrip() {
-  const { actual, forecast, clock, mission } = useTurn();
-  const labels = useLab((s) => s.labels);
-  if (labels !== "focus") return null;
-  const now = actual[clock];
-  const before = clock > 0 ? actual[clock - 1] : null;
-  const next = forecast[clock + 1];
-  const goals = new Set<string>(mission.objectives.map((o) => o.metric));
-  const items = [...DISTRICT_KEY.filter((d) => goals.has(d.key)), ...DISTRICT_KEY.filter((d) => !goals.has(d.key))].slice(0, 4);
-  return (
-    <p className="game-scene-strip is-key" aria-label="Island key">
-      {items.map((d) => {
-        // Last quarter's move, or (before any quarter is played) where the forecast heads.
-        const delta = before ? now[d.key] - before[d.key] : next ? next[d.key] - now[d.key] : 0;
-        const dir = Math.abs(delta) < 0.05 ? null : delta > 0 ? "up" : "down";
-        return (
-          <span key={d.key}>
-            {d.what}: <b>{d.tracks}</b>
-            {dir ? <> <Glyph name={dir} label={dir === "up" ? "rising" : "falling"} /></> : <span className="game-scene-strip-flat"> steady</span>}
-          </span>
-        );
-      })}
-    </p>
-  );
 }
 
 /** The next thing everyone can see coming: a known shock or an election. */

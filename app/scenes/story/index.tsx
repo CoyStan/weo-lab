@@ -19,7 +19,8 @@ import { useLab } from "../../store";
 import { Anim } from "./anim";
 import { Icon } from "./icons";
 import { columns, layout, type Box, type LFlow, type Mode, type Ports } from "./placement";
-import { buildStory, CHANNEL_ORDER, CHANNELS, drawnAt, maxPush, metricRef, pushUnit, signed, type Cause, type ChannelId, type Flow, type MetricId, type Outcome, type Story } from "./model";
+import { buildStory, CHANNEL_ORDER, CHANNELS, drawnAt, maxPush, metricRef, pushText, signed, type Cause, type ChannelId, type Flow, type MetricId, type Outcome, type Story } from "./model";
+import { useStoryShown } from "./shown";
 import "./story.css";
 
 type Shown = { flow: Flow; value: number; tone: "good" | "bad"; lever: boolean };
@@ -29,6 +30,8 @@ const HEAD_H = 50;
 const COLHEAD_H = 22;
 const STRIP_H = 128;
 const MAX_ARROWS = 8;
+/** Phones list fewer pushes, goal by goal. */
+const MAX_ARROWS_V = 6;
 
 export default function StoryScene() {
   const { mission, config, clock, actual, forecast, policy, policyStart } = useTurn();
@@ -70,6 +73,10 @@ export default function StoryScene() {
     if (!modal && !seen) setSeen(true);
   }, [modal, seen]);
   const T = Math.max(story.first, Math.min(end, pick && pick.clock === clock ? pick.t : clock + 1));
+  // The island view names the map's biggest pushes in one line: it reads this story, at this quarter.
+  const vertical = size.W > 0 && size.W < 560;
+  useEffect(() => useStoryShown.setState({ story, T, max: vertical ? MAX_ARROWS_V : MAX_ARROWS }), [story, T, vertical]);
+  useEffect(() => () => useStoryShown.setState({ story: null }), []);
 
   return (
     <div ref={rootRef} className="st-root" role="region" aria-label="Cause and effect: what is moving your goals, and why">
@@ -91,7 +98,7 @@ function StoryMap({ story, T, W, H, reduced, policySig, onPick }: { story: Story
   const isLever = (id: string) => causeById.get(id)?.kind === "lever";
 
   // What to draw at T, and how wide: one scale for every quarter, so arrows grow as effects build.
-  const { drawn, hidden } = drawnAt(story, T, mode === "h" ? MAX_ARROWS : 6);
+  const { drawn, hidden } = drawnAt(story, T, mode === "h" ? MAX_ARROWS : MAX_ARROWS_V);
   const maxT = (mode === "h" ? 30 : 18) * u;
   const k = maxT / maxPush(story);
   const thick = (n: number) => Math.max(2.5, Math.min(maxT, n * k));
@@ -418,12 +425,6 @@ const bez = (p: Pt[], t: number): Pt => {
   const m = 1 - t;
   return { x: m * m * m * p[0].x + 3 * m * m * t * p[1].x + 3 * m * t * t * p[2].x + t * t * t * p[3].x, y: m * m * m * p[0].y + 3 * m * m * t * p[1].y + 3 * m * t * t * p[2].y + t * t * t * p[3].y };
 };
-
-/** "▲ +2.4", "▼ −0.07": the arrow's push, with a shape and a sign as well as a colour. */
-function pushText(v: number, m: MetricId): string {
-  const d = m === "spread" ? 0 : Math.abs(v) < 0.095 ? 2 : 1;
-  return `${v >= 0 ? "▲" : "▼"} ${signed(v, d)}${pushUnit(m)}`;
-}
 
 function CauseCard({ c, style }: { c: Cause; style: React.CSSProperties }) {
   return (

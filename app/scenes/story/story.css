@@ -17,7 +17,8 @@
 
 .st-head {
   position: absolute;
-  left: 12px;
+  /* The play screen's Map / Island control sits in the slot's top-left corner: the title starts after it. */
+  left: calc(12px + var(--st-head-inset, 0px));
   right: 12px;
   top: 8px;
   margin: 0;
