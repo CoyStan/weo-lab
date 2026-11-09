@@ -226,7 +226,7 @@ async function islandWarm(page) {
 async function toIsland(page) {
   await blur(page);
   await page.keyboard.press("i");
-  await page.waitForSelector(".game-scene.is-island", { timeout: 30000 });
+  await page.waitForSelector(".game-scene.is-island", { timeout: 60000 });
   await page.waitForTimeout(2500);
 }
 
@@ -238,7 +238,7 @@ async function probe(page) {
       const text = (s) => q(s)?.textContent?.replace(/\s+/g, " ").trim() ?? "";
       const modal = q(".game-modal-backdrop");
       return {
-        modal: modal ? (modal.className.match(/is-(\w+)/)?.[1] ?? "card") : "",
+        modal: modal ? (modal.classList.contains("game-fw-backdrop") ? "macro framework" : (modal.className.match(/is-(\w+)/)?.[1] ?? "card")) : "",
         lost: Boolean(q(".game-debrief.is-lost")),
         view: q(".game-scene")?.className.match(/is-(map|island)\b/)?.[1] ?? "",
         list: Boolean(q(".game-scene.is-list")),
@@ -309,7 +309,8 @@ async function cast(page, { frames, every, act, lead = 500 }) {
   await page.waitForTimeout(lead);
   const t0 = Date.now();
   if (act) await act();
-  await page.waitForTimeout(frames * every + 600);
+  const took = Date.now() - t0;
+  await page.waitForTimeout(Math.max(0, frames * every + 600 - took));
   await cdp.send("Page.stopScreencast");
   await cdp.detach().catch(() => {});
   if (!got.length) throw new Error("the screencast sent no frames");
@@ -321,6 +322,8 @@ async function cast(page, { frames, every, act, lead = 500 }) {
     const age = Math.max(0, Math.round(at - best.t));
     out.push({ src: `data:image/jpeg;base64,${best.data}`, full: { width: best.w, height: best.h }, note: `${i * every} ms${age > every ? ` · last paint ${age} ms before` : ""}` });
   }
+  // How long the key press or tap took to return: the page may only react once it has.
+  if (act) out[0].note += ` · the action returned after ${took} ms`;
   return out;
 }
 
@@ -687,10 +690,16 @@ job(
     await islandWarm(page);
     const clip = await boxOf(page, ".game-scene");
     const slow = await slowCss(page, 0.1);
-    const inShots = await cast(page, { frames: 12, every: 200, act: () => page.getByRole("button", { name: "Island", exact: true }).first().click() });
+    // A tap at the button's place: Playwright's click() waits for the button to stop moving,
+    // which with slowed CSS and a busy WebGL page can be seconds after the frames began.
+    const tap = async (label) => {
+      const b = await page.getByRole("button", { name: label, exact: true }).first().boundingBox();
+      await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+    };
+    const inShots = await cast(page, { frames: 12, every: 200, act: () => tap("Island") });
     await sheet("motion-map-10-phone-tap-island.png", MAPG, "Phone 390x844: Island tapped at 0 ms, CSS slowed 10x", inShots, { clip, cols: 6 });
     await page.waitForTimeout(2500);
-    const outShots = await cast(page, { frames: 12, every: 200, act: () => page.getByRole("button", { name: "Map", exact: true }).first().click() });
+    const outShots = await cast(page, { frames: 12, every: 200, act: () => tap("Map") });
     await sheet("motion-map-11-phone-tap-map.png", MAPG, "Phone 390x844: Map tapped at 0 ms, CSS slowed 10x", outShots, { clip, cols: 6 });
     await slow.detach().catch(() => {});
     await page.context().close();
@@ -726,7 +735,8 @@ for (const [id, focus, what, frames, step] of [
 ]) {
   job(`motion-island-${id}`, async (name) => {
     const page = await sandbox(name, { focus });
-    const clip = await centre(page, ".lab-scene canvas", 600, 420);
+    // The port reaches out to its ships at anchor: film the whole canvas; the rest, its middle.
+    const clip = id === "2-port-ships" ? await boxOf(page, ".lab-scene canvas") : await centre(page, ".lab-scene canvas", 600, 420);
     const shots = await stepped(page, { clip, frames, step, settle: 3000, slice: 100 });
     await sheet(`motion-island-${id}.png`, ISLG, `${what}; free play, camera flown in by clicking the ${focus} tile, ${step} ms of animation time apart`, shots, { clip, cols: 4 });
     await page.context().close();
@@ -769,14 +779,14 @@ job("motion-island-7-camera-title-turn", async (name) => {
   await page.waitForTimeout(4000);
   const clip = await boxOf(page, "body");
   const shots = await stepped(page, { clip, frames: 6, step: 5000, settle: 12000, slice: 100 });
-  await sheet("motion-island-7-camera-title-turn.png", ISLG, "Title screen backdrop: the slow idle camera turn (starts after 10 s alone; one turn in about 5.5 min), 5 s of animation time apart, from 12 s", shots, { clip, cols: 3 });
+  await sheet("motion-island-7-camera-title-turn.png", ISLG, "Title screen backdrop, nothing touched: the slow idle camera turn (one turn in about 5.5 min), 5 s of animation time apart, the first 12 s after the clock froze", shots, { clip, cols: 3 });
   await page.context().close();
 });
 job("motion-island-8-overview-clouds", async (name) => {
   const page = await sandbox(name);
   const clip = await boxOf(page, ".lab-scene");
   const shots = await stepped(page, { clip, frames: 8, step: 3000, settle: 1000, slice: 100 });
-  await sheet("motion-island-8-overview-clouds.png", ISLG, "Free-play overview: clouds drifting, the sea, the camera starting its idle turn after 10 s, 3 s of animation time apart", shots, { clip, cols: 4 });
+  await sheet("motion-island-8-overview-clouds.png", ISLG, "Free-play overview, nothing touched: the slow idle camera turn with the tags re-placed as it turns, clouds offshore, the sea; 3 s of animation time apart", shots, { clip, cols: 4 });
   await page.context().close();
 });
 
@@ -793,7 +803,7 @@ job("motion-island-9-play-weather", async (name) => {
   const page = await playIsland(name);
   const clip = await boxOf(page, ".game-scene");
   const rain = await stepped(page, { clip, frames: 8, step: 150, settle: 500 });
-  await sheet("motion-island-9-play-weather-rain.png", ISLG, "Mission 1's island view with the food-price shock in force: storm sky and rain, 150 ms of animation time apart", rain, { clip, cols: 4 });
+  await sheet("motion-island-9-play-weather-rain.png", ISLG, "Mission 1's island view with the food-price shock in force: storm light and rain, 150 ms of animation time apart", rain, { clip, cols: 4 });
   const long = await stepped(page, { clip, frames: 6, step: 4000, slice: 100 });
   await sheet("motion-island-10-play-idle-long.png", ISLG, "The same island left alone for 20 s of animation time, 4 s apart: clouds and sea move, the play screen's camera should not turn", long, { clip, cols: 3 });
   await page.context().close();
@@ -835,8 +845,8 @@ job("motion-island-12-news-ring", async (name) => {
   await page.context().close();
 });
 job("motion-island-13-news-rise", async (name) => {
-  // "When the price falls": the commodity bust's news names the port, which the mission does not
-  // otherwise show, so it rises out of its hex as the card opens.
+  // "When the price falls": the commodity bust's news names the port, which is not one of the
+  // mission's goals; the film shows what the port does as the card opens.
   const page = await open(name, { vclock: true, unlock: true, noCoach: true });
   await startMission(page, "When the price falls");
   await closeCards(page);
@@ -846,9 +856,10 @@ job("motion-island-13-news-rise", async (name) => {
   await page.waitForTimeout(1200);
   await hideCards(page);
   const clip = await boxOf(page, ".game-scene");
-  const plan = page.getByRole("button", { name: /^Plan / }).first();
+  // The hidden card's button is out of the accessibility tree: find it by its text.
+  const plan = page.locator(".game-modal-backdrop button").filter({ hasText: /^Plan / }).first();
   const shots = await stepped(page, { clip, frames: 10, step: 150, act: () => plan.evaluate((el) => el.click()) });
-  await sheet("motion-island-13-news-rise.png", ISLG, `"When the price falls", island view, cards hidden by the script: the recap's "Plan" clicked after frame 1, the commodity bust's news opens and the port it hits rises, 150 ms apart`, shots, { clip, cols: 5 });
+  await sheet("motion-island-13-news-rise.png", ISLG, `"When the price falls", island view, cards hidden by the script: the recap's "Plan" clicked after frame 1 and the commodity bust's news opens: what the port it hits does (a ring, rising if it was down), 150 ms apart`, shots, { clip, cols: 5 });
   await page.context().close();
 });
 job("motion-island-14-reduced", async (name) => {
