@@ -25,7 +25,18 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:model
-      - run: npm run build
+      # next/font downloads the Google fonts at build time, and that download
+      # sometimes fails on the runner ("module not found" inside the font CSS).
+      # Retry before giving up; a real build error fails all three attempts.
+      - name: Build (up to 3 attempts)
+        run: |
+          for attempt in 1 2 3; do
+            npm run build && exit 0
+            echo "::warning::Build attempt $attempt failed; retrying in 20 s"
+            rm -rf .next
+            sleep 20
+          done
+          exit 1
         env:
           PAGES_BASE_PATH: /weo-lab
       - uses: actions/upload-pages-artifact@v3
