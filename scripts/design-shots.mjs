@@ -36,7 +36,9 @@ const server = createServer((req, res) => {
   res.writeHead(200, { "content-type": TYPES[extname(path)] ?? "application/octet-stream" }).end(readFileSync(path));
 });
 await new Promise((r) => server.listen(0, r));
-const url = `http://localhost:${server.address().port}/${themeId ? `?theme=${themeId}` : ""}`;
+// SCENE=<id> in the environment shoots a scene concept (?scene=<id>, see app/scenes/registry.tsx).
+const query = new URLSearchParams({ ...(themeId ? { theme: themeId } : {}), ...(process.env.SCENE ? { scene: process.env.SCENE } : {}) }).toString();
+const url = `http://localhost:${server.address().port}/${query ? `?${query}` : ""}`;
 
 const browser = await chromium.launch();
 const errors = [];

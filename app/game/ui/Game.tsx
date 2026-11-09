@@ -16,6 +16,7 @@ import Framework from "./Framework";
 import Play from "./Play";
 import { Briefing, MissionSelect, TitleScreen } from "./Screens";
 import Contagion from "../../contagion/ui/Contagion";
+import { PlayScene } from "../../scenes/registry";
 import "../../contagion/contagion.css";
 
 const IslandScene = dynamic(() => import("../../scene/IslandScene"), {
@@ -121,7 +122,7 @@ export default function Game() {
     <div className={`lab game ${reducedMotion ? "is-reduced" : ""} ${hasModal ? "has-modal" : ""} ${hasKbd ? "has-kbd" : ""} min-h-dvh bg-[var(--lab-bg)] text-[var(--lab-ink)]`} data-theme={theme.id} style={{ ...(theme.vars as React.CSSProperties), colorScheme: theme.scheme }}>
       {theme.css ? <style>{theme.css}</style> : null}
       {screen === "play" ? (
-        <Play scene={<IslandScene />} />
+        <Play scene={<PlayScene />} />
       ) : screen === "contagion" ? (
         <Contagion />
       ) : (

@@ -1145,12 +1145,13 @@ function Housing({ reducedMotion }: { reducedMotion: boolean }) {
 function Lighthouse({ reducedMotion }: { reducedMotion: boolean }) {
   const current = useLab(selectCurrent);
   const beam = useRef<THREE.Mesh>(null);
+  const spin = useRef<THREE.Group>(null);
   const lamp = useRef<THREE.PointLight>(null);
   const sm = useSmooth({ cred: current.cred / 100 }, 2, reducedMotion);
   useFrame((state, dt) => {
     const c = sm.current.cred;
     if (beam.current) {
-      if (!reducedMotion) beam.current.rotation.y += dt * 0.8;
+      if (!reducedMotion && spin.current) spin.current.rotation.y += dt * 0.8;
       (beam.current.material as THREE.MeshBasicMaterial).opacity = 0.03 + 0.12 * c;
     }
     if (lamp.current) lamp.current.intensity = 1 + 7 * c;
@@ -1180,8 +1181,11 @@ function Lighthouse({ reducedMotion }: { reducedMotion: boolean }) {
         <meshStandardMaterial color={P.accent} roughness={0.9} flatShading={P.flat} />
       </mesh>
       <pointLight ref={lamp} position={[0, 3.2, 0]} intensity={4} distance={14} color={P.lamp} />
-      <group position-y={3.15}>
-        <mesh ref={beam} rotation-z={-Math.PI / 2} position-x={0}>
+      {/* The beam's tip sits in the lamp and the group turns about the tower's axis. A cone is
+          built around its middle, apex up: laid on its side (apex to +x), it is shifted back by
+          half its length so the apex is at the lamp and the wide end points out to sea. */}
+      <group ref={spin} position-y={3.15}>
+        <mesh ref={beam} rotation-z={Math.PI / 2} position-x={2.75}>
           <coneGeometry args={[1.1, 5.5, 12, 1, true]} />
           <meshBasicMaterial color={P.beam} transparent opacity={0.15} side={THREE.DoubleSide} depthWrite={false} blending={THREE.AdditiveBlending} />
         </mesh>

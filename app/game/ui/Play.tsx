@@ -22,12 +22,14 @@ import Levers from "./Levers";
 import { attention } from "../pacing";
 import { useLab, type FocusKey, type SceneCue } from "../../store";
 import { nameDistricts } from "../../scene/labelLayer";
+import { useSceneId } from "../../scenes/registry";
 import { PLACE } from "../../scene/places";
 import { deltaUnit, fmtNum, GAME_METRICS, unitShort } from "../metrics";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export default function Play({ scene }: { scene: ReactNode }) {
+  const sceneId = useSceneId();
   const { mission, clock, deciding, events, changed, statuses } = useTurn();
   const tips = useSettings((s) => s.tips);
   const [panel, setPanel] = useState<"levers" | "reforms">("levers");
@@ -220,8 +222,9 @@ export default function Play({ scene }: { scene: ReactNode }) {
         <section className="game-stage" aria-label="Island">
           <div className="game-scene">
             {scene}
-            <SceneStrip />
-            <RecapIslandLine />
+            {/* The island's decoder strip and recap line describe the island; other scene concepts explain themselves. */}
+            {sceneId === "island" ? <SceneStrip /> : null}
+            {sceneId === "island" ? <RecapIslandLine /> : null}
             {run ? <RunTicker /> : null}
             <div className="game-scene-news">
               {news.map((e, i) => (
