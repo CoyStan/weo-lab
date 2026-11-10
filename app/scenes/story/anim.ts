@@ -40,6 +40,22 @@ export class Anim {
     for (const m of [this.cur, this.tgt, this.rate, this.hold]) for (const k of [...m.keys()]) if (k.startsWith(prefix)) m.delete(k);
   }
 
+  /** Every key at its target at once, holds and all: the settled picture. */
+  snap() {
+    for (const [k, t] of this.tgt) this.cur.set(k, t);
+    this.hold.clear();
+  }
+
+  /** Every key whose delay has passed, at its target at once (after a stalled frame, so no figure is left half-way). */
+  settle(now: number) {
+    for (const [k, t] of this.tgt) {
+      const until = this.hold.get(k);
+      if (until !== undefined && now < until) continue;
+      this.hold.delete(k);
+      this.cur.set(k, t);
+    }
+  }
+
   moving(): boolean {
     for (const [k, t] of this.tgt) if (this.cur.get(k) !== t) return true;
     return false;

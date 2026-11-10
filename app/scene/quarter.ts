@@ -23,9 +23,12 @@ export function useIslandMode(): IslandMode {
   return screen === "sandbox" ? "sandbox" : screen === "play" ? "play" : "backdrop";
 }
 
-/** One forecast per (config, clock): every district and the weather read the same path. */
+/**
+ * One forecast per (config, clock): every district, the weather and the tags' goal quarters
+ * read the same path, the staff forecast the goal cards read (useTurn's forecastFor).
+ */
 let cached: { config: ScenarioConfig | null; clock: number; path: QuarterState[] } = { config: null, clock: -1, path: [] };
-function forecastPath(config: ScenarioConfig, clock: number): QuarterState[] {
+export function forecastPath(config: ScenarioConfig, clock: number): QuarterState[] {
   if (cached.config !== config || cached.clock !== clock) cached = { config, clock, path: forecastFor(config, clock) };
   return cached.path;
 }

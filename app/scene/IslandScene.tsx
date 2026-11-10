@@ -254,7 +254,9 @@ function CameraRig({ reducedMotion, mode, paused }: { reducedMotion: boolean; mo
     // two seconds rather than starting or stopping dead, and turns about the view's centre.
     const idle = clock.elapsedTime - lastInteraction.current > 10;
     const want = mode !== "play" && !reducedMotion && idle && !interacting && !focus && !flyTo.current ? 1 : 0;
-    spin.current = want > spin.current ? Math.min(1, spin.current + dt / 2) : Math.max(0, spin.current - dt / 2);
+    // Ease toward `want` and hold there (at full speed it used to step down every other frame).
+    if (want > spin.current) spin.current = Math.min(1, spin.current + dt / 2);
+    else if (want < spin.current) spin.current = Math.max(0, spin.current - dt / 2);
     if (spin.current > 0) {
       offset.copy(camera.position).sub(c.target).applyAxisAngle(UP, SPIN_RATE * smoothstep(spin.current) * Math.min(dt, 0.1));
       camera.position.copy(c.target).add(offset);
@@ -351,22 +353,34 @@ function WeatherBridge({ reducedMotion }: { reducedMotion: boolean }) {
  * clock at zero, which would throw every animation keyed to clock.elapsedTime back in time;
  * this runs first in every frame and carries the clock on from where it stopped, so on resume
  * nothing jumps by the time spent hidden. `onReady` fires once the first frames are drawn, so
- * the view can fade in on a finished picture.
+ * the view can fade in on a finished picture; `onDrawn` fires each time two fresh frames have
+ * been drawn after a pause, so a view switched back on never shows a canvas that has not been
+ * drawn since it was hidden.
  */
-function PauseAndReady({ onReady }: { onReady?: () => void }) {
+function PauseAndReady({ paused, onReady, onDrawn }: { paused: boolean; onReady?: () => void; onDrawn?: () => void }) {
   const last = useRef(0);
+  const warm = useRef(0);
   const frames = useRef(0);
   const ready = useRef(onReady);
+  const drawn = useRef(onDrawn);
   useEffect(() => {
     ready.current = onReady;
+    drawn.current = onDrawn;
   });
+  useEffect(() => {
+    if (!paused) frames.current = 0;
+  }, [paused]);
   useFrame((state, dt) => {
     const clock = state.clock;
     if (clock.elapsedTime < last.current) clock.elapsedTime = last.current + Math.min(dt, 0.1);
     last.current = clock.elapsedTime;
+    if (warm.current <= 2) {
+      warm.current += 1;
+      if (warm.current === 2) ready.current?.();
+    }
     if (frames.current > 2) return;
     frames.current += 1;
-    if (frames.current === 2) ready.current?.();
+    if (frames.current === 2) drawn.current?.();
   }, -2);
   return null;
 }
@@ -396,7 +410,7 @@ function useOffscreen(): boolean {
   return off;
 }
 
-export default function IslandScene({ paused = false, onReady }: { paused?: boolean; onReady?: () => void }) {
+export default function IslandScene({ paused = false, onReady, onDrawn }: { paused?: boolean; onReady?: () => void; onDrawn?: () => void }) {
   const reducedMotion = useReducedMotionFlag();
   const themeId = useLab((s) => s.theme);
   const mode = useIslandMode();
@@ -412,7 +426,7 @@ export default function IslandScene({ paused = false, onReady }: { paused?: bool
   return (
     <SceneErrorBoundary>
       <Canvas key={themeId} frameloop={idle ? "never" : "always"} shadows="percentage" dpr={[1, 1.5]} camera={{ position: [6, 31, 29], fov: 34, near: 0.5, far: 220 }} gl={{ antialias: true, powerPreference: "high-performance" }} onPointerMissed={() => useLab.getState().setFocus(null)}>
-        <PauseAndReady onReady={onReady} />
+        <PauseAndReady paused={idle} onReady={onReady} onDrawn={onDrawn} />
         <fog attach="fog" args={[P.sky, 60, 140]} />
         <Lights />
         <Island reducedMotion={reducedMotion} />

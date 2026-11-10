@@ -30,8 +30,11 @@ export const SCENES: Record<string, { label: string; Component: ComponentType }>
 /** The map the play screen opens on. */
 export const DEFAULT_SCENE = "story";
 
-/** The island as the play screen's second view: it can pause while hidden and says when its first frames are drawn. */
-export const PlayIsland = dynamic<{ paused?: boolean; onReady?: () => void }>(() => import("../scene/IslandScene"), { ssr: false, loading: () => null });
+/**
+ * The island as the play screen's second view: it can pause while hidden, says when its first
+ * frames are drawn (onReady, once), and when fresh frames are drawn after each pause (onDrawn).
+ */
+export const PlayIsland = dynamic<{ paused?: boolean; onReady?: () => void; onDrawn?: () => void }>(() => import("../scene/IslandScene"), { ssr: false, loading: () => null });
 
 const urlScene = () => {
   if (typeof window === "undefined") return DEFAULT_SCENE;

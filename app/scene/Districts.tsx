@@ -6,14 +6,18 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import type { ConstraintVar, QuarterState } from "../model/types";
 import * as THREE from "three";
 import { getPreset, WEO_REFERENCE } from "../model/presets";
+import { quarterLabel } from "../model/economy";
 import { useLab, type FocusKey } from "../store";
+import { useGame } from "../game/store";
+import { firstBreach, getMission, objectiveStatus } from "../game/missions";
+import { decidingQuarter } from "../game/ui/Goals";
 import Tag, { type TagStatus } from "./Tag";
 import { markLabelsDirty } from "./labelLayer";
 import { HEX, TOP } from "./hexmap";
 import { WORLD } from "./world";
 import { clamp, useSmooth } from "./useSmooth";
 import { commitInstances, gableRoof, mixHex, placeInstance, primeInstances, prismGeometry, scatterOrder, TMP_COLOR, useGeometry } from "./shapes";
-import { useIslandMode, useIslandQuarter, useLandmarks, type IslandQuarter } from "./quarter";
+import { forecastPath, useIslandMode, useIslandQuarter, useLandmarks, type IslandQuarter } from "./quarter";
 
 /** Rates as the lever shows them: up to two decimals, no trailing zeros (10.5, 10.25). */
 const rateText = (v: number) => String(+v.toFixed(2));
@@ -28,7 +32,8 @@ const site = (k: keyof typeof WORLD.sites): [number, number, number] => [WORLD.s
 
 /**
  * Each district stands on its own hex; the tanker anchors offshore, in open water north-east
- * of the island, close enough to stay in the home view on a laptop, a TV and a phone.
+ * of the island (its whole hull over sea hexes, not the beach), close enough to stay in the
+ * home view on a laptop, a TV and a phone.
  */
 export const DISTRICT_POS: Partial<Record<FocusKey, [number, number, number]>> = {
   debt: site("debt"),
@@ -39,8 +44,29 @@ export const DISTRICT_POS: Partial<Record<FocusKey, [number, number, number]>> =
   reserves: site("reserves"),
   unemp: site("unemp"),
   cred: site("cred"),
-  oil: [11.2, 0, -8.6],
+  oil: [12.6, 0, -11.2],
 };
+
+/** The tanker's hull: its length and its heading (turn about the vertical, in radians). */
+const HULL_LENGTH = 4.2;
+const HULL_YAW = -0.3;
+
+// Development only: the tanker rides the swell, so it must float. Warn if its middle or either
+// end of its hull is over a land hex (a moved anchorage, or a change to the island's map).
+if (process.env.NODE_ENV !== "production") {
+  const [x, , z] = DISTRICT_POS.oil!;
+  const dx = (Math.cos(HULL_YAW) * HULL_LENGTH) / 2;
+  const dz = (-Math.sin(HULL_YAW) * HULL_LENGTH) / 2;
+  for (const [px, pz] of [
+    [x, z],
+    [x + dx, z + dz],
+    [x - dx, z - dz],
+  ]) {
+    let near = WORLD.tiles[0];
+    for (const t of WORLD.tiles) if (Math.hypot(t.x - px, t.z - pz) < Math.hypot(near.x - px, near.z - pz)) near = t;
+    if (near.land) console.warn(`Island: the oil tanker at (${px.toFixed(1)}, ${pz.toFixed(1)}) sits on a ${near.kind} hex; move DISTRICT_POS.oil out to sea.`);
+  }
+}
 
 /**
  * How far each landmark reaches round its site, in world units: [west, east, north, south,
@@ -216,6 +242,7 @@ function District({
   const hoverOnly = labels === "focus" && spotlightCount === 0;
   const showTag = shown && mode !== "backdrop" && (!hoverOnly || active);
   const r = reading(focusKey, q);
+  const when = useStatusWhen(focusKey, status);
 
   useEffect(() => {
     if (!hover) return;
@@ -283,16 +310,16 @@ function District({
           <meshBasicMaterial ref={ringMat} color={color} transparent opacity={0} depthWrite={false} />
         </mesh>
       </group>
-      <TagAt at={[tagAt[0] * k, tagAt[1] * k, tagAt[2] * k]} r={r} hidden={!showTag} focus={active} status={status} />
+      <TagAt at={[tagAt[0] * k, tagAt[1] * k, tagAt[2] * k]} r={r} hidden={!showTag} focus={active} status={status} when={when} />
     </group>
   );
 }
 
 /** The tag, re-placed by the tag layer whenever its anchor moves (a tower growing). */
-function TagAt({ at, r, hidden, focus, status }: { at: [number, number, number]; r: Reading; hidden: boolean; focus: boolean; status?: TagStatus }) {
+function TagAt({ at, r, hidden, focus, status, when }: { at: [number, number, number]; r: Reading; hidden: boolean; focus: boolean; status?: TagStatus; when?: string }) {
   const [x, y, z] = at;
   useEffect(() => markLabelsDirty(), [x, y, z]);
-  return <Tag position={[x, y, z]} name={r.name} arrow={r.arrow} value={r.value} sr={r.sr} hidden={hidden} focus={focus} status={status} />;
+  return <Tag position={[x, y, z]} name={r.name} arrow={r.arrow} value={r.value} sr={r.sr} hidden={hidden} focus={focus} status={status} when={when} />;
 }
 
 /** The status word on a landmark's tag: the goal's trouble in the game, a breached limit in free play. */
@@ -303,6 +330,38 @@ function useStatus(focusKey: FocusKey): TagStatus | undefined {
   if (mode === "play") return goal;
   if (mode === "sandbox" && (BREACH_MAP[focusKey] ?? []).some((v) => breachedNow.has(v))) return "breached";
   return undefined;
+}
+
+/**
+ * For a goal that must hold every quarter, the quarter its trouble is about, so a tag never
+ * reads "Growth ▲ 3.1% · at risk" with no hint that the danger is a dip later on. At risk: the
+ * quarter that decides it on the forecast, its low (or high) point, the quarter the goal card
+ * leads with ("Lowest in 2026Q4", decidingQuarter in app/game/ui/Goals.tsx): the goal holds
+ * exactly when that quarter does. Missed: the quarter it first broke. Goals judged at the end
+ * or over a year (and free play) get none: their tags stay as they are.
+ */
+function useStatusWhen(focusKey: FocusKey, status: TagStatus | undefined): string | undefined {
+  const mode = useIslandMode();
+  const missionId = useGame((s) => s.missionId);
+  const config = useLab((s) => s.config);
+  const clock = useLab((s) => s.clock);
+  const actual = useLab((s) => s.result.path);
+  return useMemo(() => {
+    if (mode !== "play" || (status !== "at-risk" && status !== "failed") || !missionId) return undefined;
+    const mission = getMission(missionId);
+    if (!mission) return undefined;
+    const end = mission.quarters;
+    const forecast = forecastPath(config, clock);
+    // The goal whose trouble the tag shows: judged on this figure, every quarter, and in that trouble now.
+    const o = mission.objectives.find((x) => !x.bonus && x.metric === focusKey && x.when === "every" && objectiveStatus(x, mission, actual, forecast, clock) === status);
+    if (!o) return undefined;
+    if (status === "failed") {
+      const t = firstBreach(o, actual, 1, Math.min(clock, end));
+      return t === null ? undefined : quarterLabel(t);
+    }
+    const dq = decidingQuarter(o, forecast, clock, end);
+    return dq ? quarterLabel(dq.worst) : undefined;
+  }, [mode, status, missionId, focusKey, config, clock, actual]);
 }
 
 type Props = { q: IslandQuarter; shown: boolean; reducedMotion: boolean };
@@ -1336,9 +1395,9 @@ function Tanker({ q, shown, reducedMotion }: Props) {
   });
   return (
     <District focusKey="oil" q={q} shown={shown} tagAt={[0, 2.0, 0]} reducedMotion={reducedMotion}>
-      <group ref={group} rotation-y={-0.3}>
+      <group ref={group} rotation-y={HULL_YAW}>
         <mesh castShadow>
-          <boxGeometry args={[4.2, 0.7, 1.3]} />
+          <boxGeometry args={[HULL_LENGTH, 0.7, 1.3]} />
           <meshStandardMaterial color={P.hull} roughness={0.7} flatShading={P.flat} />
         </mesh>
         <mesh position={[-1.5, 0.75, 0]} castShadow>

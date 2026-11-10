@@ -290,7 +290,7 @@ export function Briefing() {
                 return (
                   <li key={id} className="flex items-center gap-2">
                     <img src={`${base}${a.portrait}`} alt="" width={30} height={30} className="game-portrait is-small" style={{ ["--advisor" as string]: a.accent }} />
-                    <span className="text-(length:--t-xs) leading-tight">
+                    <span className="game-brief-advisor text-(length:--t-sm) leading-tight">
                       <strong>{a.name}</strong>
                       <span className="block text-[var(--lab-ink-2)]">Cares about {a.cares.toLowerCase()}</span>
                     </span>
@@ -332,7 +332,7 @@ export function Briefing() {
               You start with <strong>Votes {mission.politics.start.votes} · Trust {mission.politics.start.trust}</strong>. Higher is better: votes come from growth and jobs, trust from hitting targets; reforms spend them.{" "}
               {mission.politics.elections.length ? `Elections end ${mission.politics.elections.map((q) => quarterLabel(q)).join(" and ")}; you need ${mission.politics.threshold} votes.` : "No elections in this mission."}
             </p>
-            <p className="mt-2 text-(length:--t-xs) text-[var(--lab-ink-2)]">
+            <p className="game-brief-watched mt-2 text-(length:--t-sm) leading-snug text-[var(--lab-ink-2)]">
               {mission.number === 0 ? `Data: IMF, ${WEO.vintage}. Policy rates, reserves and spreads are model estimates. ` : ""}
               {mission.quarters} quarters, {quarterLabel(1)} to {quarterLabel(mission.quarters)}. Watched: {Array.from(new Set(mission.objectives.map((o) => GAME_METRICS[o.metric].label.toLowerCase()))).join(", ")}.
             </p>
