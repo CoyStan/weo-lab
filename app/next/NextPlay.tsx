@@ -340,7 +340,11 @@ function GoalPanel({
 function useViewport() {
   const [vp, setVp] = useState({ w: 1440, h: 900 });
   useEffect(() => {
-    const on = () => setVp({ w: window.innerWidth, h: window.innerHeight });
+    // On a TV the whole screen is zoomed (next.css), so it has fewer layout pixels than the window.
+    const on = () => {
+      const zoom = window.innerWidth >= 2000 ? 1.3 : 1;
+      setVp({ w: window.innerWidth / zoom, h: window.innerHeight / zoom });
+    };
     on();
     window.addEventListener("resize", on);
     return () => window.removeEventListener("resize", on);

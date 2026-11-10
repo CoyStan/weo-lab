@@ -23,8 +23,9 @@ export function useBox<T extends HTMLElement>() {
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // clientWidth is in the element's own layout pixels, so the chart stays right when the screen is zoomed for a TV.
     const read = () => {
-      const r = el.getBoundingClientRect();
+      const r = { width: el.clientWidth, height: el.clientHeight };
       setBox((b) => (Math.abs(b.w - r.width) < 0.5 && Math.abs(b.h - r.height) < 0.5 ? b : { w: r.width, h: r.height }));
     };
     read();

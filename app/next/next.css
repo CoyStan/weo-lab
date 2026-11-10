@@ -1097,18 +1097,15 @@
   }
 }
 
-/* ---- Big screens: one step up, as the classic screen does ---------------------------- */
+/* ---- Big screens: a TV is read from a sofa, so everything grows together ------------- */
 
 @media (min-width: 2000px) {
-  .nx-tick,
-  .nx-ghostv,
-  .nx-mark,
-  .nx-bar-v,
-  .nx-bar-q {
-    font-size: 16px;
+  .nx {
+    zoom: 1.3;
+    min-height: calc(100dvh / 1.3);
   }
-  .nx-endv {
-    font-size: 20px;
+  .nx-side {
+    max-height: calc(100dvh / 1.3 - 4.2rem - 1.5rem);
   }
 }
 
