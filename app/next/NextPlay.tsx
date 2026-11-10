@@ -135,9 +135,7 @@ export default function NextPlay() {
       }
       if ((e.key === "w" || e.key === "W") && !e.repeat) {
         e.preventDefault();
-        // The map explains the quarter being decided; with a card up, the decomposition explains what happened.
-        if (game.modal) game.setFramework(true);
-        else next.setWhy(true);
+        next.setWhy(true);
         return;
       }
       if ((e.key === "f" || e.key === "F") && !game.modal) {
@@ -243,7 +241,7 @@ function Header() {
             Votes <strong>{books.votes}</strong> · Trust <strong>{books.trust}</strong>
           </span>
         ) : null}
-        <button type="button" className="lab-btn lab-btn-soft lab-btn-sm" onClick={() => (useGame.getState().modal ? setFramework(true) : setWhy(true))} title="Why it moves: causes, channels and your levers (W)">
+        <button type="button" className="lab-btn lab-btn-soft lab-btn-sm" onClick={() => setWhy(true)} title="Why it moves: causes, channels and your levers (W)">
           Why? <kbd aria-hidden="true">W</kbd>
         </button>
         <details className="game-menu" ref={menu}>
@@ -867,6 +865,7 @@ function ResultBeat({ recap }: { recap: Recap }) {
   }, [mission, forecast, untouched, clock]);
   const closeModal = useGame((s) => s.closeModal);
   const setFramework = useGame((s) => s.setFramework);
+  const setWhy = useNext((s) => s.setWhy);
   const narrow = useNarrow();
   const from = recap.from ?? recap.quarter - 1;
   const p = useProgress(recap.quarter, 1100 + 250 * Math.min(6, recap.quarter - from - 1));
@@ -966,7 +965,10 @@ function ResultBeat({ recap }: { recap: Recap }) {
           </ul>
           <div className="nx-actions">
             <button type="button" className="lab-btn lab-btn-ghost lab-btn-md" onClick={() => setFramework(true, DECOMP.includes(metrics[0]) ? (metrics[0] as never) : undefined)}>
-              Dig deeper: every sector <kbd aria-hidden="true">W</kbd>
+              Every sector
+            </button>
+            <button type="button" className="lab-btn lab-btn-soft lab-btn-md" onClick={() => setWhy(true)}>
+              Why? The map <kbd aria-hidden="true">W</kbd>
             </button>
             <button type="button" data-primary ref={focusHere} className="lab-btn lab-btn-primary lab-btn-md" onClick={closeModal}>
               {last ? "See how it ended" : `Plan ${quarterLabel(clock + 1)}`} <kbd aria-hidden="true">Enter</kbd>
@@ -1172,7 +1174,7 @@ function WhyDrawer() {
           </button>
         </div>
         <div className="nx-why-body game-scene">
-          <StoryMap />
+          <StoryMap immediate />
         </div>
       </div>
     </div>
