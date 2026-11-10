@@ -210,10 +210,10 @@
   box-shadow: var(--lab-panel-shadow);
 }
 .nx-goal-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0 1rem;
 }
 .nx-goal-name {
   margin: 0;
@@ -229,20 +229,22 @@
   font-size: var(--t-sm);
   color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 75%, transparent));
 }
-.nx-goal-landing {
-  flex: none;
+.nx-goal-when {
   text-align: right;
+  white-space: nowrap;
 }
 .nx-goal-value {
   margin: 0;
   font-size: var(--t-xl);
   font-weight: 700;
   line-height: 1;
+  text-align: right;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 .nx-goal-unit {
-  margin-left: 0.1em;
-  font-size: 0.55em;
+  margin-left: 0.15em;
+  font-size: 0.5em;
   font-weight: 600;
 }
 .nx-goal-panel.is-compact .nx-goal-name {
@@ -250,6 +252,13 @@
 }
 .nx-goal-panel.is-compact .nx-goal-value {
   font-size: var(--t-lg);
+}
+/* Narrow panels: the goal gets the full width, the verdict a line of its own. */
+.nx-goal-panel.is-compact .nx-goal-label,
+.nx-goal-panel.is-compact .nx-goal-when {
+  grid-column: 1 / -1;
+  text-align: left;
+  white-space: normal;
 }
 
 .nx-status {
@@ -272,7 +281,7 @@
 
 .nx-journey {
   margin: 0.35rem 0 0;
-  min-height: 2.9em;
+  min-height: 1.45em;
   font-size: var(--t-sm);
   color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 72%, transparent));
 }
@@ -424,7 +433,8 @@
   top: 0.75rem;
   display: flex;
   min-width: 0;
-  max-height: calc(100dvh - 1.5rem);
+  /* While the header is in view the column ends at the window's foot, End button included. */
+  max-height: calc(100dvh - 4.2rem - 1.5rem);
   flex-direction: column;
   gap: 0.75rem;
 }

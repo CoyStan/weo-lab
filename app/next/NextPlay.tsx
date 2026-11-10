@@ -250,6 +250,7 @@ function GoalPanel({
   ghost,
   extra,
   showJourney = true,
+  hint = false,
   compact = false,
   moved: movedDelta,
   children,
@@ -260,6 +261,8 @@ function GoalPanel({
   ghost?: QuarterState[] | null;
   extra?: ChartLine[];
   showJourney?: boolean;
+  /** Show the "move a lever" hint while nothing has moved (one panel carries it). */
+  hint?: boolean;
   compact?: boolean;
   /** Result beat: the hero figure is the quarter's outturn, counting up from `from` to `to`. */
   moved?: { from: number; to: number; p: number };
@@ -273,7 +276,7 @@ function GoalPanel({
   const j = main ? judged(main, mission, actual, forecast, clock) : null;
   const unit = unitShort(meta.unit);
   const trip = journey(metric, forecast, forecastStart, clock, end);
-  const moved = changed && Math.abs(trip.peak) >= 0.5 * Math.pow(10, -(meta.digits + 1));
+  const moved = changed && Math.abs(trip.peak) >= 0.5 * Math.pow(10, -meta.digits);
   const du = deltaUnit(meta.unit);
   const d = movedDelta ? movedDelta.to - movedDelta.from : 0;
   const good = main && movedDelta ? (main.op === "<=" ? d < 0 : d > 0) : null;
@@ -281,31 +284,28 @@ function GoalPanel({
   return (
     <section className={`nx-goal-panel ${compact ? "is-compact" : ""}`} aria-label={meta.label}>
       <header className="nx-goal-head">
-        <div>
-          <h2 className="nx-goal-name">{meta.label}</h2>
-          {main ? <p className="nx-goal-label">Goal: {main.label.charAt(0).toLowerCase() + main.label.slice(1)}</p> : null}
-        </div>
+        <h2 className="nx-goal-name">{meta.label}</h2>
         {movedDelta ? (
-          <div className="nx-goal-landing">
-            <p className="nx-goal-value">
-              {fmtNum(movedDelta.from + d * movedDelta.p, meta.digits)}
-              <span className="nx-goal-unit">{unit}</span>
-            </p>
-            <p className={`nx-goal-when nx-delta ${good === null || flat ? "" : good ? "is-good" : "is-bad"}`}>
-              {flat ? "•" : d > 0 ? "▲" : "▼"} {signed(d, meta.digits, du)}
-              {good === null || flat ? "" : good ? " helps" : " hurts"}
-            </p>
-          </div>
+          <p className="nx-goal-value">
+            {fmtNum(movedDelta.from + d * movedDelta.p, meta.digits)}
+            <span className="nx-goal-unit">{unit}</span>
+          </p>
         ) : main && j ? (
-          <div className="nx-goal-landing">
-            <p className="nx-goal-value">
-              {fmtNum(j.value, meta.digits)}
-              <span className="nx-goal-unit">{unit}</span>
-            </p>
-            <p className="nx-goal-when">
-              {clock >= end ? "final" : main.when === "every" ? `${main.op === ">=" ? "lowest" : "highest"}, ${shortQ(j.t)}` : `forecast for ${shortQ(j.t)}`} · <Status status={statuses[main.id]} />
-            </p>
-          </div>
+          <p className="nx-goal-value">
+            {fmtNum(j.value, meta.digits)}
+            <span className="nx-goal-unit">{unit}</span>
+          </p>
+        ) : null}
+        {main ? <p className="nx-goal-label">Goal: {main.label.charAt(0).toLowerCase() + main.label.slice(1)}</p> : null}
+        {movedDelta ? (
+          <p className={`nx-goal-when nx-delta ${good === null || flat ? "" : good ? "is-good" : "is-bad"}`}>
+            {flat ? "•" : d > 0 ? "▲" : "▼"} {signed(d, meta.digits, du)}
+            {good === null || flat ? " this quarter" : good ? " helps" : " hurts"}
+          </p>
+        ) : main && j ? (
+          <p className="nx-goal-when">
+            {clock >= end ? "final" : main.when === "every" ? `${main.op === ">=" ? "lowest" : "highest"}, ${shortQ(j.t)}` : `forecast for ${shortQ(j.t)}`} · <Status status={statuses[main.id]} />
+          </p>
         ) : null}
       </header>
       <GoalChart mission={mission} metric={metric} actual={actual} forecast={forecast} ghost={ghost === undefined ? forecastStart : ghost} clock={clock} now={now} extra={extra} height={height} compact={compact} />
@@ -317,9 +317,9 @@ function GoalPanel({
               {trip.peakT > clock + 1 ? <>, {signed(trip.peak, meta.digits, du)} at its strongest in {shortQ(trip.peakT)}</> : null}
               {trip.peakT !== end && end > clock + 1 ? <>, {signed(trip.end, meta.digits, du)} by {shortQ(end)}</> : null}.
             </>
-          ) : (
-            <>Move a lever and watch where the line bends: that is when your move arrives.</>
-          )}
+          ) : hint ? (
+            <>Back a plan or move a lever, and watch where the line bends: that is when your move arrives.</>
+          ) : null}
         </p>
       ) : null}
       {movedDelta && main && j ? (
@@ -431,8 +431,8 @@ function DecideBeat() {
           </p>
         </section>
         <div className="nx-charts" data-count={shown.length}>
-          {shown.map((m) => (
-            <GoalPanel key={m} metric={m} height={h} compact={narrow || shown.length > 2} />
+          {shown.map((m, i) => (
+            <GoalPanel key={m} metric={m} height={h} hint={i === 0} compact={narrow || shown.length > 2} />
           ))}
         </div>
         <Legend moved={changed} />
@@ -522,7 +522,7 @@ function PlanCard({ plan, index, active, onBack }: { plan: Plan; index: number; 
             return (
               <span key={e.objective.id} className={e.ok ? "is-ok" : "is-miss"}>
                 <span aria-hidden="true">{e.ok ? "✓" : "✕"}</span> {meta.label} {e.objective.when === "every" ? (e.objective.op === ">=" ? "low " : "peak ") : ""}
-                <strong>{fmtNum(e.value, meta.digits)}{unitShort(meta.unit)}</strong>
+                <strong>{fmtNum(e.value, meta.digits)}{meta.unit === "%" ? "%" : meta.unit === "bp" ? " bp" : meta.unit === "months of imports" ? " mo" : "%"}</strong>
                 <span className="sr-only">{e.ok ? ", goal met" : ", goal missed"}</span>
               </span>
             );
@@ -603,6 +603,7 @@ function NewsBeat() {
   const shocks = modal?.kind === "shock" ? modal.shocks : [];
   const main = shocks[0];
   const call = useMemo(() => (main ? shockCall(mission, config, actual, clock, main) : null), [mission, config, actual, clock, main]);
+  useEffect(() => sound.stinger("shock"), []);
   const [phase, setPhase] = useState<"call" | "brief">(() => (call && !calls.some((c) => c.id === call.id) ? "call" : "brief"));
   if (!main) return null;
   const spec = SHOCKS[main.kind];
@@ -754,6 +755,11 @@ function DebriefBeat() {
   const calls = useNext((s) => s.calls);
   const narrow = useNarrow();
   const nothing = useMemo(() => simulate(mission.setup()).path, [mission]);
+  const outcomeKind = modal?.kind === "debrief" ? modal.outcome.kind : null;
+  useEffect(() => {
+    if (outcomeKind === "won") sound.stinger("win");
+    else if (outcomeKind === "lost") sound.stinger("lose");
+  }, [outcomeKind]);
   if (modal?.kind !== "debrief") return null;
   const outcome = modal.outcome;
   const won = outcome.kind === "won";

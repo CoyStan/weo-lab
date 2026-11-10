@@ -215,7 +215,7 @@ export default function GoalChart({
                 <g key={o.id} className={cls}>
                   <rect x={x0} width={x(end) - x0} y={dir < 0 ? yy - 9 : yy} height={9} fill={`url(#${uid}-hatch)`} />
                   <line x1={x0} x2={x(end)} y1={yy} y2={yy} className="nx-goal-line" />
-                  <text x={x0 + 4} y={labelY} className="nx-goal-text">{star}{compact ? "" : "stay "}{num}</text>
+                  <text x={x(end) - 4} y={labelY} textAnchor="end" className="nx-goal-text">{star}{compact ? "" : "stay "}{num}</text>
                 </g>
               );
             }

@@ -69,7 +69,7 @@ for (const [label, viewport] of [
     await page.waitForTimeout(1000);
     await page.getByRole("button", { name: /mission/i }).first().click();
     await page.waitForTimeout(500);
-    await page.locator(".game-mission-card, .game-mission").nth(missionNo - 1).click();
+    await page.locator(".game-mission-grid .game-mission").nth(missionNo - 1).click();
   }
   await page.waitForTimeout(600);
   await page.locator(".game-cta").first().click();
@@ -90,6 +90,13 @@ for (const [label, viewport] of [
     }
     await page.waitForSelector(".nx-decide");
     await shoot(`q${q}-decide`, label === "phone");
+    if (q === 2) {
+      await page.keyboard.press("w");
+      await page.waitForTimeout(1800);
+      await shoot(`q${q}-why-map`);
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(300);
+    }
     if (q === 1) {
       const slider = page.locator(".nx-levers input[type=range]").first();
       if (await slider.count()) {
