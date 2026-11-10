@@ -29,12 +29,14 @@ const or = new Float32Array(MAX_OBS);
 const ot = new Float32Array(MAX_OBS);
 const ob = new Float32Array(MAX_OBS);
 const order: number[] = [];
-/** Whether each tag found a spot, and the best pass so far (see pass). */
+/** Whether each tag found a spot, whether its spot puts a stem across a tag, and the best pass so far (see pass). */
 const ok = new Uint8Array(MAX);
+const crossed = new Uint8Array(MAX);
 const boost = new Float32Array(MAX);
 const bpl = new Float32Array(MAX);
 const bpt = new Float32Array(MAX);
 const bok = new Uint8Array(MAX);
+const bcrossed = new Uint8Array(MAX);
 /** Each tag's spot (an index into SPOTS) on the last pass, -1 for none; the one picked now; the best pass's. */
 const prevSpot = new Int8Array(MAX);
 const spot = new Int8Array(MAX);
@@ -89,6 +91,15 @@ const SETTLE_GAIN = 150;
 const SETTLE_MARGIN = 10;
 /** A spot's price for where it is, before anything it covers. */
 const spotCost = (s: number) => ((s / SHIFTS.length) | 0) * ROW_COST + (s % SHIFTS.length) * SHIFT_COST;
+/**
+ * A stem that runs through another tag points at the wrong building ("Growth" seems to stand on
+ * the inflation stack), so a spot that puts a stem across a tag, its own stem or another's, is
+ * taken only when every spot clear of the other tags does (then the tag still shows rather
+ * than wait). How near a stem may pass a tag's edge (px), and the price per px it runs inside.
+ */
+const STEM_GAP = 2;
+const CROSS_COST = 1e6;
+const CROSS_PX = 100;
 
 /** Overlays over the island that tags must keep clear of: the view toggle, news, the sandbox's panels. */
 const OBSTACLES = ".game-scene-tabs, .game-toast, .game-scene-coach, .game-run, .lab-scene-overlay > div";
@@ -147,6 +158,25 @@ const overlap = (l1: number, t1: number, r1: number, b1: number, l2: number, t2:
   return w > 0 && h > 0 ? w * h : 0;
 };
 
+/**
+ * Tag i's stem for a box at (l, t), as the last loop of the placing pass draws it: at the
+ * anchor's x, kept 8 px inside the tag, from the tag's lower edge down to the anchor (or from
+ * the anchor down to its top). Written to stemX, stemT and stemB.
+ */
+let stemX = 0;
+let stemT = 0;
+let stemB = 0;
+function stemOf(i: number, l: number, t: number) {
+  stemX = Math.min(Math.max(ax[i], l + 8), l + tw[i] - 8);
+  if (t + th[i] <= ay[i]) {
+    stemT = t + th[i];
+    stemB = ay[i];
+  } else {
+    stemT = ay[i];
+    stemB = Math.max(ay[i], t);
+  }
+}
+
 /** A spot's box for tag i, written to boxL / boxT (its left and top). */
 let boxL = 0;
 let boxT = 0;
@@ -164,10 +194,13 @@ function spotBox(i: number, s: number, L: number, R: number) {
 /**
  * What a box at (x, y) for tag i runs into: `hard`, past the frame's edge, over the overlays,
  * and over the first `np` tags in `placed`, `pad` px farther apart than the usual gap (a
- * negative pad also lets it nearer the frame's edge); `soft`, over the landmarks' upper floors, its
- * own included (a tag below its building hides it), except the capital's (its tag labels the town).
+ * negative pad also lets it nearer the frame's edge); `cross`, px of stem across a tag: its own
+ * stem across one of those tags, or one of their stems across it (a negative pad lets a stem
+ * graze a tag's edge); `soft`, over the landmarks' upper floors, its own included (a tag below its
+ * building hides it), except the capital's (its tag labels the town).
  */
 let hard = 0;
+let cross = 0;
 let soft = 0;
 function collide(i: number, np: number, n: number, x: number, y: number, T: number, B: number, nObs: number, pad: number) {
   const w = tw[i];
@@ -187,6 +220,19 @@ function collide(i: number, np: number, n: number, x: number, y: number, T: numb
     hard += overlap(l, t, r, b, pl[o], pt[o], pl[o] + tw[o], pt[o] + th[o]);
   }
   for (let j = 0; j < nObs; j++) hard += overlap(l, t, r, b, ol[j], ot[j], or[j], ob[j]);
+  cross = 0;
+  const g = pad < 0 ? -STEM_GAP : STEM_GAP;
+  stemOf(i, x, y);
+  const sx = stemX;
+  const st = stemT;
+  const sb = stemB;
+  for (let j = 0; j < np; j++) {
+    const o = placed[j];
+    if (o === i) continue;
+    if (sb > st && sx > pl[o] - g && sx < pl[o] + tw[o] + g) cross += Math.max(0, Math.min(sb, pt[o] + th[o] + g) - Math.max(st, pt[o] - g));
+    stemOf(o, pl[o], pt[o]);
+    if (stemB > stemT && stemX > x - g && stemX < x + w + g) cross += Math.max(0, Math.min(stemB, y + h + g) - Math.max(stemT, y - g));
+  }
   soft = 0;
   for (let j = 0; j < n; j++) {
     if (j === i && cap[i]) continue;
@@ -201,38 +247,42 @@ function keep(i: number, np: number, n: number, L: number, R: number, T: number,
   if (prevSpot[i] < 0) return false;
   spotBox(i, prevSpot[i], L, R);
   collide(i, np, n, boxL, boxT, T, B, nObs, -KEEP_SLACK);
-  if (hard > 0) return false;
+  if (hard > 0 || cross > 0) return false;
   pl[i] = boxL;
   pt[i] = boxT;
   spot[i] = prevSpot[i];
   ok[i] = 1;
+  crossed[i] = 0;
   return true;
 }
 
 /**
  * Tag i takes the cheapest spot among the `np` tags placed so far: free of every hard
- * obstacle, then covering the least of the landmarks' upper floors, then nearest right above its
- * building. Returns whether it found a free one.
+ * obstacle, then with no stem across a tag, then covering the least of the landmarks' upper
+ * floors, then nearest right above its building. Returns whether it found a free one.
  */
 function search(i: number, np: number, n: number, L: number, R: number, T: number, B: number, nObs: number): boolean {
   let bestCost = Infinity;
   let bestHard = Infinity;
+  let bestCross = Infinity;
   for (let s = 0; s < SPOTS; s++) {
     spotBox(i, s, L, R);
     collide(i, np, n, boxL, boxT, T, B, nObs, 0);
-    const cost = (hard > 0 ? 1e9 + hard * 4 : 0) + soft * SOFT_COST + spotCost(s);
+    const cost = (hard > 0 ? 1e9 + hard * 4 : 0) + (cross > 0 ? CROSS_COST + cross * CROSS_PX : 0) + soft * SOFT_COST + spotCost(s);
     if (cost < bestCost) {
       bestCost = cost;
       bestHard = hard;
+      bestCross = cross;
       spot[i] = s;
       pl[i] = boxL;
       pt[i] = boxT;
     }
     // Nothing later in the order can be cheaper than a free spot that covers nothing.
-    if (hard === 0 && soft === 0) break;
+    if (hard === 0 && cross === 0 && soft === 0) break;
   }
   // The tag under the pointer shows even without a free spot; any other waits.
   ok[i] = bestHard === 0 || pri[i] >= 3 ? 1 : 0;
+  crossed[i] = ok[i] && bestCross > 0 ? 1 : 0;
   return bestHard === 0;
 }
 
@@ -241,8 +291,9 @@ function search(i: number, np: number, n: number, L: number, R: number, T: numbe
  * find a spot; then every other tag keeps the spot it had on the last pass while that spot is
  * still inside the frame and clear of the tags already placed and of the overlays, so a
  * turning or flying camera does not send tags jumping from spot to spot; then the tags that
- * could not keep theirs search for one. Records pl/pt/spot/ok; returns how many tags found no
- * free spot.
+ * could not keep theirs search for one. Records pl/pt/spot/ok/crossed; returns how bad the
+ * pass is: the tags that found no free spot, each worth more than all the tags left with a
+ * stem across a tag put together, plus those.
  */
 function pass(n: number, L: number, R: number, T: number, B: number, nObs: number): number {
   let np = 0;
@@ -250,6 +301,7 @@ function pass(n: number, L: number, R: number, T: number, B: number, nObs: numbe
   for (let k = 0; k < n; k++) {
     done[order[k]] = 0;
     ok[order[k]] = 0;
+    crossed[order[k]] = 0;
   }
   for (let k = 0; k < n; k++) {
     const i = order[k];
@@ -271,15 +323,18 @@ function pass(n: number, L: number, R: number, T: number, B: number, nObs: numbe
     if (ok[i]) placed[np++] = i;
     done[i] = 1;
   }
-  return failed;
+  let crossings = 0;
+  for (let k = 0; k < n; k++) crossings += crossed[order[k]];
+  return failed * (MAX + 1) + crossings;
 }
 
 /**
- * After the pass, without displacing any other tag (a spot must be clear of every other tag):
- * a tag pushed well away from its building (a row or more) steps back to a much cheaper spot
- * nearer it once there is room to spare, and a tag that now hides most of a landmark's upper
- * floors steps to a cheaper free spot that shows them. The margin, the gains and the
- * threshold keep a tag from flickering between two spots.
+ * After the pass, without displacing any other tag (a spot must be clear of every other tag
+ * and stem): a tag pushed well away from its building (a row or more) steps back to a much
+ * cheaper spot nearer it once there is room to spare, a tag that now hides most of a landmark's
+ * upper floors steps to a cheaper free spot that shows them, and a tag left with a stem across
+ * a tag steps to any spot where none crosses. The margin, the gains and the threshold keep a
+ * tag from flickering between two spots.
  */
 function settle(n: number, L: number, R: number, T: number, B: number, nObs: number) {
   let np = 0;
@@ -289,18 +344,20 @@ function settle(n: number, L: number, R: number, T: number, B: number, nObs: num
     if (!ok[i]) continue;
     spotBox(i, spot[i], L, R);
     collide(i, np, n, boxL, boxT, T, B, nObs, 0);
-    // Anywhere free, if it hides a landmark; otherwise only nearer its building, with room to spare.
+    // Anywhere free, if a stem crosses a tag or it hides a landmark; otherwise only nearer its
+    // building, with room to spare.
+    const crosses = cross > 0;
     const hides = soft > SOFT_MOVE;
-    const upto = hides ? SPOTS : spot[i];
-    const pad = hides ? 0 : SETTLE_MARGIN;
+    const upto = crosses || hides ? SPOTS : spot[i];
+    const pad = crosses || hides ? 0 : SETTLE_MARGIN;
     let best = -1;
-    let bestCost = soft * SOFT_COST + spotCost(spot[i]) - (hides ? SOFT_GAIN : SETTLE_GAIN);
+    let bestCost = crosses ? Infinity : soft * SOFT_COST + spotCost(spot[i]) - (hides ? SOFT_GAIN : SETTLE_GAIN);
     for (let s = 0; s < upto; s++) {
       if (s === spot[i]) continue;
       spotBox(i, s, L, R);
       collide(i, np, n, boxL, boxT, T, B, nObs, pad);
       const cost = soft * SOFT_COST + spotCost(s);
-      if (hard === 0 && cost < bestCost && (!hides || soft <= SOFT_CLEAR)) {
+      if (hard === 0 && cross === 0 && cost < bestCost && (crosses || !hides || soft <= SOFT_CLEAR)) {
         bestCost = cost;
         best = s;
       }
@@ -310,6 +367,7 @@ function settle(n: number, L: number, R: number, T: number, B: number, nObs: num
     pl[i] = boxL;
     pt[i] = boxT;
     spot[i] = best;
+    crossed[i] = 0;
   }
 }
 
@@ -389,9 +447,10 @@ export function startLabelDodge(root: HTMLElement): () => void {
       boost[i] = 0;
     }
     // The most important first; then from the bottom of the picture up, so higher tags step
-    // aside. If a tag finds no room, try again with it placed first (the others then make
-    // room round it), and keep whichever pass leaves the fewest tags waiting (on a tie, the
-    // first: it moves the fewest tags).
+    // aside. If a tag finds no room (or only a spot where a stem crosses a tag), try again with
+    // it placed first (the others then make room round it), and keep whichever pass leaves the
+    // fewest tags waiting, then the fewest stems across tags (on a tie, the first: it moves the
+    // fewest tags).
     const byRank = (a: number, b: number) => (pri[b] >= 3 ? 1 : 0) - (pri[a] >= 3 ? 1 : 0) || boost[b] - boost[a] || pri[b] - pri[a] || ay[b] - ay[a];
     order.sort(byRank);
     let failed = pass(n, L, R, T, B, nObs);
@@ -400,9 +459,10 @@ export function startLabelDodge(root: HTMLElement): () => void {
       bpl.set(pl);
       bpt.set(pt);
       bok.set(ok);
+      bcrossed.set(crossed);
       bspot.set(spot);
       for (let attempt = 0; attempt < 3 && best > 0; attempt++) {
-        for (let i = 0; i < n; i++) if (!ok[i]) boost[i] += 1;
+        for (let i = 0; i < n; i++) if (!ok[i] || crossed[i]) boost[i] += 1;
         order.sort(byRank);
         failed = pass(n, L, R, T, B, nObs);
         if (failed < best) {
@@ -410,12 +470,14 @@ export function startLabelDodge(root: HTMLElement): () => void {
           bpl.set(pl);
           bpt.set(pt);
           bok.set(ok);
+          bcrossed.set(crossed);
           bspot.set(spot);
         }
       }
       pl.set(bpl);
       pt.set(bpt);
       ok.set(bok);
+      crossed.set(bcrossed);
       spot.set(bspot);
     }
     settle(n, L, R, T, B, nObs);

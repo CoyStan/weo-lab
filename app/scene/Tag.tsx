@@ -7,6 +7,10 @@ import { labelLayer } from "./labelLayer";
 
 export type TagStatus = "at-risk" | "failed" | "breached";
 const STATUS_WORD: Record<TagStatus, string> = { "at-risk": "at risk", failed: "off track", breached: "limit breached" };
+/** The status word with the quarter that decides an every-quarter goal: "at risk in 2026Q4", "missed in 2026Q3". */
+const statusText = (status: TagStatus, when?: string) => (when ? `${status === "failed" ? "missed" : STATUS_WORD[status]} in ${when}` : STATUS_WORD[status]);
+/** The same for screen readers, after the figure: "Goal at risk in 2026Q4." */
+const statusSr = (status: TagStatus, when?: string) => (status === "breached" ? "Limit breached." : `Goal ${statusText(status, when)}.`);
 
 const v = new THREE.Vector3();
 /** drei's Html moves a tag only when its position changed by more than this (its own `eps`). */
@@ -47,7 +51,8 @@ function makeCalculate() {
 
 /**
  * A landmark's one-line tag, pinned in 3D: what it is, which way it is going and the
- * figure, "Inflation ▲ 7.1%", and a word when its goal is in trouble ("· at risk"). The
+ * figure, "Inflation ▲ 7.1%", and a word when its goal is in trouble ("· at risk"), with the
+ * quarter that decides it for a goal that must hold every quarter ("· at risk in 2026Q4"). The
  * tag layer (labelLayer.ts) places it clear of the other tags and inside the island's
  * frame, with a thin stem back down to the building. It stays mounted and hides with CSS:
  * drei's Html portals into the layer, and mounting it on every hover races React.
@@ -58,6 +63,7 @@ export default function Tag({
   arrow,
   value,
   status,
+  when,
   hidden = false,
   focus = false,
   capital = false,
@@ -69,6 +75,8 @@ export default function Tag({
   arrow?: "up" | "down";
   value: string;
   status?: TagStatus;
+  /** For an every-quarter goal in trouble, the quarter that decides it ("2026Q4"). */
+  when?: string;
   hidden?: boolean;
   focus?: boolean;
   /** The capital's tag (free play): ink-filled. */
@@ -94,11 +102,11 @@ export default function Tag({
               <span className="isl-tag-sep" aria-hidden="true">
                 ·
               </span>
-              <span className="isl-tag-status">{STATUS_WORD[status]}</span>
+              <span className="isl-tag-status">{statusText(status, when)}</span>
             </>
           ) : null}
         </span>
-        {sr ? <span className="isl-sr">{sr}</span> : null}
+        {sr ? <span className="isl-sr">{status ? `${sr} ${statusSr(status, when)}` : sr}</span> : null}
       </div>
     </Html>
   );
