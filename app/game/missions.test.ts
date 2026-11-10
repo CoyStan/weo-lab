@@ -45,6 +45,16 @@ const WINS: Record<string, { win: Plan; threeStars: Plan }> = {
     win: [[5, { fiscalAdjustment: 0.75, adjustmentMix: 100, imfProgram: 2, fxRegime: "managed", fxIntervention: 50 }]],
     threeStars: [[5, { fiscalAdjustment: 1, imfProgram: 2, fxRegime: "managed", fxIntervention: 50 }]],
   },
+  // Save the windfall; floating when the bust comes also protects reserves.
+  windfall: { win: [[1, { fiscalAdjustment: 1 }], [7, { fiscalAdjustment: 0 }]], threeStars: [[1, { fiscalAdjustment: 1 }], [7, { fiscalAdjustment: 0, fxRegime: "float" }]] },
+  // Buy reserves on the way in; sell half the pressure on the way out.
+  "hot-money": { win: [[1, { fxRegime: "managed", fxIntervention: 50 }]], threeStars: [[1, { fxRegime: "managed", fxIntervention: 100 }], [7, { fxIntervention: 50 }]] },
+  // Support in the slump, withdraw in the recovery; cuts first out, taxes back in.
+  "world-slows": { win: [[2, { fiscalAdjustment: -1 }], [6, { fiscalAdjustment: 0.75 }]], threeStars: [[2, { fiscalAdjustment: -1, adjustmentMix: 0 }], [6, { fiscalAdjustment: 1, adjustmentMix: 100 }]] },
+  // Gradual, tax-led tightening; a small programme calms spreads.
+  "bank-rescue": { win: [[2, { fiscalAdjustment: 1, adjustmentMix: 100 }]], threeStars: [[2, { imfProgram: 2, fiscalAdjustment: 0.75, adjustmentMix: 100 }]] },
+  // Invest through the lockdown, then exit.
+  lockdown: { win: [[2, { publicInvestment: 6 }], [4, { publicInvestment: 4 }]], threeStars: [[2, { publicInvestment: 6 }], [4, { publicInvestment: 4, fiscalAdjustment: 1, adjustmentMix: 100 }]] },
 };
 
 test("every mission is lost by doing nothing", () => {

@@ -74,7 +74,7 @@ export function TitleScreen() {
           </button>
         </div>
         <ul className="game-title-points">
-          <li><strong>6 missions</strong> across four economies, from a first rate decision to a sudden stop.</li>
+          <li><strong>{MISSIONS.length} missions</strong> across four economies, from a first rate decision to a pandemic.</li>
           <li><strong>One quarter per turn.</strong> Shocks arrive unannounced; the forecast only knows what you know.</li>
         </ul>
         <div className="mt-4 flex flex-wrap items-center gap-3">
