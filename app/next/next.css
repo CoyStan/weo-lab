@@ -213,6 +213,9 @@
 .nx-key.is-compare {
   border-top: 2.5px solid var(--lab-reference, #eb6834);
 }
+.nx-key.is-advisor {
+  border-top: 3px dotted var(--lab-info, #15706b);
+}
 .nx-key.is-gate {
   width: 0.9rem;
   height: 0.9rem;
@@ -384,6 +387,11 @@
 .nx-extra.is-compare {
   stroke: var(--lab-reference, #eb6834);
   stroke-width: 2.5;
+}
+.nx-extra.is-advisor {
+  stroke: var(--lab-info, #15706b);
+  stroke-width: 2.5;
+  stroke-dasharray: 2 5;
 }
 .nx-today {
   stroke: color-mix(in srgb, var(--lab-ink) 35%, transparent);
@@ -782,8 +790,8 @@
   border-color: var(--lab-ink);
 }
 .nx-replay-row.is-active {
-  border-color: var(--lab-reference, #eb6834);
-  box-shadow: 0 0 0 2px var(--lab-reference, #eb6834);
+  border-color: var(--lab-info, #15706b);
+  box-shadow: 0 0 0 2px var(--lab-info, #15706b);
 }
 .nx-replay-row img {
   flex: none;

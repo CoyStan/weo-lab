@@ -17,6 +17,15 @@ export function useUiMode(): "classic" | "next" {
   return useSyncExternalStore(subscribeMode, readMode, () => "classic");
 }
 
+/** Switch screens in place: both read the same game, so nothing is lost. */
+export function setUiMode(mode: "classic" | "next") {
+  const url = new URL(window.location.href);
+  if (mode === "next") url.searchParams.set("ui", "next");
+  else url.searchParams.delete("ui");
+  window.history.replaceState(null, "", url);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
 export type CallResult = { id: string; picked: string; right: boolean };
 
 type NextState = {

@@ -27,7 +27,7 @@ import Reforms from "../game/ui/Reforms";
 import { sound } from "../game/audio";
 import GoalChart, { EffectBars, type ChartLine } from "./Chart";
 import { advisorPlans, advisorRun, goalMetrics, journey, judged, lagCall, moveName, policyIn, shockCall, withChanges, type AdvisorRun, type Call, type Plan } from "./logic";
-import { useNext } from "./state";
+import { setUiMode, useNext } from "./state";
 import "./next.css";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -183,11 +183,7 @@ function Header() {
   const close = () => menu.current?.removeAttribute("open");
   const end = mission.quarters;
   const right = calls.filter((c) => c.right).length;
-  const classic = () => {
-    const url = new URL(window.location.href);
-    url.searchParams.delete("ui");
-    window.location.href = url.toString();
-  };
+  const classic = () => setUiMode("classic");
   return (
     <header className="nx-head">
       <div className="nx-head-title">
@@ -304,7 +300,7 @@ function GoalPanel({
           </p>
         ) : main && j ? (
           <p className="nx-goal-when">
-            {clock >= end ? "final" : main.when === "every" ? `${main.op === ">=" ? "lowest" : "highest"}, ${shortQ(j.t)}` : `forecast for ${shortQ(j.t)}`} · <Status status={statuses[main.id]} />
+            {clock >= end ? "final" : main.when === "every" ? `${main.op === ">=" ? "lowest" : "highest"}, ${shortQ(j.t)}` : main.when === "year" ? `forecast, ${main.year} ${metric === "debt" ? "year end" : "average"}` : `forecast for ${shortQ(j.t)}`} · <Status status={statuses[main.id]} />
           </p>
         ) : null}
       </header>
@@ -816,7 +812,8 @@ function DebriefBeat() {
   const metrics = goalMetrics(mission).slice(0, narrow ? 2 : 3);
   const lines = (m: MetricKey): ChartLine[] => [
     { label: "Had you done nothing", values: nothing.map((s) => s[m]), tone: "nothing" },
-    ...(shownRun ? [{ label: `Backing ${ADVISORS[shownRun.advisor].name}`, values: shownRun.path.map((s) => s[m]), tone: "compare" as const }] : comparison ? [{ label: comparisonLabel ?? "What happened", values: comparison.map((s) => s[m]), tone: "compare" as const }] : []),
+    ...(comparison ? [{ label: comparisonLabel ?? "What happened", values: comparison.map((s) => s[m]), tone: "compare" as const }] : []),
+    ...(shownRun ? [{ label: `Backing ${ADVISORS[shownRun.advisor].name}`, values: shownRun.path.map((s) => s[m]), tone: "advisor" as const }] : []),
   ];
   const right = calls.filter((c) => c.right).length;
   return (
@@ -848,7 +845,8 @@ function DebriefBeat() {
         <p className="nx-legend">
           <span><i className="nx-key is-actual" /> your path</span>
           <span><i className="nx-key is-nothing" /> had you done nothing</span>
-          {shownRun ? <span><i className="nx-key is-compare" /> backing {ADVISORS[shownRun.advisor].name} every quarter</span> : comparison ? <span><i className="nx-key is-compare" /> {(comparisonLabel ?? "what happened").toLowerCase()}</span> : null}
+          {comparison ? <span><i className="nx-key is-compare" /> {(comparisonLabel ?? "what happened").toLowerCase()}</span> : null}
+          {shownRun ? <span><i className="nx-key is-advisor" /> backing {ADVISORS[shownRun.advisor].name} every quarter</span> : null}
           <span><i className="nx-key is-gate" /> goal</span>
         </p>
 

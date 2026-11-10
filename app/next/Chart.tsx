@@ -75,7 +75,7 @@ function niceStep(span: number, target: number): number {
   return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * mag;
 }
 
-export type ChartLine = { label: string; values: number[]; tone: "compare" | "nothing" };
+export type ChartLine = { label: string; values: number[]; tone: "compare" | "nothing" | "advisor" };
 
 export default function GoalChart({
   mission,
