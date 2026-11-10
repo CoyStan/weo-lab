@@ -305,7 +305,7 @@ function GoalPanel({
         ) : main && j ? (
           <p className="nx-goal-when">
             {judgedAt} · <Status status={statuses[main.id]} />
-            {clock < end ? <span className="nx-goal-now"> · now {fmtNum(actual[clock][metric], meta.digits)}{unit}</span> : null}
+            {clock < end ? <span className="nx-goal-now"> · now {fmtNum(actual[clock][metric], meta.digits)}{meta.unit === "months of imports" ? " mo" : meta.unit === "% of GDP" ? "%" : unit}</span> : null}
           </p>
         ) : null}
       </header>
@@ -428,7 +428,7 @@ function DecideBeat() {
   // Charts share the height the window leaves, so the whole decision fits one screen on a laptop.
   const rows = shown.length >= 3 ? 2 : shown.length;
   const bonusRows = Math.max(...shown.map((m) => mission.objectives.filter((o) => o.metric === m && o.bonus).length));
-  const h = narrow ? 132 : Math.round(Math.min(400, Math.max(120, (vp.h - 66 - 82 - 46 - (coach ? 122 : 0) - (rows - 1) * 16) / rows - (140 + bonusRows * 24))));
+  const h = narrow ? 132 : Math.round(Math.min(400, Math.max(120, (vp.h - 66 - 82 - 46 - (rows - 1) * 16) / rows - (140 + bonusRows * 24))));
   const agree = plans.filter((p) => p.advisors.length).length === 1 && mission.advisors.length > 1;
   const noneWins = plans.length > 0 && plans.every((p) => p.effects.some((e) => !e.ok));
   // A shock the briefing warned about may still be on its way: never call such a quarter quiet.
@@ -735,7 +735,7 @@ function ResultBeat({ recap }: { recap: Recap }) {
   const lead = useMemo(() => {
     const text = recap.headline.text;
     const all = goalMetrics(mission);
-    if (recap.events.length || all.some((m) => text.toLowerCase().includes(GAME_METRICS[m].label.toLowerCase().split(" ")[0]))) return text;
+    if (recap.events.some((e) => e.kind === "shock" || e.kind === "crisis" || e.kind === "regime") || all.some((m) => text.toLowerCase().includes(GAME_METRICS[m].label.toLowerCase().split(" ")[0]))) return text;
     const m = all[0];
     const meta = GAME_METRICS[m];
     const d = recap.now[m] - recap.prev[m];

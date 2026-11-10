@@ -444,8 +444,9 @@
 .nx-goal .nx-gate {
   fill: color-mix(in srgb, var(--nx-good) 15%, transparent);
 }
-.nx-goal .nx-hatch {
-  stroke: var(--nx-bad);
+/* The hatch lives in the chart's <defs>, outside any goal group. */
+.nx-hatch {
+  stroke: color-mix(in srgb, var(--nx-bad) 75%, transparent);
   stroke-width: 2.2;
 }
 /* A fence to stay off is drawn in the warning colour; a gate to land in is green. */
