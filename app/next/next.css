@@ -197,6 +197,10 @@
 .nx-coach .lab-btn {
   flex: none;
 }
+.nx-also {
+  font-size: var(--t-sm);
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 75%, transparent));
+}
 .nx-hint summary {
   display: inline-block;
   cursor: pointer;
@@ -687,6 +691,13 @@
 .nx-plan.is-active .nx-plan-pick {
   background: var(--lab-ink);
   color: var(--lab-on-accent, #fff);
+}
+/* The lever preview sits in the flow here, so it never covers the next lever's heading. */
+.nx .game-probe {
+  position: static;
+  margin-top: 0.4rem;
+  box-shadow: none;
+  font-size: var(--t-sm);
 }
 .nx-reforms {
   margin-top: 0.75rem;

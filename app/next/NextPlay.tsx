@@ -27,7 +27,7 @@ import { useUntouched } from "../game/ui/Goals";
 import Levers from "../game/ui/Levers";
 import Reforms from "../game/ui/Reforms";
 import { sound } from "../game/audio";
-import GoalChart, { EffectBars, type ChartLine } from "./Chart";
+import GoalChart, { EffectBars, useBox, type ChartLine } from "./Chart";
 import { advisorPlans, advisorRun, electionOutlook, goalMetrics, journey, judged, lagCall, moveName, policyIn, shockCall, versus, withChanges, type AdvisorRun, type Call, type Plan } from "./logic";
 import { setUiMode, useNext } from "./state";
 import "./next.css";
@@ -426,6 +426,8 @@ function DecideBeat() {
   const narrow = vp.w <= 760;
   const [asking, setAsking] = useState<Call | null>(null);
   const chartsRef = useRef<HTMLDivElement>(null);
+  // The charts take whatever height the briefing text leaves.
+  const [briefRef, briefBox] = useBox<HTMLElement>();
   const metrics = goalMetrics(mission);
   const end = mission.quarters;
   const done = clock >= end;
@@ -470,8 +472,28 @@ function DecideBeat() {
   // Charts share the height the window leaves, so the whole decision fits one screen on a laptop.
   const rows = shown.length >= 3 ? 2 : shown.length;
   const bonusRows = Math.max(...shown.map((m) => mission.objectives.filter((o) => o.metric === m && o.bonus).length));
-  const h = narrow ? 132 : Math.round(Math.min(400, Math.max(120, (vp.h - 66 - 82 - 46 - (rows - 1) * 16) / rows - (140 + bonusRows * 24))));
+  const h = narrow ? 132 : Math.round(Math.min(400, Math.max(120, (vp.h - 66 - Math.max(60, briefBox.h) - 68 - (rows - 1) * 16) / rows - (140 + bonusRows * 24))));
   const election = useMemo(() => (done ? null : electionOutlook(mission, config, clock)), [mission, config, clock, done]);
+  // What the levers move on the way to the goals: the rate when a rule sets it, and the currency.
+  const also = useMemo(() => {
+    if (done) return null;
+    const now = actual[clock];
+    const last = forecast[end];
+    const parts: string[] = [];
+    if (policy.rateMode === "rule" && policy.fxRegime !== "peg" && (mission.unlocks.includes("rule") || mission.unlocks.includes("rate"))) {
+      let far = clock + 1;
+      for (let t = clock + 1; t <= end; t++) if (Math.abs(forecast[t].rate - now.rate) > Math.abs(forecast[far].rate - now.rate)) far = t;
+      if (Math.abs(forecast[far].rate - now.rate) >= 0.25) parts.push(`the rate rule takes the policy rate from ${now.rate.toFixed(1)}% to ${forecast[far].rate.toFixed(1)}% by ${shortQ(far)}`);
+    }
+    if (mission.unlocks.some((l) => l === "fxRegime" || l === "intervention" || l === "devalue")) {
+      const pct = (last.rer / now.rer - 1) * 100;
+      if (Math.abs(pct) >= 2) parts.push(`the currency ends ${Math.abs(pct).toFixed(0)}% ${pct > 0 ? "weaker" : "stronger"} than today in real terms${policy.fxRegime === "peg" ? "" : pct > 0 ? " (that cushions exports and reserves, and lifts prices)" : ""}`);
+      else if (policy.fxRegime === "peg") parts.push("the peg holds the currency, so pressure on it drains reserves instead");
+    }
+    if (!parts.length) return null;
+    const text = parts.join("; ");
+    return `Also on the forecast: ${text}.`;
+  }, [done, actual, forecast, clock, end, policy, mission]);
   const agree = plans.filter((p) => p.advisors.length).length === 1 && mission.advisors.length > 1;
   const noneWins = plans.length > 0 && plans.every((p) => p.effects.some((e) => !e.ok));
   // A shock the briefing warned about may still be on its way: never call such a quarter quiet.
@@ -480,7 +502,7 @@ function DecideBeat() {
   return (
     <main className="nx-decide">
       <div className="nx-main">
-        <section className="nx-brief" aria-label="This quarter">
+        <section className="nx-brief" aria-label="This quarter" ref={briefRef}>
           <p className="nx-beat">Deciding {deciding} · quarter {clock + 1} of {end}</p>
           <p className="nx-brief-line">
             {landing.length ? <><strong>{landing.map((s) => SHOCKS[s.kind].name).join(", ")}</strong> lands now ({landing.map((s) => SHOCKS[s.kind].short.toLowerCase().replace("gdp", "GDP")).join("; ")}). </> : null}
@@ -490,9 +512,10 @@ function DecideBeat() {
               <><Status status="on-track" /> Every goal is on track on the staff forecast{landing.length ? "." : warned ? ", which leaves out anything only warned about." : ". Nothing new this quarter."}</>
             )}
           </p>
+          {also ? <p className="nx-brief-line nx-also">{also}</p> : null}
           {election ? (
             <p className="nx-brief-line">
-              <Status status={election.ok ? "on-track" : "at-risk"} /> Election at the end of {quarterLabel(election.quarter)}: you need {election.need} vote{election.need === 1 ? "" : "s"}; on the staff forecast you will have {election.votes}. Growth and jobs win votes; austerity, recession and fast-rising prices lose them.
+              <Status status={election.ok ? "on-track" : "at-risk"} /> <span title="Growth and jobs win votes; austerity, recession and fast-rising prices lose them.">Election, end of {quarterLabel(election.quarter)}: you need {election.need} vote{election.need === 1 ? "" : "s"} and the forecast gives you {election.votes}.{election.ok ? "" : " Growth and jobs win votes; austerity, recession and fast-rising prices lose them."}</span>
             </p>
           ) : null}
           <details className="nx-hint">
