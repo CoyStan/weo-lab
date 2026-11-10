@@ -58,6 +58,7 @@ const server = createServer((req, res) => {
   res.writeHead(200, { "content-type": TYPES[extname(path)] ?? "application/octet-stream" }).end(readFileSync(path));
 });
 await new Promise((r) => server.listen(0, r));
+// This script films the classic play screen, which now opens with ?ui=classic.
 const base = `http://localhost:${server.address().port}/`;
 const browser = await chromium.launch();
 
@@ -183,7 +184,7 @@ async function open(job, { viewport = DESKTOP, reduced = false, unlock = false, 
 
 /** From the title screen into a mission's play screen (mission 1 by default), with its first card open. */
 async function startMission(page, title) {
-  await page.goto(base);
+  await page.goto(`${base}?ui=classic`);
   await page.waitForTimeout(1200);
   if (title) {
     await page.getByRole("button", { name: /mission/i }).first().click();
@@ -434,12 +435,12 @@ for (const [label, viewport] of [
     const page = await open(name, { viewport });
     const g = "design";
     const sz = `${label} ${dims(viewport)}`;
-    await page.goto(base);
+    await page.goto(`${base}?ui=classic`);
     await page.waitForTimeout(1500);
     await shoot(page, `design-${label}-1-title.png`, g, `Title screen, ${sz}`);
     await page.getByRole("button", { name: /mission/i }).first().click();
     await shoot(page, `design-${label}-2-missions.png`, g, `Mission select, ${sz} (new player: mission 1 open)`);
-    await page.goto(base);
+    await page.goto(`${base}?ui=classic`);
     await page.waitForTimeout(1000);
     await page.locator(".game-cta").first().click();
     await shoot(page, `design-${label}-3-briefing.png`, g, `Mission 1 briefing, ${sz}`);
@@ -614,7 +615,7 @@ for (const m of MISSIONS) {
 // The island as backdrop.
 job("backdrop-title", async (name) => {
   const page = await open(name);
-  await page.goto(base);
+  await page.goto(`${base}?ui=classic`);
   await page.waitForTimeout(6000);
   await shoot(page, "backdrop-1-title-desktop.png", "backdrop", "Title screen with the island behind it, 6 s after load, desktop 1440x900");
   await page.addStyleTag({ content: ".game-backdrop > :not(.game-backdrop-scene) { visibility: hidden !important; }" });
@@ -624,7 +625,7 @@ job("backdrop-title", async (name) => {
 });
 job("backdrop-sandbox", async (name) => {
   const page = await open(name);
-  await page.goto(`${base}?mode=sandbox`);
+  await page.goto(`${base}?ui=classic&mode=sandbox`);
   await page.waitForTimeout(6000);
   await shoot(page, "backdrop-3-sandbox-desktop.png", "backdrop", "Free play (the sandbox, ?mode=sandbox) as a new visitor sees it, 6 s after load, desktop 1440x900");
   await page.context().close();
@@ -760,7 +761,7 @@ const ISLG = "motion-island";
 /** Free play with every landmark; `focus` clicks an indicator tile so the camera flies to its landmark. */
 async function sandbox(name, { focus, reduced = false } = {}) {
   const page = await open(name, { vclock: true, noHint: true, reduced });
-  await page.goto(`${base}?mode=sandbox`);
+  await page.goto(`${base}?ui=classic&mode=sandbox`);
   await page.waitForTimeout(5000);
   if (focus) {
     await page.getByRole("button", { name: new RegExp(`^${focus} `) }).first().click();
@@ -822,7 +823,7 @@ job("motion-island-6-camera-fly-in", async (name) => {
 });
 job("motion-island-7-camera-title-turn", async (name) => {
   const page = await open(name, { vclock: true });
-  await page.goto(base);
+  await page.goto(`${base}?ui=classic`);
   await page.waitForTimeout(4000);
   const clip = await boxOf(page, "body");
   const shots = await stepped(page, { clip, frames: 6, step: 5000, settle: 12000, slice: 100 });
@@ -879,7 +880,7 @@ const hideCards = (page) => page.addStyleTag({ content: ".game-modal-backdrop { 
 job("motion-island-12-news-ring", async (name) => {
   // ?scene=island opens the play screen on the island, so the first news card sits over it.
   const page = await open(name, { vclock: true });
-  await page.goto(`${base}?scene=island`);
+  await page.goto(`${base}?ui=classic&scene=island`);
   await page.waitForTimeout(1200);
   await page.locator(".game-cta").first().click();
   await page.waitForTimeout(400);
@@ -926,7 +927,7 @@ job(
   "motion-island-15-tag-glide",
   async (name) => {
     const page = await open(name, { noHint: true });
-    await page.goto(`${base}?mode=sandbox`);
+    await page.goto(`${base}?ui=classic&mode=sandbox`);
     // The idle turn starts once the canvas has been left alone for 10 s and eases in over 2 s.
     await page.waitForTimeout(12000);
     await page.evaluate(() => {
@@ -996,7 +997,7 @@ job(
 // mission 1 does not need sink into their hexes and their roads narrow away (0.7 s).
 job("motion-island-16-briefing-sink", async (name) => {
   const page = await open(name, { vclock: true });
-  await page.goto(base);
+  await page.goto(`${base}?ui=classic`);
   await page.waitForTimeout(5000);
   // The title and briefing cards hidden (script CSS only), so the island behind them shows.
   await page.addStyleTag({ content: ".game-backdrop > :not(.game-backdrop-scene) { visibility: hidden !important; }" });

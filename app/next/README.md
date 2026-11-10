@@ -1,6 +1,6 @@
 # The "next" play screen
 
-Open the game with `?ui=next`, or pick **New play screen (beta)** in the classic screen's menu. The menu's **Classic screen** switches back; both read the same game, so nothing is lost.
+This is the default play screen. The menu's **Classic screen** (or `?ui=classic`) opens the older dashboard, whose menu has **Back to the new screen**; both read the same game, so nothing is lost.
 
 ## The idea
 

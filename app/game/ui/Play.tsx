@@ -778,7 +778,7 @@ function HudMenu({ clock }: { clock: number }) {
           Sound: {muted ? "off" : "on"}
         </button>
         <MenuHint close={close} />
-        <button type="button" role="menuitem" onClick={() => { close(); setUiMode("next"); }}>New play screen (beta)</button>
+        <button type="button" role="menuitem" onClick={() => { close(); setUiMode("next"); }}>Back to the new screen</button>
         <button type="button" role="menuitem" onClick={() => { close(); openSandbox(true); }}>Open in free play</button>
         <button type="button" role="menuitem" onClick={() => { close(); setSettingsOpen(true); }}>Settings</button>
         <button type="button" role="menuitem" onClick={() => setScreen("missions")}>All missions</button>

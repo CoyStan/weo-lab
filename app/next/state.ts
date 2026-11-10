@@ -3,23 +3,23 @@
 import { create } from "zustand";
 import { useSyncExternalStore } from "react";
 
-/** Which play screen to show: the classic dashboard, or the three-beat "next" screen (?ui=next). */
+/** Which play screen to show: the beat-by-beat screen (the default), or the classic dashboard (?ui=classic). */
 const readMode = (): "classic" | "next" => {
-  if (typeof window === "undefined") return "classic";
-  return new URLSearchParams(window.location.search).get("ui") === "next" ? "next" : "classic";
+  if (typeof window === "undefined") return "next";
+  return new URLSearchParams(window.location.search).get("ui") === "classic" ? "classic" : "next";
 };
 const subscribeMode = (cb: () => void) => {
   window.addEventListener("popstate", cb);
   return () => window.removeEventListener("popstate", cb);
 };
 export function useUiMode(): "classic" | "next" {
-  return useSyncExternalStore(subscribeMode, readMode, () => "classic");
+  return useSyncExternalStore(subscribeMode, readMode, () => "next");
 }
 
 /** Switch screens in place: both read the same game, so nothing is lost. */
 export function setUiMode(mode: "classic" | "next") {
   const url = new URL(window.location.href);
-  if (mode === "next") url.searchParams.set("ui", "next");
+  if (mode === "classic") url.searchParams.set("ui", "classic");
   else url.searchParams.delete("ui");
   window.history.replaceState(null, "", url);
   window.dispatchEvent(new PopStateEvent("popstate"));
