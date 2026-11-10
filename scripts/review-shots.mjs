@@ -301,7 +301,13 @@ async function shoot(page, file, group, what, { full = false } = {}) {
 async function shootBoth(page, stem, group, what) {
   await top(page);
   const p = await shoot(page, `${stem}.png`, group, what);
-  if (p?.scrolls) await shoot(page, `${stem}-full.png`, group, `${what}, whole page`, { full: true });
+  // Below 1180 px the end-turn bar is position: fixed, so a whole-page capture draws it where it
+  // sits on the first screen, over the page, not at the foot: say so, so it is not read as a bug.
+  const fixedBar = await page.evaluate(() => {
+    const bar = document.querySelector(".game-end");
+    return Boolean(bar && getComputedStyle(bar).position === "fixed");
+  });
+  if (p?.scrolls) await shoot(page, `${stem}-full.png`, group, `${what}, whole page${fixedBar ? " (the end-turn bar is fixed to the screen's foot, so this capture draws it over the page where the first screen ends)" : ""}`, { full: true });
   return p;
 }
 
