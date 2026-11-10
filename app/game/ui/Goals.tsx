@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getStartYear, quarterLabel } from "../../model/economy";
-import type { QuarterState } from "../../model/types";
+import type { QuarterState, ScenarioConfig } from "../../model/types";
 import { sound } from "../audio";
 import { explain } from "../explain";
 import { deltaUnit, fmtNum, GAME_METRICS, unitShort } from "../metrics";
 import type { MetricKey, Objective, ObjectiveStatus } from "../missions";
 import { useProbeEffect, useTurn } from "../useTurn";
-import { useGame } from "../store";
+import { forecastFor, useGame } from "../store";
+import { policyTouched, untouchedConfig } from "../framework";
 import { DECOMP_METRICS, type DecompMetric } from "../decompose";
 import { DUR, useTween } from "./useTween";
 import Glyph from "./Glyph";
@@ -20,8 +21,74 @@ const STATUS_TEXT: Record<ObjectiveStatus, string> = { met: "Met", failed: "Miss
 /** Worst first: the verdict a goal card leads with. */
 const STATUS_RANK: Record<ObjectiveStatus, number> = { failed: 0, "at-risk": 1, "on-track": 2, met: 3 };
 
+/**
+ * The one counterfactual every panel shares (the map, its strip, the island line, the
+ * framework): the forecast had the player changed nothing since the mission began, and the
+ * quarter it starts from ("since 2025Q4").
+ */
+export function useUntouched(config: ScenarioConfig, clock: number, forecast: QuarterState[], actual: QuarterState[]) {
+  const turns = useGame((s) => s.turns);
+  const start = turns[0] ?? config;
+  const untouched = useMemo(() => (policyTouched(config, start) ? untouchedFor(config, start, clock) : forecast), [config, start, clock, forecast]);
+  return { untouched, since: actual[0]?.label ?? quarterLabel(0) };
+}
+
+/** One run of the model per lever move, shared by the goal cards, the phone strip and the recap's charts. */
+let lastUntouched: { config: ScenarioConfig; start: ScenarioConfig; clock: number; path: QuarterState[] } | null = null;
+function untouchedFor(config: ScenarioConfig, start: ScenarioConfig, clock: number): QuarterState[] {
+  if (lastUntouched && lastUntouched.config === config && lastUntouched.start === start && lastUntouched.clock === clock) return lastUntouched.path;
+  const path = forecastFor(untouchedConfig(config, start), clock);
+  lastUntouched = { config, start, clock, path };
+  return path;
+}
+
+/**
+ * For a goal that must hold every quarter (a floor or a ceiling), the forecast quarter that
+ * decides it: `worst` is the lowest quarter ahead for a floor (the highest for a ceiling),
+ * `at` the first quarter that breaks the goal, else the worst. Null for goals judged at the end
+ * or over a year, and once the mission is over.
+ */
+export function decidingQuarter(o: Objective | undefined, path: QuarterState[], clock: number, end: number): { worst: number; at: number } | null {
+  if (!o || o.bonus || o.when !== "every" || clock >= end) return null;
+  const from = Math.max(o.from ?? 1, clock + 1);
+  if (from > end) return null;
+  const worse = (a: number, b: number) => (o.op === ">=" ? a < b : a > b);
+  let worst = from;
+  let first: number | null = null;
+  for (let t = from; t <= end; t++) {
+    const v = path[t][o.metric];
+    if (worse(v, path[worst][o.metric])) worst = t;
+    if (first === null && worse(v, o.threshold)) first = t;
+  }
+  return { worst, at: first ?? worst };
+}
+
+/** "low point", "high point", or "first miss": how a goal's deciding quarter is named. */
+export const pointWord = (o: { op: "<=" | ">=" }, q: { worst: number; at: number }) => (q.at !== q.worst ? "first miss" : o.op === ">=" ? "low point" : "high point");
+
+/** Where a goal's move is read, and against what: see goalEffect. */
+export type EffectAt = { q: number; word: string; /** The other path's own low (high) point, when it falls in another quarter. */ other?: { v: number; q: number } } | null;
+
+/**
+ * What a change of path (`path` against `base`) does to a goal. A goal judged at the end: the
+ * difference at the end. A goal that must hold every quarter: at the quarter that decides it on
+ * `path`: its first miss, if any (the difference there); otherwise its low (high) point, against
+ * the low (high) point of `base`, which may fall in another quarter: what the change does to the
+ * figure the goal is judged on.
+ */
+export function goalEffect(o: Objective | undefined, path: QuarterState[], base: QuarterState[], clock: number, end: number, metric: MetricKey): { d: number; at: EffectAt } {
+  const dq = decidingQuarter(o, path, clock, end);
+  if (!dq || !o) return { d: path[end][metric] - base[end][metric], at: null };
+  if (dq.at !== dq.worst) return { d: path[dq.at][metric] - base[dq.at][metric], at: { q: dq.at, word: pointWord(o, dq) } };
+  const bq = decidingQuarter(o, base, clock, end)!;
+  const word = pointWord(o, dq);
+  if (bq.worst === dq.worst) return { d: path[dq.worst][metric] - base[dq.worst][metric], at: { q: dq.worst, word } };
+  return { d: path[dq.worst][metric] - base[bq.worst][metric], at: { q: dq.worst, word, other: { v: base[bq.worst][metric], q: bq.worst } } };
+}
+
 export default function Goals() {
-  const { mission, actual, forecast, forecastStart, clock, statuses, comparison, comparisonLabel } = useTurn();
+  const { mission, config, actual, forecast, clock, statuses, comparison, comparisonLabel } = useTurn();
+  const { untouched, since } = useUntouched(config, clock, forecast, actual);
   const metrics = Array.from(new Set(mission.objectives.map((o) => o.metric)));
   const effect = useProbeEffect(metrics);
 
@@ -37,7 +104,8 @@ export default function Goals() {
             statuses={statuses}
             actual={actual}
             forecast={forecast}
-            ghost={forecastStart}
+            ghost={untouched}
+            since={since}
             clock={clock}
             end={mission.quarters}
             probeDelta={effect ? effect.deltas[metric] : null}
@@ -49,7 +117,7 @@ export default function Goals() {
       <p className="game-goal-key game-spark-key" aria-hidden="true">
         <span><i className="is-past" /> Outturn</span>
         <span><i className="is-fc" /> Forecast</span>
-        <span><i className="is-ghost" /> Had you changed nothing</span>
+        <span><i className="is-ghost" /> Had you changed nothing since {since}</span>
         {comparisonLabel ? <span><i className="is-comp" /> {comparisonLabel}</span> : null}
       </p>
     </div>
@@ -60,7 +128,7 @@ export default function Goals() {
 const mainObjective = (objectives: Objective[]) => objectives.find((o) => !o.bonus) ?? objectives[0];
 const goalText = (o: Objective | undefined, digits: number) => (o ? `goal\u00a0${o.op === "<=" ? "≤" : "≥"}\u00a0${fmtNum(o.threshold, digits)}` : "");
 
-function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock, end, probeDelta, comparison, comparisonLabel }: { metric: MetricKey; objectives: Objective[]; statuses: Record<string, ObjectiveStatus>; actual: QuarterState[]; forecast: QuarterState[]; ghost: QuarterState[]; clock: number; end: number; probeDelta: number | null; comparison: QuarterState[] | null; comparisonLabel: string | null }) {
+function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, since, clock, end, probeDelta, comparison, comparisonLabel }: { metric: MetricKey; objectives: Objective[]; statuses: Record<string, ObjectiveStatus>; actual: QuarterState[]; forecast: QuarterState[]; ghost: QuarterState[]; since: string; clock: number; end: number; probeDelta: number | null; comparison: QuarterState[] | null; comparisonLabel: string | null }) {
   const meta = GAME_METRICS[metric];
   const [why, setWhy] = useState(false);
   const setFramework = useGame((s) => s.setFramework);
@@ -71,7 +139,12 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
   const main = mainObjective(objectives);
   const judged = objectives.filter((o) => !o.bonus);
   const stars = objectives.filter((o) => o.bonus);
-  const moveDelta = clock < end ? forecast[end][metric] - ghost[end][metric] : 0;
+  // A goal that must hold every quarter is decided at its low (or high) point, not at the end:
+  // the hero figure, the chart's marked dot and "Your moves" all read that quarter.
+  const deciding = decidingQuarter(main, forecast, clock, end);
+  const move = clock < end ? goalEffect(main, forecast, ghost, clock, end, metric) : { d: 0, at: null };
+  const moveDelta = move.d;
+  const unitText = unit === "%" ? "%" : ` ${unit}`;
 
   const verdict: ObjectiveStatus | undefined = judged.length ? (judged.map((o) => statuses[o.id]).sort((a, b) => STATUS_RANK[a] - STATUS_RANK[b])[0]) : undefined;
 
@@ -84,7 +157,15 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
         {verdict ? <span className={`game-status game-goal-verdict is-${verdict}`}><span className="game-goal-verdict-k">Goal: </span>{STATUS_TEXT[verdict].toLowerCase()}</span> : null}
       </div>
       <div className="game-goal-figures">
-        {clock < end ? (
+        {deciding && main ? (
+          <span className="game-goal-fc">
+            <small>
+              {main.op === ">=" ? "Lowest" : "Highest"}&nbsp;in&nbsp;{quarterLabel(deciding.worst)}
+            </small>
+            <span className="game-goal-value is-hero tabular-nums"><TweenNum value={forecast[deciding.worst][metric]} digits={meta.digits} /></span>
+            <span className="game-goal-unit">{unit}</span>
+          </span>
+        ) : clock < end ? (
           <span className="game-goal-fc">
             <small>{quarterLabel(end)}&nbsp;forecast</small>
             <span className="game-goal-value is-hero tabular-nums"><TweenNum value={endValue} digits={meta.digits} /></span>
@@ -97,9 +178,19 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
             <small>Now</small>{" "}
             <span className="tabular-nums">
               <TweenNum value={now} digits={meta.digits} />
-              <span className="game-unit">{unit === "%" ? "%" : `\u00a0${unit}`}</span>
+              <span className="game-unit">{unitText}</span>
             </span>
           </span>
+          {/* An every-quarter goal's end figure, under the low point it leads with. */}
+          {deciding ? (
+            <span className="game-goal-now">
+              <small>{quarterLabel(end)}</small>{" "}
+              <span className="tabular-nums">
+                <TweenNum value={endValue} digits={meta.digits} />
+                <span className="game-unit">{unitText}</span>
+              </span>
+            </span>
+          ) : null}
         </span>
       </div>
 
@@ -117,7 +208,7 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
               <span className="game-probe-chip is-neutral"><small>Try it</small> no change</span>
             )
           ) : clock < end && Math.abs(moveDelta) >= 0.05 ? (
-            <MoveChip metric={metric} objectives={objectives} delta={moveDelta} end={end} />
+            <MoveChip metric={metric} objectives={objectives} delta={moveDelta} end={end} since={since} at={move.at} />
           ) : null}
       </div>
       <ul className="game-goal-sub">
@@ -136,7 +227,7 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
         ))}
       </ul>
 
-      <OutlookChart metric={metric} objectives={objectives} actual={actual} forecast={forecast} ghost={ghost} clock={clock} end={end} comparison={comparison} />
+      <OutlookChart metric={metric} objectives={objectives} actual={actual} forecast={forecast} ghost={ghost} clock={clock} end={end} comparison={comparison} mark={deciding ? deciding.worst : null} />
       {comparison && comparisonLabel ? (
         <p className="game-goal-note">
           {comparisonLabel}, {quarterLabel(Math.min(clock + 1, end))}: {fmtNum(comparison[Math.min(clock + 1, end)][metric], meta.digits)}
@@ -176,24 +267,29 @@ function GoalCard({ metric, objectives, statuses, actual, forecast, ghost, clock
  * lever is doing to each judged forecast, easing as it moves.
  */
 export function MoveStrip() {
-  const { mission, forecast, forecastStart, clock, statuses } = useTurn();
+  const { mission, config, actual, forecast, clock, statuses } = useTurn();
+  const { untouched } = useUntouched(config, clock, forecast, actual);
   const end = mission.quarters;
   if (clock >= end) return null;
   const metrics = Array.from(new Set(mission.objectives.map((o) => o.metric)));
   return (
-    <div className="game-move-strip" aria-label="Your move: the forecast for each goal">
+    <div className="game-move-strip" aria-label="Your moves: the forecast for each goal">
       {metrics.map((metric) => {
         const meta = GAME_METRICS[metric];
         const objectives = mission.objectives.filter((o) => o.metric === metric);
         const main = mainObjective(objectives);
         const status = main ? statuses[main.id] : undefined;
-        const d = forecast[end][metric] - forecastStart[end][metric];
-        const value = forecast[end][metric];
+        // An every-quarter goal reads its low (or high) point, as its card does.
+        const deciding = decidingQuarter(main, forecast, clock, end);
+        const d = goalEffect(main, forecast, untouched, clock, end, metric).d;
+        const value = forecast[deciding ? deciding.worst : end][metric];
         return (
           <span key={metric} className="game-move-strip-item">
             {/* The status word goes with the level; the helps/hurts word goes with the move. */}
             <span className="game-move-strip-level">
-              <b>{meta.label.replace("Public ", "").replace("Unemployment", "Jobless")}</b> <span className="tabular-nums"><TweenNum value={value} digits={meta.digits} /></span>
+              <b>{meta.label.replace("Public ", "").replace("Unemployment", "Jobless")}</b>
+              {deciding && main ? <span className="game-move-strip-at"> {main.op === ">=" ? "low" : "high"}</span> : null}{" "}
+              <span className="tabular-nums"><TweenNum value={value} digits={meta.digits} /></span>
               {status ? <> · <span className={`game-status is-${status}`}>{STATUS_TEXT[status].toLowerCase()}</span></> : null}
             </span>
             {Math.abs(d) >= 0.05 ? (
@@ -216,22 +312,41 @@ function TweenNum({ value, digits }: { value: number; digits: number }) {
 }
 
 /**
- * "Your move": what this quarter's changes do by the end. The number counts in
- * from 0 when the chip appears and eases as a lever moves, in step with the
- * goal figures. The ink triangle gives the direction; the square and word after it
- * say whether that helps or hurts the goal.
+ * "Your moves": what everything the player changed since the mission began does, against
+ * "had you changed nothing" (the map's and the strip's counterfactual), by the end or, for a
+ * goal that must hold every quarter, at the quarter that decides it. The number counts in from
+ * 0 when the chip appears and eases as a lever moves, in step with the goal figures. The ink
+ * triangle gives the direction; the square and word after it say whether that helps or hurts.
  */
-function MoveChip({ metric, objectives, delta, end }: { metric: MetricKey; objectives: Objective[]; delta: number; end: number }) {
+function MoveChip({ metric, objectives, delta, end, since, at }: { metric: MetricKey; objectives: Objective[]; delta: number; end: number; since: string; at: EffectAt }) {
   const meta = GAME_METRICS[metric];
   const tween = useTween(delta, DUR, 0);
   // While a sign flip eases through zero, never show a number on the wrong side of the arrow.
   const shown = Math.sign(tween) === Math.sign(delta) ? tween : 0;
+  const when = at ? (at.other ? `on its ${at.word}` : `in ${quarterLabel(at.q)}`) : `by ${quarterLabel(end)}`;
+  const unitText = unitShort(meta.unit) === "%" ? "%" : unitShort(meta.unit);
   return (
-    <span className={`game-move-chip ${moveTone(objectives, delta)}`} title={`What this quarter's changes do to ${meta.label.toLowerCase()} by ${quarterLabel(end)}`}>
-      <small>Your move</small>
-      <Glyph name={delta > 0 ? "up" : "down"} /> {fmtNum(Math.abs(shown), meta.digits)}
-      {deltaUnit(meta.unit)}
+    <span className={`game-move-chip ${moveTone(objectives, delta)}`} title={`What your changes since ${since} do to ${meta.label.toLowerCase()} ${when}, against changing nothing`}>
+      <small>Your moves</small>
+      <span className="game-move-chip-d">
+        <Glyph name={delta > 0 ? "up" : "down"} /> {fmtNum(Math.abs(shown), meta.digits)}
+        {deltaUnit(meta.unit)}
+      </span>
       <Valence tone={toneOf(objectives, delta)} />
+      {at ? (
+        <span className="game-move-chip-at">
+          {at.other ? (
+            <>
+              on the {at.word} (without them: {fmtNum(at.other.v, meta.digits)}
+              {unitText} in&nbsp;{quarterLabel(at.other.q)})
+            </>
+          ) : (
+            <>
+              in&nbsp;{quarterLabel(at.q)} ({at.word})
+            </>
+          )}
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -294,12 +409,14 @@ function dodge<T extends { y: number }>(items: T[], gap: number, lo: number, hi:
 
 /** A goal's chart outside the goal column (the recap): reads the turn itself. */
 export function GoalChart({ metric, height = 104 }: { metric: MetricKey; height?: number }) {
-  const { mission, actual, forecast, forecastStart, clock, comparison } = useTurn();
+  const { mission, config, actual, forecast, clock, comparison } = useTurn();
+  const { untouched } = useUntouched(config, clock, forecast, actual);
   const objectives = mission.objectives.filter((o) => o.metric === metric);
-  return <OutlookChart metric={metric} objectives={objectives} actual={actual} forecast={forecast} ghost={forecastStart} clock={clock} end={mission.quarters} comparison={comparison} height={height} />;
+  const deciding = decidingQuarter(mainObjective(objectives), forecast, clock, mission.quarters);
+  return <OutlookChart metric={metric} objectives={objectives} actual={actual} forecast={forecast} ghost={untouched} clock={clock} end={mission.quarters} comparison={comparison} height={height} mark={deciding ? deciding.worst : null} />;
 }
 
-function OutlookChart({ metric, objectives, actual, forecast, ghost, clock, end, comparison, height = 120 }: { metric: MetricKey; objectives: Objective[]; actual: QuarterState[]; forecast: QuarterState[]; ghost: QuarterState[]; clock: number; end: number; comparison: QuarterState[] | null; height?: number }) {
+function OutlookChart({ metric, objectives, actual, forecast, ghost, clock, end, comparison, height = 120, mark = null }: { metric: MetricKey; objectives: Objective[]; actual: QuarterState[]; forecast: QuarterState[]; ghost: QuarterState[]; clock: number; end: number; comparison: QuarterState[] | null; height?: number; mark?: number | null }) {
   const meta = GAME_METRICS[metric];
   return (
     <Sparkline
@@ -313,6 +430,7 @@ function OutlookChart({ metric, objectives, actual, forecast, ghost, clock, end,
       clock={clock}
       end={end}
       height={height}
+      mark={mark !== null && mark > clock && mark < end ? mark : null}
     />
   );
 }
@@ -344,7 +462,7 @@ function useBox<T extends HTMLElement>() {
  * no-change path dotted (named once by the panel's key), the goal as a solid ink rule
  * labelled on the rule itself. Only the start value and the end value are labelled.
  */
-export function Sparkline({ label, digits, past, fut, ghost = [], comp = [], goals = [], clock, end, height = 120 }: { label: string; digits: number; past: number[]; fut: number[]; ghost?: number[]; comp?: number[]; goals?: SparkGoal[]; clock: number; end: number; height?: number }) {
+export function Sparkline({ label, digits, past, fut, ghost = [], comp = [], goals = [], clock, end, height = 120, mark = null }: { label: string; digits: number; past: number[]; fut: number[]; ghost?: number[]; comp?: number[]; goals?: SparkGoal[]; clock: number; end: number; height?: number; /** A forecast quarter to mark with a dot and its value (an every-quarter goal's low or high point). */ mark?: number | null }) {
   const [ref, { w: W, fs }] = useBox<HTMLSpanElement>();
   const H = Math.max(80, height);
   // Axis text one step under the labels (never below 14px); the end figure a step over it.
@@ -398,6 +516,30 @@ export function Sparkline({ label, digits, past, fut, ghost = [], comp = [], goa
   // The forecast's end value (blue), right of its dot.
   const ends = dodge([{ key: "end", y: y(last) + fsEnd * 0.35, text: endText, fill: fut.length ? "var(--lab-scenario)" : "var(--lab-ink)" }], fsEnd * 1.1, PAD.t + fsEnd * 0.8, H - PAD.b);
   ends.forEach((e) => L.add({ x: x(end) + 8, y: e.y, w: e.text.length * fsEnd * 0.62, h: fsEnd }));
+  // The quarter that decides an every-quarter goal: a dot on the forecast and its value, under
+  // a low point (over a high one), else beside it.
+  const markV = mark !== null && mark > clock && mark - clock < fut.length ? fut[mark - clock] : null;
+  const markText = markV !== null ? fmtNum(markV, digits) : "";
+  const markW = markText.length * fs * 0.62;
+  const low = markV !== null && judged[0] ? judged[0].op === ">=" : true;
+  // Candidates: under (over) the dot, centred, then to its right, then its left; then beside it
+  // at its level; then a line further off. The least crowded wins if none is clear.
+  const markLabel =
+    markV !== null && mark !== null
+      ? L.place([
+          ...(low ? [fs + 6, -8] : [-8, fs + 6]).flatMap((dy) => [
+            { x: x(mark) - markW / 2, y: y(markV) + dy, w: markW },
+            { x: x(mark) + 6, y: y(markV) + dy, w: markW },
+            { x: x(mark) - markW - 6, y: y(markV) + dy, w: markW },
+          ]),
+          { x: x(mark) + 9, y: y(markV) + fs * 0.35, w: markW },
+          { x: x(mark) - markW - 9, y: y(markV) + fs * 0.35, w: markW },
+          ...(low ? [fs * 2 + 8, -8 - fs * 1.1] : [-8 - fs * 1.1, fs * 2 + 8]).flatMap((dy) => [
+            { x: x(mark) - markW / 2, y: y(markV) + dy, w: markW },
+            { x: x(mark) + 10, y: y(markV) + dy, w: markW },
+          ]),
+        ])
+      : null;
   // The start value: first in the left gutter beside its dot, then above or below the dot,
   // then a line further out; if every spot is taken, the gutter wins and the y tick it
   // would sit on steps aside.
@@ -471,7 +613,9 @@ export function Sparkline({ label, digits, past, fut, ghost = [], comp = [], goa
           <text x={start.x} y={start.y} fontSize={fs} fontWeight={600} fill="var(--lab-ink)">{startText}</text>
           {goal ? <text x={goal.x} y={goal.y} fontSize={fs} fontWeight={600} fill="var(--lab-ink)">{goal.text}</text> : null}
           {bonusLabel ? <text x={bonusLabel.x} y={bonusLabel.y} fontSize={fsT} fill="var(--lab-ink-2)">{bonusWords}</text> : null}
+          {markLabel ? <text x={markLabel.x} y={markLabel.y} fontSize={fs} fontWeight={700} fill="var(--lab-scenario)">{markText}</text> : null}
         </g>
+        {markV !== null && mark !== null ? <circle cx={x(mark)} cy={y(markV)} r={4} fill="var(--lab-paper)" stroke="var(--lab-scenario)" strokeWidth={2.5} /> : null}
         <circle cx={x(0)} cy={y0} r={3} fill="var(--lab-ink)" />
         <circle cx={x(clock)} cy={y(lastPast)} r={3.5} fill="var(--lab-ink)" stroke="var(--lab-paper)" strokeWidth={1.5} />
         {fut.length ? <circle cx={x(end)} cy={y(last)} r={4} fill="var(--lab-scenario)" stroke="var(--lab-paper)" strokeWidth={1.5} /> : null}

@@ -62,7 +62,7 @@ function FrameworkPanel() {
   const touched = policyTouched(config, start);
   const untouched = useMemo(() => (touched ? forecastFor(untouchedConfig(config, start), clock) : forecast), [touched, config, start, clock, forecast]);
   const input: FrameworkInput = { config, actual, forecast, untouched, clock, end, policy, policyStart, changedSinceStart: touched };
-  const chans = channels(input);
+  const chans = asModelled(channels(input), input);
   // One scale for every channel's bars, set by the policy channels that draw bars (the world's
   // shocks are often far larger: their bars are cut at the scale's end, their value printed in
   // full), rounded up to a readable end value: 0.5, 1, 2, then whole points.
@@ -264,6 +264,35 @@ function FrameworkPanel() {
       </div>
     </div>
   );
+}
+
+/**
+ * The rates and confidence rows worded as the model works. Demand reacts to the real rate
+ * expected over the coming year (the expected rate path net of expected inflation), not to the
+ * policy rate minus this quarter's inflation: the figure is read back from the model's own
+ * monetary impulse, −(σ/4)(r − r*), so the note always agrees with the Demand bar beside it.
+ * Expectations lean on recent and expected inflation, not on past inflation alone. The pegged
+ * notes are left as they are.
+ */
+function asModelled(chans: Channel[], input: FrameworkInput): Channel[] {
+  const { config, forecast, clock } = input;
+  const next = forecast[Math.min(clock + 1, forecast.length - 1)];
+  const P = getPreset(config.presetId).params;
+  const exAnte = P.neutralRealRate - (4 * next.drivers.gap.monetary) / P.sigma;
+  const gap = exAnte - P.neutralRealRate;
+  return chans.map((c): Channel => {
+    if (c.id === "confidence" && c.note) return { ...c, note: c.note.replace("% on past inflation", "% on recent and expected inflation") };
+    if (c.id !== "rates") return c;
+    const chain = ["Policy rate", "Real rate", "Demand (from this quarter)", "Inflation (builds over 1-2 years)"];
+    if (next.regime === "peg") return { ...c, chain };
+    return {
+      ...c,
+      chain,
+      // Idle only when the Demand bar is empty and the expected real rate is near neutral.
+      status: Math.abs(c.links[0]?.value ?? 0) < 0.05 && Math.abs(gap) < 0.5 ? "idle" : "active",
+      note: `Real rate expected over the next year ${fmt(exAnte, 1)}% against a neutral ${fmt(P.neutralRealRate, 1)}%: ${gap > 0.5 ? "tight, cooling demand" : gap < -0.5 ? "loose, warming demand" : "roughly neutral"}. Demand reacts this quarter to the rate people expect over the coming year; inflation follows over the next two years.`,
+    };
+  });
 }
 
 /** A Why note: its first full sentence, the rest behind "More"; never cut mid-word. */

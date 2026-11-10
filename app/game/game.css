@@ -8,9 +8,14 @@
      weo-lab.css. */
 }
 
+/* Focus: an ink ring (about 12:1 on the paper); with the keyboard, inside a soft palari-teal
+   halo (the end of this file). The teal alone is about 2.4:1 on the cream, under the 3:1 a
+   focus indicator needs. */
+.game button:focus-visible,
 .game .lab-btn:focus-visible,
-.game button:focus-visible {
-  outline: 2px solid var(--lab-focus);
+.game summary:focus-visible,
+.game a:focus-visible {
+  outline: 2px solid var(--lab-ink);
   outline-offset: 2px;
 }
 
@@ -75,7 +80,8 @@
 
 .game-title {
   font-family: var(--lab-font-display);
-  font-size: var(--t-2xl);
+  /* Never over 40 px, on a TV either. */
+  font-size: min(var(--t-2xl), 40px);
   font-weight: 600;
   line-height: 0.95;
   letter-spacing: -0.03em;
@@ -310,13 +316,16 @@
   border-top: 5px solid var(--lab-alert);
 }
 
+/* The kicker is plain text, never a pill; its words carry the meaning. The alert hue's text
+   shade (--lab-bad, about 4.9:1 on the card): the bright --lab-alert itself is 2.8:1 there,
+   so it stays on the card's top rule. */
 .game-shock-kicker {
   display: inline-block;
   margin-bottom: 0.35rem;
-  border-radius: 999px;
-  background: var(--lab-bad-bg);
-  padding: 0.15rem 0.6rem;
-  font-size: var(--t-xs);
+  border-radius: 0;
+  background: none;
+  padding-inline: 0;
+  font-size: var(--t-sm);
   font-weight: 700;
   color: var(--lab-bad);
 }
@@ -2007,7 +2016,8 @@
   }
 }
 
-@media (min-width: 2600px) {
+/* 2560 px TVs: 21 px (--t-xl is then 39.9 px, under the 40 px cap). */
+@media (min-width: 2400px) {
   html {
     font-size: 21px;
   }
@@ -2470,19 +2480,24 @@
   gap: 0.3rem;
 }
 
+/* An option's effects: plain text separated by " · ", each with its ink triangle and its
+   helps / hurts square and word; no pastel pills. */
 .game-outcome {
-  border-radius: var(--game-r-sm);
-  background: color-mix(in srgb, var(--lab-scenario) 10%, transparent);
-  padding: 0.1rem 0.45rem;
-  font-size: var(--t-xs);
+  border-radius: 0;
+  background: none;
+  padding: 0.1rem 0;
+  padding-inline: 0;
+  font-size: var(--t-sm);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: var(--lab-scenario);
+  color: var(--lab-ink);
   white-space: nowrap;
 }
 
 .game-outcome.is-hold {
-  background: color-mix(in srgb, var(--lab-ink) 6%, transparent);
+  border-radius: 0;
+  background: none;
+  padding-inline: 0;
   color: var(--lab-ink-2);
 }
 
@@ -2598,14 +2613,12 @@
 
 /* ---- Design council, round 3 ---------------------------------------------- */
 
-.game-outcome.is-good {
-  background: color-mix(in srgb, var(--lab-good-mark) 16%, transparent);
-  color: var(--lab-good);
-}
-
+.game-outcome.is-good,
 .game-outcome.is-bad {
-  background: color-mix(in srgb, var(--lab-alert) 12%, transparent);
-  color: var(--lab-bad);
+  border-radius: 0;
+  background: none;
+  padding-inline: 0;
+  color: var(--lab-ink);
 }
 
 .game-fw-valence {
@@ -3731,8 +3744,9 @@ html:not(.is-kbd) .game button:focus-visible {
 .game-recap-stats.is-3 {
   --cols: 3;
 }
+/* Four goals: two by two, so each chart keeps a readable width (four across left about 140 px). */
 .game-recap-stats.is-4 {
-  --cols: 4;
+  --cols: 2;
 }
 .game-dateline {
   display: flex;
@@ -4521,24 +4535,33 @@ html {
   font-size: var(--t-xs);
   line-height: 1.3;
 }
-:where(.lab:not([data-theme="ledger"])) .game-reaction-mood {
-  border-radius: var(--game-r-sm);
-  background: color-mix(in srgb, var(--lab-info-mark) 12%, transparent);
-  padding: 0.05rem 0.45rem;
-  font-size: var(--t-xs);
-  font-weight: 700;
-  color: var(--lab-info);
-}
-:where(.lab:not([data-theme="ledger"])) .game-reaction-mood.is-pleased {
-  background: color-mix(in srgb, var(--lab-good-mark) 16%, transparent);
-  color: var(--lab-good);
-}
+/* An advisor's mood: a coloured dot and the word in ink (the word carries it; no pill). */
+:where(.lab:not([data-theme="ledger"])) .game-reaction-mood,
+:where(.lab:not([data-theme="ledger"])) .game-reaction-mood.is-pleased,
 :where(.lab:not([data-theme="ledger"])) .game-reaction-mood.is-worried {
-  background: color-mix(in srgb, var(--lab-alert) 12%, transparent);
-  color: var(--lab-bad);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0;
+  background: none;
+  padding-inline: 0;
+  font-size: var(--t-sm);
+  font-weight: 700;
+  color: var(--lab-ink);
 }
 :where(.lab:not([data-theme="ledger"])) .game-reaction-mood i {
-  display: none;
+  display: inline-block;
+  flex: none;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--lab-info-mark);
+}
+:where(.lab:not([data-theme="ledger"])) .game-reaction-mood.is-pleased i {
+  background: var(--lab-good-mark);
+}
+:where(.lab:not([data-theme="ledger"])) .game-reaction-mood.is-worried i {
+  background: var(--lab-alert);
 }
 :where(.lab:not([data-theme="ledger"])) .game-reaction-quote {
   margin: 0.15rem 0 0;
@@ -5631,6 +5654,20 @@ html {
 .game-scene-view.is-island {
   background: var(--lab-scene-bg);
 }
+/* While the map is up, the island stays visible under it (the map's view is opaque and on top),
+   paused: the browser keeps its last picture and presents the fresh frames it draws when asked
+   for, so the swap never shows an empty sky; the layers do not change at the swap either. */
+.game-scene-view.is-island.is-under {
+  z-index: 1;
+  opacity: 1;
+  visibility: visible;
+  transition: none;
+}
+/* The map always lies above the island: it fades out over it, and back in over it. */
+.game-scene-view.is-map {
+  z-index: 3;
+  background: var(--lab-paper);
+}
 /* Back to the map: the island's line and news go at once, so they never ghost through the fade. */
 .game-scene-view.is-island:not(.is-on) .game-scene-islandline,
 .game-scene-view.is-island:not(.is-on) .game-scene-islandnews {
@@ -5683,11 +5720,12 @@ html {
   width: 1.05rem;
   height: 1.05rem;
 }
-/* Keyboard focus: a thick ring outside the pill, clear of the pressed half's fill. */
+/* Keyboard focus: the ink ring and teal halo outside the pill, clear of the pressed half's fill. */
 html.is-kbd .game .game-scene-tabs button:focus-visible {
   z-index: 1;
-  outline: 3px solid var(--lab-focus);
+  outline: 2px solid var(--lab-ink);
   outline-offset: 2px;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--lab-focus) 50%, transparent);
 }
 /* Touch screens: each half is a finger-sized target (44 px tall) around the compact pill. */
 @media (pointer: coarse), (max-width: 760px) {
@@ -5744,13 +5782,15 @@ html.is-kbd .game .game-scene-tabs button:focus-visible {
   }
 }
 
-/* First play screen only: a one-time pointer to the island, under the control. */
+/* First play screen only: a one-time pointer to the island, directly under the control and no
+   wider than it, so it wraps in the "What pushed" heading band and clears the map's key line;
+   its arrow points up at the Island half. */
 .game-scene-coach {
   position: absolute;
-  top: 3.6rem;
+  top: calc(0.45rem + var(--scene-tabs-h, 2.75rem) + 0.6rem);
   left: 0.6rem;
   z-index: 5;
-  max-width: calc(100% - 1.2rem);
+  max-width: var(--scene-tabs-w, 12rem);
   margin: 0;
   border-radius: 0.8rem;
   background: var(--lab-ink);
@@ -5767,7 +5807,7 @@ html.is-kbd .game .game-scene-tabs button:focus-visible {
   content: "";
   position: absolute;
   bottom: 100%;
-  left: calc(var(--scene-tabs-w, 12rem) * 0.55);
+  left: calc(var(--scene-tabs-w, 12rem) * 0.6 - 7px);
   border: 7px solid transparent;
   border-bottom-color: var(--lab-ink);
 }
@@ -5777,7 +5817,7 @@ html.is-kbd .game .game-scene-tabs button:focus-visible {
 }
 .game-scene.is-list .game-scene-coach::before {
   left: auto;
-  right: calc(var(--scene-tabs-w, 10rem) * 0.3);
+  right: calc(var(--scene-tabs-w, 10rem) * 0.3 - 7px);
 }
 .game-scene-coach kbd {
   border: 1px solid color-mix(in srgb, var(--lab-paper) 60%, transparent);
@@ -5933,9 +5973,6 @@ html.is-kbd .game .game-scene-tabs button:focus-visible {
     gap: 0.3rem;
     padding: 0.15rem 0.6rem 0.15rem 0.5rem;
   }
-  .game-scene-coach {
-    top: 2.9rem;
-  }
   .game-scene-islandline {
     padding: 0.35rem 0.7rem;
     font-size: var(--t-xs);
@@ -5961,12 +5998,11 @@ html.is-kbd .game .game-scene-tabs button:focus-visible {
     font-size: var(--t-sm);
   }
   .game-scene-coach {
-    top: 4.2rem;
     font-size: var(--t-md);
   }
   .game-scene-islandline,
   .game-scene-islandnews {
-    font-size: var(--t-md);
+    font-size: var(--t-lg);
   }
 }
 
@@ -5981,5 +6017,245 @@ html.is-kbd .game .game-scene-tabs button:focus-visible {
     margin-top: -1.75rem;
     background: linear-gradient(to bottom, transparent, var(--lab-paper));
     pointer-events: none;
+  }
+}
+
+/* ---- Shell, round 2 ------------------------------------------------------------------------
+   Body text a newcomer reads is 14.4 px or more (--t-sm); --t-xs (12.8 px in palari-tidy) is
+   kept for captions (the masthead, chart axes). No pastel pills. A focus ring that reads. */
+
+/* Keyboard focus everywhere in the game, the scene slot included (cause cards, strip cells, the
+   Map / Island control): the ink ring inside a soft teal halo. Primary buttons keep their edge. */
+html.is-kbd .game :is(button, .lab-btn, summary, a, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--lab-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--lab-focus) 50%, transparent);
+}
+/* Inside the map's scrolling strip and list, a ring outside the cell would be cut off: inset. */
+html.is-kbd .game .game-scene :is(.st-cell, .st-lhead, .st-foot-more):focus-visible {
+  outline-offset: -2px;
+  box-shadow: inset 0 0 0 5px color-mix(in srgb, var(--lab-focus) 50%, transparent);
+}
+html.is-kbd .game :is(.lab-btn-primary, .game-end-btn):focus-visible {
+  outline-offset: 3px;
+  box-shadow:
+    0 4px 0 var(--pt-edge, transparent),
+    0 0 0 7px color-mix(in srgb, var(--lab-focus) 50%, transparent);
+}
+
+/* The shock card: the description's size in the forecast, then how to read the options. */
+.game-shock-size {
+  margin-top: 0.35rem;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--lab-ink);
+}
+.game-shock-intro {
+  margin-top: 0.3rem;
+  font-size: var(--t-sm);
+  line-height: 1.4;
+  color: var(--lab-ink-2);
+}
+.game .game-choice .game-choice-detail {
+  font-size: var(--t-sm);
+  line-height: 1.4;
+}
+.game .game-choice .game-outcomes {
+  gap: 0.15rem 0.5rem;
+}
+.game .game-choice .game-outcome,
+.game .game-choice .game-outcome span {
+  font-size: var(--t-sm);
+  color: var(--lab-ink);
+}
+.game .game-choice .game-outcome.is-hold {
+  color: var(--lab-ink-2);
+}
+.game .game-choice .game-outcome {
+  white-space: normal;
+}
+.game .game-choice .game-outcome .game-outcome-d,
+.game .game-choice .game-outcome .game-outcome-at,
+.game .game-choice .game-outcome .game-valence {
+  white-space: nowrap;
+}
+.game .game-choice .game-outcome .game-outcome-sep {
+  color: var(--lab-ink-2);
+}
+.game .game-choice .game-outcome .game-outcome-at {
+  font-weight: 400;
+  color: var(--lab-ink-2);
+}
+/* Phones: one effect a line, and the card's sentence already says "at its low point". */
+@media (max-width: 480px) {
+  .game .game-choice .game-outcomes {
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+  .game .game-choice .game-outcome .game-outcome-sep,
+  .game .game-choice .game-outcome .game-outcome-word {
+    display: none;
+  }
+}
+
+/* The recap's small print that is read, not glanced at. */
+.game .game-recap-goal-text,
+.game .game-stamp-note,
+.game .game-recap-when {
+  font-size: var(--t-sm);
+}
+
+/* Side columns: hints, bonus-star sentences and the small links. */
+.game .lab-field > span.leading-snug,
+.game .game-goal-bonus-what,
+.game .game-reset,
+.game .game-why {
+  font-size: var(--t-sm);
+}
+
+/* Goal cards: "Your moves" names the quarter that decides an every-quarter goal. */
+.game .game-move-chip {
+  flex-wrap: wrap;
+}
+.game .game-move-chip-at {
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--lab-ink-2);
+}
+.game .game-move-strip-at {
+  font-weight: 400;
+  color: var(--lab-ink-2);
+}
+
+/* The quarter's news in the decision box: no green "quiet" look. */
+.game .game-agenda.is-news strong {
+  display: block;
+}
+
+/* Votes and Trust: neutral counters, the number in ink; no tint. */
+.lab.game[data-theme] .game-counter,
+.lab.game[data-theme] .game-counter.is-votes,
+.lab.game[data-theme] .game-counter.is-trust {
+  border-radius: 0;
+  background: none;
+  padding-inline: 0;
+  color: var(--lab-ink-2);
+}
+.lab.game[data-theme] .game-counter strong {
+  color: var(--lab-ink);
+}
+
+/* Advisors' moods: a coloured dot and the word in ink (Worried in its red was 4.46:1 on the card). */
+.lab.game[data-theme] .game-advice .game-stance,
+.lab.game[data-theme] .game-advice .game-stance.is-worried,
+.lab.game[data-theme] .game-advice .game-stance.is-pleased {
+  border-radius: 0;
+  background: none;
+  padding-inline: 0;
+  font-size: var(--t-sm);
+  color: var(--lab-ink);
+}
+
+/* The one-time pointer to the island: under the control, as wide as it, its arrow at the Island
+   half (story.css placed it beside the control, over the map's key line). */
+.lab.game .game-scene.has-tabs > p.game-scene-coach {
+  top: calc(0.45rem + var(--scene-tabs-h, 2.75rem) + 0.6rem);
+  left: 0.6rem;
+  right: auto;
+  max-width: var(--scene-tabs-w, 12rem);
+  padding: 0.35rem 0.7rem;
+  font-size: var(--t-sm);
+  line-height: 1.3;
+  white-space: normal;
+}
+.lab.game .game-scene.has-tabs > p.game-scene-coach::before {
+  top: auto;
+  bottom: 100%;
+  right: auto;
+  left: calc(var(--scene-tabs-w, 12rem) * 0.6 - 7px);
+  transform: none;
+  border: 7px solid transparent;
+  border-bottom-color: var(--lab-ink);
+}
+.lab.game .game-scene.has-tabs.is-list > p.game-scene-coach {
+  left: auto;
+  right: 0.6rem;
+}
+.lab.game .game-scene.has-tabs.is-list > p.game-scene-coach::before {
+  left: auto;
+  right: calc(var(--scene-tabs-w, 10rem) * 0.3 - 7px);
+}
+
+/* Small laptops (900-1179 px): the levers beside the slot, so the lever to move is on the first
+   screen above the docked End bar; advisors and goals below both. */
+@media (min-width: 900px) and (max-width: 1179px) {
+  .game-grid {
+    grid-template-columns: 17.5rem minmax(0, 1fr);
+    align-items: start;
+  }
+  .game-grid > .game-col-levers {
+    order: 0;
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .game-stage > .game-scene {
+    order: 0;
+    grid-column: 2;
+    grid-row: 1;
+    height: clamp(22rem, calc(100dvh - var(--hud-h, 6.5rem) - var(--sticky-h, 7.5rem) - 1.5rem), 46rem);
+    max-height: none;
+  }
+  .game-stage-foot > .game-advisors {
+    order: 0;
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .game-grid > .game-col-goals {
+    order: 0;
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+}
+
+/* TVs: the side panels, the advisors, the shock card and the recap read from the sofa, as the
+   scene slot does (it raises its own tokens). */
+@media (min-width: 2000px) {
+  .game-col-levers,
+  .game-col-goals,
+  .game-advisors,
+  .game-reactions,
+  .game-shock,
+  .game-recap {
+    --t-xs: 1rem;
+    --t-sm: 1.125rem;
+    --t-md: 1.25rem;
+  }
+}
+
+/* Touch screens: the small links and the Levers / Reforms tabs get a finger-sized hit area
+   (about 44 px tall) around their compact look; neighbours' areas do not overlap. */
+@media (pointer: coarse) {
+  .game .game-levers-head .lab-segmented button,
+  .game .game-advice .game-why,
+  .game .game-goal .game-why,
+  .game .game-reset {
+    position: relative;
+  }
+  .game .game-levers-head .lab-segmented button::after,
+  .game .game-advice .game-why::after,
+  .game .game-goal .game-why::after,
+  .game .game-reset::after {
+    content: "";
+    position: absolute;
+    inset: -12px -4px;
+  }
+  /* Side by side, the two tabs share their edge: no sideways overhang. */
+  .game .game-levers-head .lab-segmented button::after {
+    inset: -12px 0;
+  }
+  /* A goal card's two links, if they wrap, sit far enough apart for their areas. */
+  .game .game-goal div:has(> .game-why) {
+    row-gap: 1.5rem;
   }
 }

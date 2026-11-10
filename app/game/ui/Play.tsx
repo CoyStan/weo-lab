@@ -93,8 +93,10 @@ export default function Play({ scene }: { scene: ReactNode }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
-      // Typing, or on a slider (native or custom): every key, arrows and letters, stays with it.
-      if (t && (t.closest("input, select, textarea, [role=slider]") || t.isContentEditable)) return;
+      // Typing: every key stays with the field. On a slider (native or custom) its navigation
+      // keys stay with it and Enter never ends a quarter by accident; letters reach the shortcuts.
+      if (t && (t.closest("input:not([type=range]), select, textarea") || t.isContentEditable)) return;
+      if (t?.closest("input[type=range], [role=slider]") && (/^(Arrow|Home|End|Page)/.test(e.key) || e.key === "Enter")) return;
       const game = useGame.getState();
       // I: the scene slot switches between the map and the island.
       if ((e.key === "i" || e.key === "I") && !e.repeat && !game.modal && !game.framework) {
@@ -297,6 +299,13 @@ function SceneSlot({ map, news, children }: { map: ReactNode; news: SimEvent[]; 
   if (view === "island" && !mounted) setMounted(true);
   const [ready, setReady] = useState(false);
   const onReady = useCallback(() => setReady(true), []);
+  // The paused island has not drawn since it was hidden: the views swap only once it has drawn
+  // fresh frames (the control shows Island pressed at once; the map stays up until then).
+  const [drawn, setDrawn] = useState(false);
+  if (view !== "island" && drawn) setDrawn(false);
+  const onDrawn = useCallback(() => setDrawn(true), []);
+  // No WebGL: the island shows its own note instead of a canvas, and never draws a frame.
+  const [noGL, setNoGL] = useState(false);
   useEffect(() => {
     if (mounted || modal) return;
     const w = window as IdleWindow;
@@ -311,14 +320,22 @@ function SceneSlot({ map, news, children }: { map: ReactNode; news: SimEvent[]; 
       else window.clearTimeout(idle);
     };
   }, [mounted, modal]);
-  // No WebGL (the island shows its own note instead of a canvas): show that after a moment.
+  // No WebGL (the island shows its own note instead of a canvas): show that after a moment, and
+  // stop waiting for frames that will never come.
   useEffect(() => {
     if (!mounted || ready) return;
-    const id = window.setTimeout(() => setReady(true), 1500);
+    const id = window.setTimeout(() => {
+      setReady(true);
+      if (!document.querySelector("#game-view-island canvas")) {
+        setNoGL(true);
+        setDrawn(true);
+      }
+    }, 1500);
     return () => window.clearTimeout(id);
   }, [mounted, ready]);
-  const island = view === "island" && ready;
-  const building = view === "island" && !ready;
+  const shownDrawn = drawn || noGL;
+  const island = view === "island" && ready && shownDrawn;
+  const building = view === "island" && !(ready && shownDrawn);
 
   // The view being left goes inert: if focus was in it, it moves to the control's pressed half
   // instead of dropping to the page (a keyboard player keeps their place).
@@ -333,23 +350,44 @@ function SceneSlot({ map, news, children }: { map: ReactNode; news: SimEvent[]; 
     if (left && active && left.contains(active)) tabsRef.current?.querySelector<HTMLButtonElement>(`button[data-view="${shown}"]`)?.focus({ preventScroll: true });
   }, [shown]);
 
-  // The first play screen points at the toggle once, for a few seconds; switching retires it.
+  // The first play screen points at the toggle once, for a few seconds, once the map's cards have
+  // come in (about 2 s); switching retires it. It sits just under the control; where it would
+  // still cover the map's key line, a goal or the strip while a newcomer reads them, it waits
+  // for the second quarter (after the first recap closes).
+  const clock = useLab((s) => s.clock);
   const [coach, setCoach] = useState(false);
+  const [defer, setDefer] = useState(false);
+  const waiting = defer && clock < 1;
   useEffect(() => {
-    if (modal || coachSeen()) return;
-    const show = window.setTimeout(() => setCoach(true), 1200);
+    if (modal || waiting || coachSeen()) return;
+    const show = window.setTimeout(() => setCoach(true), 2000);
     const hide = window.setTimeout(() => {
       setCoach(false);
       retireCoach();
-    }, 8200);
+    }, 9000);
     return () => {
       window.clearTimeout(show);
       window.clearTimeout(hide);
     };
-  }, [modal]);
+  }, [modal, waiting]);
   useEffect(() => {
     if (view === "island") retireCoach();
   }, [view]);
+  const coachRef = useRef<HTMLParagraphElement>(null);
+  useLayoutEffect(() => {
+    const el = coachRef.current;
+    const slot = slotRef.current;
+    if (!coach || !el || !slot || clock >= 1) return;
+    const r = el.getBoundingClientRect();
+    const covers = [...slot.querySelectorAll<HTMLElement>(".st-hint, .st-key, .st-goal, .st-lgoal, .st-strip, .st-lfoot")].some((x) => {
+      const b = x.getBoundingClientRect();
+      return b.width > 0 && r.left < b.right && b.left < r.right && r.top < b.bottom && b.top < r.bottom;
+    });
+    if (covers) {
+      setCoach(false);
+      setDefer(true);
+    }
+  }, [coach, clock, list, view]);
 
   // The map's header leaves room for the control, and the island's news band is as tall as it:
   // its size, as --scene-tabs-w and --scene-tabs-h on the slot.
@@ -378,10 +416,10 @@ function SceneSlot({ map, news, children }: { map: ReactNode; news: SimEvent[]; 
           {map}
         </div>
         {mounted ? (
-          <div id="game-view-island" className={`game-scene-view is-island${island ? " is-on" : ""}`} inert={!island} aria-hidden={!island || undefined}>
+          <div id="game-view-island" className={`game-scene-view is-island${island ? " is-on" : " is-under"}`} inert={!island} aria-hidden={!island || undefined}>
             {/* The island and its tag layer in one box, so a news band can sit above both. */}
             <div className="game-scene-island">
-              <PlayIsland paused={view !== "island" && ready} onReady={onReady} />
+              <PlayIsland paused={view !== "island" && ready} onReady={onReady} onDrawn={onDrawn} />
             </div>
             <IslandNews news={news} />
             {mapId === "story" ? <StoryIslandLine /> : null}
@@ -408,7 +446,7 @@ function SceneSlot({ map, news, children }: { map: ReactNode; news: SimEvent[]; 
         </span>
       ) : null}
       {coach && !modal && view === "map" ? (
-        <p className="game-scene-coach" role="status">
+        <p ref={coachRef} className="game-scene-coach" role="status">
           Peek at the island:{" "}
           <span className="game-scene-coach-key">
             press <kbd>I</kbd>
@@ -686,13 +724,37 @@ function ChartIcon() {
   );
 }
 
-/** What needs a decision this quarter, or a note that it is quiet. */
+/**
+ * What needs a decision this quarter. When nothing does, the box still says what is happening:
+ * the news that lands this quarter, else a goal in trouble; "Quiet quarter" (and the Skip
+ * suggestion) only when there is neither.
+ */
 function Agenda() {
-  const { mission, config, clock, statuses, forecast, actual, policy, books, deciding } = useTurn();
+  const { mission, config, clock, statuses, forecast, actual, policy, books, deciding, events } = useTurn();
   const modal = useGame((s) => s.modal);
   if (clock >= mission.quarters) return null;
   const items = attention({ mission, config, clock, statuses, forecast, actual, policy, votes: books?.votes ?? 0 });
   if (!items.length) {
+    // A shock landing in the quarter being decided (a surprise's news card has just been read:
+    // the agenda leaves surprises out), else the news of the quarter just played.
+    const landing = config.shocks.find((s) => s.quarter === clock + 1);
+    const played = events.find((e) => e.quarter === clock && e.kind !== "decision");
+    const trouble = mission.objectives.find((o) => !o.bonus && (statuses[o.id] === "at-risk" || statuses[o.id] === "failed"));
+    if (landing || played || trouble) {
+      const lead = landing
+        ? `${landing.id === "surprise-confidence" ? "Markets lose trust" : SHOCKS[landing.kind].name} lands in ${deciding}`
+        : played
+          ? `${played.title}, ${quarterLabel(clock)}`
+          : `${GAME_METRICS[trouble!.metric].label} ${statuses[trouble!.id] === "failed" ? "goal missed" : "at risk"}`;
+      return (
+        <div className="game-agenda is-news" role="status">
+          <strong>{lead}</strong>
+          <span>
+            Nothing needs a decision{policy.rateMode === "rule" ? ": the rule sets the rate for you" : ""}. The map shows what {landing || played ? "it pushes" : "pushes it"}; your levers stay as set unless you change them.
+          </span>
+        </div>
+      );
+    }
     return (
       <div className="game-agenda is-quiet" role="status">
         <strong>Quiet quarter</strong>
