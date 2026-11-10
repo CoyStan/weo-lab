@@ -425,6 +425,7 @@ function DecideBeat() {
   const vp = useViewport();
   const narrow = vp.w <= 760;
   const [asking, setAsking] = useState<Call | null>(null);
+  const chartsRef = useRef<HTMLDivElement>(null);
   const metrics = goalMetrics(mission);
   const end = mission.quarters;
   const done = clock >= end;
@@ -500,10 +501,31 @@ function DecideBeat() {
           </details>
         </section>
         {coach ? <Coach close={closeCoach} /> : null}
-        <div className="nx-charts" data-count={shown.length}>
-          {shown.map((m, i) => (
-            <GoalPanel key={m} metric={m} height={h} hint={i === 0} compact={narrow || shown.length > 2} />
-          ))}
+        <div className="nx-sticky">
+          <div className="nx-charts" data-count={shown.length} ref={chartsRef}>
+            {shown.map((m, i) => (
+              <GoalPanel key={m} metric={m} height={h} hint={i === 0} compact={narrow || shown.length > 2} />
+            ))}
+          </div>
+          {/* Phones show one chart at a time: this strip keeps every goal's verdict in view, so a
+              trade-off (inflation down, growth at risk) is never off-screen. Tap one to see its chart. */}
+          {shown.length > 1 ? (
+            <ul className="nx-goal-strip">
+              {shown.map((m, i) => {
+                const meta = GAME_METRICS[m];
+                const o = mission.objectives.find((x) => x.metric === m && !x.bonus) ?? mission.objectives.find((x) => x.metric === m);
+                if (!o) return null;
+                const j = judged(o, mission, actual, forecast, clock);
+                return (
+                  <li key={m}>
+                    <button type="button" onClick={() => chartsRef.current?.children[i]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" })}>
+                      {meta.label} <strong>{fmtNum(j.value, meta.digits)}{meta.unit === "%" || meta.unit === "% of GDP" ? "%" : meta.unit === "bp" ? " bp" : meta.unit === "months of imports" ? " mo" : ""}</strong> <Status status={statuses[o.id]} />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
         </div>
         <Legend moved={changed} />
       </div>

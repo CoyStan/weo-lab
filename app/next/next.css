@@ -212,6 +212,12 @@
   margin: 0.2rem 0 0;
   font-weight: 600;
 }
+.nx-sticky {
+  display: contents;
+}
+.nx-goal-strip {
+  display: none;
+}
 .nx-charts {
   display: grid;
   gap: 1rem;
@@ -438,7 +444,7 @@
   font-weight: 700;
   paint-order: stroke;
   stroke: var(--nx-card);
-  stroke-width: 4;
+  stroke-width: 5;
 }
 .nx-ghost {
   fill: none;
@@ -527,7 +533,7 @@
 .nx-goal:has(.nx-fence) .nx-goal-line {
   stroke: var(--nx-bad);
 }
-.nx-goal:has(.nx-fence) .nx-goal-text {
+.nx-goal-text.is-fence {
   fill: var(--nx-bad);
 }
 .nx-goal.is-bonus .nx-goal-line {
@@ -1148,19 +1154,35 @@
   .nx-main {
     display: contents;
   }
-  .nx-charts,
-  .nx-charts[data-count="4"] {
+  .nx-sticky {
     position: sticky;
     top: 0;
     z-index: 30;
+    display: block;
+    border-bottom: 1px solid var(--lab-line);
+    background: var(--lab-bg);
+  }
+  .nx-goal-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.1rem 0.9rem;
+    margin: 0;
+    padding: 0 0.75rem 0.45rem;
+    list-style: none;
+  }
+  .nx-goal-strip button {
+    min-height: 1.9rem;
+    text-align: left;
+  }
+  .nx-charts,
+  .nx-charts[data-count="3"],
+  .nx-charts[data-count="4"] {
     display: flex;
     grid-template-columns: none;
     gap: 0.5rem;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
-    border-bottom: 1px solid var(--lab-line);
-    background: var(--lab-bg);
-    padding: 0.5rem 0.75rem;
+    padding: 0.5rem 0.75rem 0.35rem;
     scrollbar-width: none;
   }
   .nx-charts > .nx-goal-panel {

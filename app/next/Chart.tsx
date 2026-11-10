@@ -178,6 +178,7 @@ export default function GoalChart({
     if (worstT === end) worstT = null;
   }
 
+  const goalLabels: { key: string; x: number; y: number; text: string; cls: string }[] = [];
   const ok = (o: Objective, v: number) => (o.op === "<=" ? v <= o.threshold + 1e-9 : v >= o.threshold - 1e-9);
   const summary = `${meta.label}: ${fmtNum(actual[clock][metric], meta.digits)}${unit} now, forecast ${fmtNum(endV, meta.digits)}${unit} by ${quarterLabel(end)}${showGhostLabel ? `, ${fmtNum(ghostV, meta.digits)}${unit} had you changed nothing this quarter` : ""}. ${objectives.map((o) => o.label).join(". ")}.`;
 
@@ -203,6 +204,7 @@ export default function GoalChart({
           {/* Goals: a fence to stay clear of, or a gate to land in. Each says what it is. */}
           {objectives.map((o) => {
             const yy = y(o.threshold);
+            const tone = o.when === "every" ? "is-fence" : "";
             const dir = o.op === "<=" ? -1 : 1; // which way is out of bounds on screen (up for a ceiling)
             const cls = o.bonus ? "nx-goal is-bonus" : "nx-goal";
             const num = `${o.op === "<=" ? "≤" : "≥"} ${fmtNum(o.threshold, o.threshold % 1 ? 1 : 0)}`;
@@ -215,7 +217,7 @@ export default function GoalChart({
                 <g key={o.id} className={cls}>
                   <rect x={x0} width={x(end) - x0} y={dir < 0 ? yy - 14 : yy} height={14} fill={`url(#${uid}-hatch)`} className="nx-fence" />
                   <line x1={x0} x2={x(end)} y1={yy} y2={yy} className="nx-goal-line" />
-                  <text x={x(end) - 4} y={labelY} textAnchor="end" className="nx-goal-text">{star}stay {num}</text>
+                  {void goalLabels.push({ key: o.id, x: x(end) - 4, y: labelY, text: `${star}stay ${num}`, cls: `nx-goal-text ${tone} ${o.bonus ? "is-bonus" : ""}` })}
                 </g>
               );
             }
@@ -227,7 +229,7 @@ export default function GoalChart({
               <g key={o.id} className={cls}>
                 <rect x={x0} width={Math.max(6, x1 - x0)} y={Math.min(yy, far)} height={Math.abs(far - yy)} className="nx-gate" />
                 <line x1={x0} x2={x1} y1={yy} y2={yy} className="nx-goal-line" />
-                <text x={x0 - 6} y={[1, 2, 3].some((k) => Math.abs((dir < 0 ? yy + 12 : yy - 11) - y(line[Math.max(0, qs[0] - k)])) < 15) ? (dir < 0 ? yy - 7 : yy + 16) : dir < 0 ? yy + 16 : yy - 7} textAnchor="end" className="nx-goal-text">{star}{o.when === "year" ? `${o.year} ` : "land "}{num}</text>
+                {void goalLabels.push({ key: o.id, x: x0 - 6, y: [1, 2, 3].some((k) => Math.abs((dir < 0 ? yy + 12 : yy - 11) - y(line[Math.max(0, qs[0] - k)])) < 15) ? (dir < 0 ? yy - 7 : yy + 16) : dir < 0 ? yy + 16 : yy - 7, text: `${star}${o.when === "year" ? `${o.year} ` : "land "}${num}`, cls: `nx-goal-text ${o.bonus ? "is-bonus" : ""}` })}
               </g>
             );
           })}
@@ -240,6 +242,11 @@ export default function GoalChart({
           {moved ? <path d={pathOf(ghostLine, now, end)} className="nx-ghost" /> : null}
           <path d={pathOf(line, now, end)} className="nx-forecast" />
           <path d={pathOf(line, 0, now)} className="nx-actual" />
+
+          {/* Goal labels go on top of the lines, with a halo, so a line never strikes one through. */}
+          {goalLabels.map((l) => (
+            <text key={l.key} x={l.x} y={l.y} textAnchor="end" className={l.cls}>{l.text}</text>
+          ))}
 
           {/* Today */}
           <line x1={x(now)} x2={x(now)} y1={PAD.t} y2={H - PAD.b} className="nx-today" />
