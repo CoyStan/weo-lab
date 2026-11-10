@@ -6,7 +6,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { quarterLabel } from "../model/economy";
-import { WEO } from "../game/data";
+import { FRAMEWORK, WEO } from "../game/data";
+import { sectorTables } from "./framework";
 import { useGame } from "../game/store";
 import { useBox } from "../next/Chart";
 import { annual, baselineFor, DESK_METRICS, DESK_QUARTERS, deviation, economies, findings, layered, responsesFor, run, SCENARIOS, SIZES, slotConfig, slotLabel, toCsv, years, type DeskMetric, type Run, type Size, type Slot } from "./logic";
@@ -165,6 +166,7 @@ export default function Desk() {
         </aside>
 
         <section className="dk-results" aria-label="Results">
+          {economyId.startsWith("today:") ? <CountryData iso={economyId.slice(6)} name={economy.name} /> : null}
           {!revealed ? (
             <div className="dk-cover">
               <h2>Make your call first</h2>
@@ -319,5 +321,44 @@ function DeskChart({ metric, label, unit, digits, base, runs, view, startYear }:
         ) : null}
       </div>
     </figure>
+  );
+}
+
+/** The country's own framework from public data: four sectors, each with its identity and whether the published numbers satisfy it. */
+function CountryData({ iso, name }: { iso: string; name: string }) {
+  const tables = useMemo(() => sectorTables(FRAMEWORK, WEO, iso), [iso]);
+  const checks = tables.filter((t) => t.check);
+  const held = checks.filter((t) => t.check!.ok).length;
+  return (
+    <details className="dk-data">
+      <summary>
+        <strong>{name}&apos;s macro framework, from public data</strong>
+        <span> · four sectors · {held} of {checks.length} identities add up within tolerance</span>
+      </summary>
+      <div className="dk-sectors">
+        {tables.map((t) => (
+          <section key={t.id} className="dk-sector">
+            <h3>{t.title}{t.year ? <span> · {t.year}</span> : null}</h3>
+            <p className="dk-identity">{t.identity}</p>
+            {t.lines.length ? (
+              <table>
+                <tbody>
+                  {t.lines.map((l) => (
+                    <tr key={l.label} className={l.total ? "is-total" : ""}>
+                      <th scope="row">{l.label}{l.note ? <span>{l.note}</span> : null}</th>
+                      <td>{l.value === null ? "n/a" : `${fmt(l.value, l.unit === "ratio" ? 2 : 1)}`}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : null}
+            {t.check ? <p className={`dk-check ${t.check.ok ? "is-ok" : "is-off"}`}><span aria-hidden="true">{t.check.ok ? "✓" : "▲"}</span> {t.check.text}</p> : null}
+            {t.missing ? <p className="dk-assumes">{t.missing}</p> : null}
+            <p className="dk-source">Source: {t.source}. % of GDP unless noted.</p>
+          </section>
+        ))}
+      </div>
+      <p className="dk-assumes">Data fetched {FRAMEWORK.fetched}. The scenarios below start from these balances for government, investment, money, credit, FDI and remittances; the model&apos;s behaviour (how strongly things respond) still uses typical values for this kind of economy.</p>
+    </details>
   );
 }

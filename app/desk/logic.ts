@@ -23,7 +23,7 @@ export function economies(data: WeoData): Economy[] {
   const out: Economy[] = PRESETS.filter((p) => ["aurelia", "boreas", "castellan", "dumara"].includes(p.id)).map((p) => ({ id: p.id, name: `${p.name} (${p.archetype.toLowerCase()})`, group: "Stylised economies" as const, note: "A made-up economy with typical features of its kind." }));
   for (const spec of TODAY) {
     const c = data.countries[spec.iso];
-    if (c) out.push({ id: `today:${spec.iso}`, name: c.name, group: "Countries (WEO baseline)", note: `Baseline calibrated to the ${/outlook|weo/i.test(data.vintage) ? data.vintage : `${data.vintage} WEO`} projection for growth, inflation, the budget balance and debt.` });
+    if (c) out.push({ id: `today:${spec.iso}`, name: c.name, group: "Countries (WEO baseline)", note: `Baseline calibrated to the ${/outlook|weo/i.test(data.vintage) ? data.vintage : `${data.vintage} WEO`} projection for growth, inflation, the budget balance and debt, starting from its own sector balances.` });
   }
   return out;
 }
