@@ -35,6 +35,9 @@ type NextState = {
   /** The cause-and-effect map, opened from "Why?". */
   why: boolean;
   setWhy: (open: boolean) => void;
+  /** A one-off line for the decision screen (after a rewind, say). */
+  notice: string | null;
+  setNotice: (text: string | null) => void;
   begin: (missionId: string) => void;
   answer: (id: string, picked: string, right: boolean) => void;
 };
@@ -44,8 +47,10 @@ export const useNext = create<NextState>((set, get) => ({
   calls: [],
   why: false,
   setWhy: (open) => set({ why: open }),
+  notice: null,
+  setNotice: (text) => set({ notice: text }),
   begin: (missionId) => {
-    if (get().missionId !== missionId) set({ missionId, calls: [], why: false });
+    if (get().missionId !== missionId) set({ missionId, calls: [], why: false, notice: null });
   },
   answer: (id, picked, right) => {
     if (get().calls.some((c) => c.id === id)) return;

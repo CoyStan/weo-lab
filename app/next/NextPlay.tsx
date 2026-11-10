@@ -110,6 +110,15 @@ export default function NextPlay() {
   // Phones skip the scenery: the cards fill the screen there, and it would only cost battery.
   const wide = useViewport().w > 760;
   const beat = modal?.kind === "shock" ? "news" : modal?.kind === "recap" ? "result" : modal?.kind === "debrief" ? "debrief" : "decide";
+  // The scenery moves for a moment when a card comes up, then holds still: a picture behind the
+  // card, not an animation competing with it (and nothing for a slow machine to keep drawing).
+  const [live, setLive] = useState(true);
+  useEffect(() => {
+    if (beat === "decide") return;
+    setLive(true);
+    const timer = window.setTimeout(() => setLive(false), 3000);
+    return () => window.clearTimeout(timer);
+  }, [beat, clock]);
   // Each beat starts at its top, whatever the last one was scrolled to.
   useEffect(() => {
     // Braces matter: newer browsers return a promise from scrollTo, and an effect must not return one.
@@ -158,7 +167,8 @@ export default function NextPlay() {
         return;
       }
       if (e.key !== "Enter") return;
-      if (t?.closest("button, a, [role=slider], input[type=range], summary")) return;
+      // Enter on a slider does nothing of its own, so there it runs the main button like anywhere else.
+      if (t?.closest("button, a, summary")) return;
       const primary = document.querySelector<HTMLButtonElement>(`${layer} [data-primary]:not(:disabled)`);
       if (primary) {
         e.preventDefault();
@@ -173,7 +183,7 @@ export default function NextPlay() {
     <div className={`nx is-${beat}`}>
       {wide ? (
         <div className={`nx-backdrop game-backdrop-scene ${beat === "decide" ? "" : "is-on"}`} aria-hidden="true">
-          <Island paused={beat === "decide" || why} />
+          <Island paused={beat === "decide" || why || !live} />
         </div>
       ) : null}
       <Header />
@@ -240,11 +250,9 @@ function Header() {
         })}
       </ol>
       <div className="nx-head-side">
-        {calls.length ? (
-          <span className="nx-score" title="Predictions you called right">
-            Calls <strong>{right}</strong> of {calls.length}
-          </span>
-        ) : null}
+        <span className="nx-score" title="Predictions you called right">
+          Calls <strong>{right}</strong> of {calls.length}
+        </span>
         {books ? (
           <span className="nx-score" title="Political capital: votes pay for reforms and win elections; trust keeps markets calm">
             Votes <strong>{books.votes}</strong> · Trust <strong>{books.trust}</strong>
@@ -314,7 +322,7 @@ function GoalPanel({
   const d = movedDelta ? movedDelta.to - movedDelta.from : 0;
   const good = main && movedDelta ? (main.op === "<=" ? d < 0 : d > 0) : null;
   // A move too small to matter is not coloured as good or bad news.
-  const flat = Math.abs(d) < (meta.digits === 0 ? 5 : 0.1);
+  const flat = Math.abs(d) < (metric === "spread" ? 5 : meta.digits === 0 ? 0.5 : 0.1);
   // A figure that rounds onto its goal gets one more decimal, so "1.5 against 1.5: missed" never happens.
   const vs = (v: number, o: Objective | undefined) => fmtNum(v, o && fmtNum(v, meta.digits) === fmtNum(o.threshold, meta.digits) && Math.abs(v - o.threshold) > 1e-9 ? meta.digits + 1 : meta.digits);
   const judgedAt = main && j ? (main.when === "every" ? `${main.op === ">=" ? "at its lowest" : "at its highest"}, ${shortQ(j.t)}` : main.when === "year" ? `${main.year} ${metric === "debt" ? "year end" : "average"}` : clock >= end ? `at the end, ${shortQ(end)}` : `forecast for ${shortQ(j.t)}`) : "";
@@ -377,7 +385,7 @@ function GoalPanel({
       ) : null}
       {movedDelta && main && j ? (
         <p className="nx-bonus">
-          {main.bonus ? "★ Bonus goal" : "Goal"}: {vs(j.value, main)}{unit} ({judgedAt}) · <Status status={statuses[main.id]} />
+          {clock >= end ? "Judged on" : "Forecast"}: {vs(j.value, main)}{unit} ({judgedAt.replace(/^forecast /, "")}) · <Status status={statuses[main.id]} />
         </p>
       ) : null}
       {objectives.filter((o) => o.bonus && o !== main).map((o) => (
@@ -395,7 +403,7 @@ function useViewport() {
   useEffect(() => {
     // On a TV the whole screen is zoomed (next.css), so it has fewer layout pixels than the window.
     const on = () => {
-      const zoom = window.innerWidth >= 2000 ? 1.3 : 1;
+      const zoom = window.innerWidth >= 3000 ? 2.25 : window.innerWidth >= 2000 ? 1.5 : 1;
       setVp({ w: window.innerWidth / zoom, h: window.innerHeight / zoom });
     };
     on();
@@ -432,6 +440,7 @@ function DecideBeat() {
   const vp = useViewport();
   const narrow = vp.w <= 760;
   const [asking, setAsking] = useState<Call | null>(null);
+  const notice = useNext((s) => s.notice);
   const chartsRef = useRef<HTMLDivElement>(null);
   // The charts take whatever height the briefing text leaves.
   const [briefRef, briefBox] = useBox<HTMLElement>();
@@ -469,6 +478,7 @@ function DecideBeat() {
   const finish = () => {
     if (run) return;
     const call = changed ? lagCall(mission, forecast, forecastStart, clock, moveName(policyStart, policy)) : null;
+    useNext.getState().setNotice(null);
     if (call && !calls.some((c) => c.id === call.id) && calls.filter((c) => c.id.startsWith("lag:")).length < 2) {
       setAsking(call);
       return;
@@ -522,6 +532,7 @@ function DecideBeat() {
               <><Status status="on-track" /> Every goal is on track on the staff forecast{landing.length ? "." : warned ? ", which leaves out anything only warned about." : ". Nothing new this quarter."}</>
             )}
           </p>
+          {notice ? <p className="nx-brief-line nx-notice" role="status">{notice}</p> : null}
           {also ? <p className="nx-brief-line nx-also">{also}</p> : null}
           {election ? (
             <p className="nx-brief-line">
@@ -862,6 +873,10 @@ function whyLine(m: MetricKey, recap: Recap): { total: string; text: string } | 
   if (!parts.length) return null;
   // Inflation and debt drivers sum to the quarter's change; growth is explained through the output gap, whose change they sum to.
   const sum = key === "growth" ? recap.now.gap - recap.prev.gap : recap.now[m] - recap.prev[m];
+  // Growth can move a lot while demand against capacity barely does: then capacity itself moved (a supply shock, or one washing out).
+  if (key === "growth" && Math.abs(recap.now.growth - recap.prev.growth) >= 1 && Math.abs(sum) < 0.3) {
+    return { total: "Why growth moved", text: `mostly what the economy can produce (its capacity) changed, not demand${recap.now.activeShocks.length ? ": the shock hit supply" : ""}.` };
+  }
   const top = parts.slice(0, 2);
   const rest = sum - top.reduce((a, x) => a + x.value, 0);
   const name = (k: string, label: string) => SHORT_DRIVER[k] ?? label.toLowerCase();
@@ -1134,7 +1149,16 @@ function DebriefBeat() {
           ) : (
             <>
               <button type="button" className="lab-btn lab-btn-soft lab-btn-md" onClick={restart}>Restart mission</button>
-              <button type="button" data-primary ref={focusHere} className="lab-btn lab-btn-primary lab-btn-md" onClick={rewind}>
+              <button
+                type="button"
+                data-primary
+                ref={focusHere}
+                className="lab-btn lab-btn-primary lab-btn-md"
+                onClick={() => {
+                  rewind();
+                  useNext.getState().setNotice(`Rewound to ${quarterLabel(clock)}. The settings that lost are still loaded: change them before you end the quarter.`);
+                }}
+              >
                 Rewind one quarter <kbd aria-hidden="true">Enter</kbd>
               </button>
             </>

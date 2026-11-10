@@ -125,4 +125,7 @@ test("differences from not moving are worded as differences, and moves are named
   assert.equal(moveName(policy, { ...policy, manualRate: 10.5 }), "You raised the rate to 10.5%");
   assert.equal(moveName({ ...policy, fxRegime: "peg" }, { ...policy, fxRegime: "peg", manualRate: 13 }), "You raised the rate floor to 13%");
   assert.match(moveName(policy, { ...policy, imfProgram: 4, fiscalAdjustment: 0.5 }), /^Your move: call the IMF/);
+  // A setting that is not in force is not part of the move.
+  const ruled = { ...policy, rateMode: "rule" as const };
+  assert.equal(moveName(ruled, { ...ruled, manualRate: 20, ruleStrength: 2 }), "Your move: make the rate rule tougher (×2.0)");
 });

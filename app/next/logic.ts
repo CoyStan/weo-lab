@@ -312,7 +312,7 @@ export function advisorPlans(mission: Mission, config: ScenarioConfig, actual: Q
       const costs = Object.values(MOVE_COSTS).filter((m) => m.when(policy, { ...policy, ...changes }));
       const cost = costs.map((m) => (m.cost.votes ? `${m.cost.votes} vote${m.cost.votes === 1 ? "" : "s"}` : `${m.cost.trust} trust`)).join(" and ");
       const guards = advisor === "chief" && warned && Boolean(best.move) && candidates[0].risk !== null && mission.objectives.some((o) => !o.bonus && miss(o, mission, actual, candidates[0].risk!, clock) > miss(o, mission, actual, best.risk!, clock) + 1e-6);
-      plans.push({ advisors: [advisor], title: planTitle(policy, changes), changes, hold: !best.move, effects: effectsOf(mission, actual, best.path, base, clock), stars, election: electionOutlook(mission, next, clock), ...(cost ? { cost } : {}), ...(guards ? { note: "A buffer against the shock analysts warn about, which the staff forecast leaves out." } : warned ? { note: "Safe on the staff forecast only: it leaves out the shock analysts warn about." } : {}) });
+      plans.push({ advisors: [advisor], title: planTitle(policy, changes), changes, hold: !best.move, effects: effectsOf(mission, actual, best.path, base, clock), stars, election: electionOutlook(mission, next, clock), ...(cost ? { cost } : {}), ...(guards ? { note: "A buffer against the shock analysts warn about, which the staff forecast leaves out." } : warned && effectsOf(mission, actual, best.path, base, clock).every((e) => e.ok) ? { note: "Safe on the staff forecast only: it leaves out the shock analysts warn about." } : {}) });
     }
   }
   return plans;
@@ -484,8 +484,14 @@ export function lagCall(mission: Mission, forecast: QuarterState[], base: Quarte
 export function moveName(before: Policy, after: Policy): string {
   const changes: Partial<Policy> = {};
   for (const k of Object.keys(after) as (keyof Policy)[]) if (after[k] !== before[k]) (changes as Record<string, unknown>)[k] = after[k];
+  // Settings that are not in force say nothing about the move: a manual rate under the rule, a rule under a manual rate, intervention outside a managed float.
+  if (after.rateMode === "rule") delete changes.manualRate;
+  if (after.rateMode === "manual") delete changes.ruleStrength;
+  if (after.fxRegime !== "managed") delete changes.fxIntervention;
+  if (changes.rateMode !== undefined && Object.keys(changes).length > 1) delete changes.rateMode;
   const keys = Object.keys(changes);
   if (!keys.length) return "You held policy";
+  if (keys.length === 1 && changes.rateMode !== undefined) return changes.rateMode === "rule" ? "You handed the rate back to the rule" : "You took the rate into your own hands";
   if (keys.length === 1 && changes.manualRate !== undefined) {
     // Behind a peg the lever is a floor under the rate, not the rate itself.
     if (after.fxRegime === "peg") return `You ${changes.manualRate > before.manualRate ? "raised" : "lowered"} the rate floor to ${trim(changes.manualRate)}%`;
