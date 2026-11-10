@@ -141,7 +141,11 @@ for (const [label, viewport] of [
     else if (await has(".nx-end-btn:not(:disabled)")) await page.locator(".nx-end-btn").click();
     await page.waitForTimeout(250);
   }
-  if (await has(".nx-debrief")) await shoot("debrief", label === "phone");
+  if (await has(".nx-debrief")) {
+    await page.waitForTimeout(3500);
+    if (await has(".nx-replay-row:not(:disabled)")) await page.locator(".nx-replay-row:not(:disabled)").first().click();
+    await shoot("debrief", true);
+  }
   await page.close();
 }
 

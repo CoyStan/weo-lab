@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { simulate } from "../model/economy.ts";
 import { MISSIONS, policyForTurn } from "../game/missions.ts";
-import { advisorPlans, forecastOf, goalMetrics, journey, lagCall, moveMenu, planTitle, shockCall, withChanges } from "./logic.ts";
+import { advisorPlans, advisorRun, forecastOf, goalMetrics, journey, lagCall, moveMenu, planTitle, shockCall, withChanges } from "./logic.ts";
 
 const m1 = MISSIONS.find((m) => m.id === "first-quarter")!;
 
@@ -83,4 +83,20 @@ test("goal metrics come primary first, and plan titles read as sentences", () =>
   assert.equal(planTitle(policy, { manualRate: 8 }), "Cut the rate to 8%");
   assert.equal(planTitle(policy, {}), "Hold steady");
   assert.equal(planTitle(policy, { fiscalAdjustment: 0.5 }), "Tighten the budget by 0.5 pp of GDP a year");
+});
+
+test("replaying a mission on one advisor's plans ends in a verdict", () => {
+  for (const m of MISSIONS) {
+    for (const advisor of m.advisors) {
+      const run = advisorRun(m, advisor);
+      let steps = 0;
+      while (!run.step()) steps++;
+      const r = run.result();
+      assert.ok(steps < m.quarters, `${m.id}/${advisor}: stops by the last quarter`);
+      assert.notEqual(r.outcome.kind, "playing", `${m.id}/${advisor}: a verdict`);
+      assert.equal(r.path.length, simulate(m.setup()).path.length);
+      assert.ok(r.path.every((s) => Number.isFinite(s.infl) && Number.isFinite(s.debt)), `${m.id}/${advisor}: finite path`);
+      assert.ok(r.endedAt >= 1 && r.endedAt <= m.quarters);
+    }
+  }
 });

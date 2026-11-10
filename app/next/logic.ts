@@ -12,8 +12,8 @@ import { policyAt, quarterLabel, simulate } from "../model/economy.ts";
 import { getPreset } from "../model/presets.ts";
 import type { Policy, QuarterState, ScenarioConfig, ScheduledShock, SimEvent } from "../model/types.ts";
 import { SHOCKS } from "../model/shocks.ts";
-import { knownConfig, policyForTurn, yearQuarters, yearValue, type AdvisorId, type LeverId, type MetricKey, type Mission, type Objective } from "../game/missions.ts";
-import { affordable } from "../game/politics.ts";
+import { knownConfig, missionOutcome, policyForTurn, yearQuarters, yearValue, type AdvisorId, type LeverId, type MetricKey, type Mission, type Objective, type Outcome } from "../game/missions.ts";
+import { affordable, ledger } from "../game/politics.ts";
 
 export const trim = (v: number, d = 2) => v.toFixed(d).replace(/\.?0+$/, "");
 
@@ -185,14 +185,16 @@ export function advisorPlans(mission: Mission, config: ScenarioConfig, actual: Q
   const policy = policyForTurn(config, clock);
   const end = mission.quarters;
   const base = forecastOf(config, clock);
-  type Candidate = { move: Move | null; path: QuarterState[]; events: SimEvent[] };
+  type Candidate = { move: Move | null; path: QuarterState[]; events: SimEvent[]; lostVote: boolean };
+  // An election lost on the forecast ends the mission, whatever the goals say.
+  const losesVote = (c: ScenarioConfig, path: QuarterState[], events: SimEvent[]) => ledger(mission.politics, c, path, events, end).elections.some((e) => e.quarter > clock && !e.won);
   const held = simulate(knownConfig(config, clock));
-  const candidates: Candidate[] = [{ move: null, path: base, events: held.events }];
+  const candidates: Candidate[] = [{ move: null, path: base, events: held.events, lostVote: losesVote(config, held.path, held.events) }];
   for (const move of moveMenu(policy, new Set(mission.unlocks))) {
     const next = withChanges(config, quarter, move.changes);
     const result = simulate(knownConfig(next, clock));
     if (!affordable(mission.politics, next, result.path, result.events, end).ok) continue;
-    candidates.push({ move, path: result.path, events: result.events });
+    candidates.push({ move, path: result.path, events: result.events, lostVote: losesVote(next, result.path, result.events) });
   }
   const lowOf = (path: QuarterState[]) => {
     let low = path[Math.min(quarter, end)];
@@ -216,7 +218,17 @@ export function advisorPlans(mission: Mission, config: ScenarioConfig, actual: Q
         if (rule.op === "<" ? v < rule.threshold : v > rule.threshold) s += 20;
       }
     }
-    s += 0.15 * TASTE[advisor](c.path[end], lowOf(c.path));
+    if (c.lostVote) s += 40;
+    // Room to spare on their own goals: everyone likes a little, the mission chief likes a lot
+    // ("build buffers before the shock"), which is what makes that advice differ in calm quarters.
+    const cap = advisor === "chief" ? 4 : 1;
+    for (const o of mission.objectives) {
+      if (o.bonus || !WATCHES[advisor].includes(o.metric)) continue;
+      const j = judged(o, mission, actual, c.path, clock);
+      const room = (o.op === "<=" ? o.threshold - j.value : j.value - o.threshold) / SCALE[o.metric];
+      s -= 0.4 * Math.min(cap, Math.max(0, room));
+    }
+    s += 0.06 * TASTE[advisor](c.path[end], lowOf(c.path));
     // Smaller moves win ties; a programme or a regime change needs a goal at stake.
     s += 0.05 * (c.move?.size ?? 0);
     return s;
@@ -373,4 +385,51 @@ export function moveName(before: Policy, after: Policy): string {
 /** The policy in force in quarter t under a config. */
 export function policyIn(config: ScenarioConfig, t: number): Policy {
   return policyAt(getPreset(config.presetId).defaultPolicy, config.decisions, t);
+}
+
+// ---- Whose advice was right? ---------------------------------------------------------
+
+export type AdvisorRun = {
+  advisor: AdvisorId;
+  /** The whole path under the advisor's plans (the outturn up to where it ended, the forecast after). */
+  path: QuarterState[];
+  outcome: Outcome;
+  /** The quarter the run ended in (the mission's last, or where it was lost). */
+  endedAt: number;
+  /** What the advisor did, in order ("2026Q1: Raise the rate to 9.5%"). */
+  moves: { quarter: number; title: string }[];
+};
+
+/**
+ * Replays the mission backing one advisor's plan every quarter, a quarter per
+ * step() so a screen can stay responsive. The advisor sees what the player
+ * saw: the staff forecast, with surprises only once they hit. (It does not
+ * adopt institutions, and the confidence crisis that follows a collapse in
+ * trust is left out.)
+ */
+export function advisorRun(mission: Mission, advisor: AdvisorId): { step: () => boolean; result: () => AdvisorRun } {
+  let config = mission.setup();
+  let clock = 0;
+  let outcome: Outcome = { kind: "playing" };
+  const moves: { quarter: number; title: string }[] = [];
+  const end = mission.quarters;
+  return {
+    step() {
+      if (outcome.kind !== "playing" || clock >= end) return true;
+      const actual = simulate(config).path;
+      const plan = advisorPlans(mission, config, actual, clock).find((p) => p.advisors.includes(advisor));
+      if (plan && !plan.hold) {
+        config = withChanges(config, clock + 1, plan.changes);
+        moves.push({ quarter: clock + 1, title: plan.title });
+      }
+      clock += 1;
+      outcome = missionOutcome(mission, simulate(config), forecastOf(config, clock), clock, config);
+      return outcome.kind !== "playing" || clock >= end;
+    },
+    result() {
+      const truth = simulate(config).path;
+      const forecast = forecastOf(config, clock);
+      return { advisor, path: truth.map((s, t) => (t <= clock ? s : forecast[t] ?? s)), outcome, endedAt: clock, moves };
+    },
+  };
 }

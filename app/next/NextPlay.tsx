@@ -26,7 +26,7 @@ import Levers from "../game/ui/Levers";
 import Reforms from "../game/ui/Reforms";
 import { sound } from "../game/audio";
 import GoalChart, { EffectBars, type ChartLine } from "./Chart";
-import { advisorPlans, goalMetrics, journey, judged, lagCall, moveName, policyIn, shockCall, withChanges, type Call, type Plan } from "./logic";
+import { advisorPlans, advisorRun, goalMetrics, journey, judged, lagCall, moveName, policyIn, shockCall, withChanges, type AdvisorRun, type Call, type Plan } from "./logic";
 import { useNext } from "./state";
 import "./next.css";
 
@@ -384,7 +384,7 @@ function DecideBeat() {
     if (done) return [];
     const list = advisorPlans(mission, turnStart, actual, clock);
     // Doing nothing is always on the table, so every plan has something to be compared with.
-    if (!list.some((p) => p.hold) && list[0]) list.push({ advisors: [], title: "Change nothing", changes: {}, hold: true, effects: list[0].effects.map((e) => ({ ...e, value: e.base, ok: e.baseOk })) });
+    if (!list.some((p) => p.hold) && list[0]) list.push({ advisors: [], title: "Change nothing this quarter", changes: {}, hold: true, effects: list[0].effects.map((e) => ({ ...e, value: e.base, ok: e.baseOk })) });
     return list;
   }, [mission, turnStart, actual, clock, done]);
   const policyKey = JSON.stringify(policy);
@@ -409,11 +409,12 @@ function DecideBeat() {
   };
 
   const reforms = mission.politics.institutions.length > 0;
+  const [coach, closeCoach] = useCoach(mission.number === 1 && clock === 0);
   const shown = narrow ? metrics.slice(0, 3) : metrics.slice(0, 4);
   // Charts share the height the window leaves, so the whole decision fits one screen on a laptop.
   const rows = shown.length === 4 ? 2 : shown.length;
   const bonusRows = Math.max(...shown.map((m) => mission.objectives.filter((o) => o.metric === m && o.bonus).length));
-  const h = narrow ? 132 : Math.round(Math.min(400, Math.max(120, (vp.h - 66 - 82 - 46 - (rows - 1) * 16) / rows - (140 + bonusRows * 24))));
+  const h = narrow ? 132 : Math.round(Math.min(400, Math.max(120, (vp.h - 66 - 82 - 46 - (coach ? 122 : 0) - (rows - 1) * 16) / rows - (140 + bonusRows * 24))));
   const agree = plans.filter((p) => p.advisors.length).length === 1 && mission.advisors.length > 1;
 
   return (
@@ -430,6 +431,7 @@ function DecideBeat() {
             )}
           </p>
         </section>
+        {coach ? <Coach close={closeCoach} /> : null}
         <div className="nx-charts" data-count={shown.length}>
           {shown.map((m, i) => (
             <GoalPanel key={m} metric={m} height={h} hint={i === 0} compact={narrow || shown.length > 2} />
@@ -489,6 +491,46 @@ function DecideBeat() {
   );
 }
 
+const COACH_KEY = "weo-lab.next.coach.v1";
+
+/** First play only: whether the three-line guide is still to be read. */
+function useCoach(wanted: boolean): [boolean, () => void] {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!wanted) {
+      setOpen(false);
+      return;
+    }
+    try {
+      setOpen(window.localStorage.getItem(COACH_KEY) !== "done");
+    } catch {
+      setOpen(true);
+    }
+  }, [wanted]);
+  const close = () => {
+    setOpen(false);
+    try {
+      window.localStorage.setItem(COACH_KEY, "done");
+    } catch {
+      // Storage blocked: the guide shows again next time.
+    }
+  };
+  return [open, close];
+}
+
+function Coach({ close }: { close: () => void }) {
+  return (
+    <section className="nx-coach" aria-label="How to play">
+      <ol>
+        <li><strong>Read the lines.</strong> Solid is what has happened; dashed is the staff forecast. Land it in the green gate, and keep it off the hatched fence.</li>
+        <li><strong>Make your move.</strong> Back an advisor&apos;s plan or drag a lever. The shaded wedge is what your move does, and where it widens is when it arrives.</li>
+        <li><strong>End the quarter</strong> and watch it play out. You decide again every quarter.</li>
+      </ol>
+      <button type="button" className="lab-btn lab-btn-soft lab-btn-sm" onClick={close}>Got it</button>
+    </section>
+  );
+}
+
 function LagDetail({ call }: { call: Call }) {
   const { mission, forecast, forecastStart, clock } = useTurn();
   const metric = call.id.slice(4) as MetricKey;
@@ -512,7 +554,7 @@ function PlanCard({ plan, index, active, onBack }: { plan: Plan; index: number; 
       </span>
       <span className="nx-plan-main">
         <span className="nx-plan-who">
-          {who.length ? who.map((a) => a.name).join(" and ") : "No one's plan"}
+          {who.length ? who.map((a) => a.name).join(" and ") : "Wait and see"}
           {who.length === 1 ? <span> · {who[0].cares.toLowerCase()}</span> : null}
         </span>
         <span className="nx-plan-title">{who.length ? `“${plan.title}.”` : plan.title}</span>
@@ -530,7 +572,7 @@ function PlanCard({ plan, index, active, onBack }: { plan: Plan; index: number; 
         </span>
       </span>
       <span className="nx-plan-pick">
-        {active ? "✓ Backing" : "Back"} <kbd aria-hidden="true">{index}</kbd>
+        {active ? "✓ Chosen" : who.length ? "Back" : "Choose"} <kbd aria-hidden="true">{index}</kbd>
       </span>
     </button>
   );
@@ -755,6 +797,9 @@ function DebriefBeat() {
   const calls = useNext((s) => s.calls);
   const narrow = useNarrow();
   const nothing = useMemo(() => simulate(mission.setup()).path, [mission]);
+  const runs = useAdvisorRuns(mission);
+  const [shownAdvisor, setShownAdvisor] = useState<string | null>(null);
+  const shownRun = runs.find((r) => r.advisor === shownAdvisor) ?? null;
   const outcomeKind = modal?.kind === "debrief" ? modal.outcome.kind : null;
   useEffect(() => {
     if (outcomeKind === "won") sound.stinger("win");
@@ -767,7 +812,7 @@ function DebriefBeat() {
   const metrics = goalMetrics(mission).slice(0, narrow ? 2 : 3);
   const lines = (m: MetricKey): ChartLine[] => [
     { label: "Had you done nothing", values: nothing.map((s) => s[m]), tone: "nothing" },
-    ...(comparison ? [{ label: comparisonLabel ?? "What happened", values: comparison.map((s) => s[m]), tone: "compare" as const }] : []),
+    ...(shownRun ? [{ label: `Backing ${ADVISORS[shownRun.advisor].name}`, values: shownRun.path.map((s) => s[m]), tone: "compare" as const }] : comparison ? [{ label: comparisonLabel ?? "What happened", values: comparison.map((s) => s[m]), tone: "compare" as const }] : []),
   ];
   const right = calls.filter((c) => c.right).length;
   return (
@@ -799,9 +844,39 @@ function DebriefBeat() {
         <p className="nx-legend">
           <span><i className="nx-key is-actual" /> your path</span>
           <span><i className="nx-key is-nothing" /> had you done nothing</span>
-          {comparison ? <span><i className="nx-key is-compare" /> {(comparisonLabel ?? "what happened").toLowerCase()}</span> : null}
+          {shownRun ? <span><i className="nx-key is-compare" /> backing {ADVISORS[shownRun.advisor].name} every quarter</span> : comparison ? <span><i className="nx-key is-compare" /> {(comparisonLabel ?? "what happened").toLowerCase()}</span> : null}
           <span><i className="nx-key is-gate" /> goal</span>
         </p>
+
+        <section className="nx-replay" aria-label="Whose advice was right?">
+          <h3 className="nx-side-title">Whose advice was right?</h3>
+          <p className="nx-note">The same mission, replayed backing one advisor&apos;s plan every quarter. Pick one to draw their path on the charts.</p>
+          <div className="nx-replay-rows">
+            {mission.advisors.map((id) => {
+              const a = ADVISORS[id];
+              const r = runs.find((x) => x.advisor === id);
+              const on = shownAdvisor === id;
+              return (
+                <button key={id} type="button" className={`nx-replay-row ${on ? "is-active" : ""}`} aria-pressed={on} disabled={!r} onClick={() => setShownAdvisor(on ? null : id)}>
+                  <img src={`${base}${a.portrait}`} alt="" width={36} height={36} />
+                  <span>
+                    <strong>{a.name}</strong>
+                    {r ? (
+                      r.outcome.kind === "won" ? (
+                        <span className="nx-status is-met"> · ✓ would have won, {"★".repeat(r.outcome.stars)}<span className="sr-only">{r.outcome.stars} stars</span></span>
+                      ) : (
+                        <span className="nx-status is-failed"> · ✕ would have lost in {quarterLabel(r.endedAt)}</span>
+                      )
+                    ) : (
+                      <span className="nx-note"> replaying…</span>
+                    )}
+                    {r ? <span className="nx-replay-moves">{r.moves.length ? r.moves.slice(0, 3).map((x) => `${shortQ(x.quarter)}: ${x.title.charAt(0).toLowerCase()}${x.title.slice(1)}`).join(" · ") + (r.moves.length > 3 ? ` · and ${r.moves.length - 3} more` : "") : "held policy throughout"}{r.outcome.kind === "lost" ? `. ${r.outcome.reason}` : ""}</span> : null}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
         <ul className="nx-verdicts is-in">
           {mission.objectives.map((o: Objective) => (
@@ -839,6 +914,35 @@ function DebriefBeat() {
       </article>
     </main>
   );
+}
+
+/** Replays the mission on each advisor's plans, a quarter per tick so the screen stays live. */
+function useAdvisorRuns(mission: { id: string; advisors: (keyof typeof ADVISORS)[]; setup: () => unknown }): AdvisorRun[] {
+  const [runs, setRuns] = useState<AdvisorRun[]>([]);
+  useEffect(() => {
+    let alive = true;
+    let timer = 0;
+    setRuns([]);
+    const queue = mission.advisors.map((a) => advisorRun(mission as never, a));
+    const tick = () => {
+      if (!alive) return;
+      const run = queue[0];
+      if (!run) return;
+      if (run.step()) {
+        queue.shift();
+        const result = run.result();
+        setRuns((list) => [...list, result]);
+      }
+      timer = window.setTimeout(tick, 0);
+    };
+    timer = window.setTimeout(tick, 900);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mission.id]);
+  return runs;
 }
 
 // ---- Fast-forward banner and the "why" drawer ----------------------------------------------------

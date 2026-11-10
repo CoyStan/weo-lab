@@ -158,6 +158,26 @@
   margin: 0.1rem 0 0;
   font-size: var(--t-md);
 }
+.nx-coach {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  border: 1.5px dashed var(--lab-line-strong);
+  border-radius: var(--lab-radius-card, 0.75rem);
+  background: var(--pt-warm, color-mix(in srgb, var(--lab-warn-mark, #e7b83d) 12%, var(--nx-card)));
+  padding: 0.7rem 0.9rem;
+}
+.nx-coach ol {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.3rem 1.25rem;
+  margin: 0;
+  padding: 0 0 0 1.1rem;
+}
+.nx-coach .lab-btn {
+  flex: none;
+}
 .nx-charts {
   display: grid;
   gap: 1rem;
@@ -737,6 +757,43 @@
   }
 }
 
+.nx-replay {
+  margin-top: 1rem;
+  border-top: 1px solid var(--lab-line);
+  padding-top: 0.9rem;
+}
+.nx-replay-rows {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.nx-replay-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  border: 1.5px solid var(--lab-line-strong);
+  border-radius: var(--lab-radius-card, 0.75rem);
+  background: var(--nx-card);
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  transition: border-color var(--dur-fast, 150ms), box-shadow var(--dur, 250ms);
+}
+.nx-replay-row:not(:disabled):hover {
+  border-color: var(--lab-ink);
+}
+.nx-replay-row.is-active {
+  border-color: var(--lab-reference, #eb6834);
+  box-shadow: 0 0 0 2px var(--lab-reference, #eb6834);
+}
+.nx-replay-row img {
+  flex: none;
+  border-radius: 0.6rem;
+}
+.nx-replay-moves {
+  display: block;
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 72%, transparent));
+}
+
 /* ---- Call it ------------------------------------------------------------------------ */
 
 .nx-overlay {
@@ -961,6 +1018,13 @@
   }
   .nx-brief-line {
     font-size: var(--t-sm);
+  }
+  .nx-coach {
+    flex-direction: column;
+    margin: 0.5rem 0.75rem 0;
+  }
+  .nx-coach ol {
+    grid-template-columns: 1fr;
   }
   /* The charts ride along at the top while the plans and levers scroll under them:
      swipe sideways for the next goal, and the line bends in view as a lever moves. */
