@@ -33,6 +33,8 @@ import { setUiMode, useNext } from "./state";
 import "./next.css";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+/** The island, as scenery behind the news, result and debrief cards (never behind the decision screen). */
+const Island = dynamic(() => import("../scene/IslandScene"), { ssr: false });
 const StoryMap = dynamic(() => import("../scenes/story"), { ssr: false, loading: () => <p className="nx-note">Drawing the map…</p> });
 
 const shortQ = (t: number) => {
@@ -105,6 +107,8 @@ export default function NextPlay() {
   const tense = mission.objectives.some((o) => !o.bonus && (turn.statuses[o.id] === "at-risk" || turn.statuses[o.id] === "failed"));
   useEffect(() => sound.setTense(tense), [tense]);
 
+  // Phones skip the scenery: the cards fill the screen there, and it would only cost battery.
+  const wide = useViewport().w > 760;
   const beat = modal?.kind === "shock" ? "news" : modal?.kind === "recap" ? "result" : modal?.kind === "debrief" ? "debrief" : "decide";
   // Each beat starts at its top, whatever the last one was scrolled to.
   useEffect(() => {
@@ -167,6 +171,11 @@ export default function NextPlay() {
 
   return (
     <div className={`nx is-${beat}`}>
+      {wide ? (
+        <div className={`nx-backdrop game-backdrop-scene ${beat === "decide" ? "" : "is-on"}`} aria-hidden="true">
+          <Island paused={beat === "decide" || why} />
+        </div>
+      ) : null}
       <Header />
       {beat === "news" ? <NewsBeat key={`news-${clock}`} /> : null}
       {beat === "decide" ? <DecideBeat /> : null}

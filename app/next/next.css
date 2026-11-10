@@ -41,6 +41,34 @@
   white-space: nowrap;
 }
 
+/* ---- The island behind the cards ------------------------------------------- */
+
+.nx {
+  position: relative;
+  isolation: isolate;
+}
+.nx-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 500ms var(--ease, ease);
+}
+.nx-backdrop.is-on {
+  opacity: 1;
+}
+/* A light veil keeps the scenery calm behind the card. */
+.nx-backdrop::after {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--lab-bg) 38%, transparent);
+  content: "";
+}
+.nx.is-decide {
+  background: var(--lab-bg);
+}
+
 /* ---- Header ---------------------------------------------------------------- */
 
 .nx-head {
