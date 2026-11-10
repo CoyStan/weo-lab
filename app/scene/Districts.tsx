@@ -28,7 +28,8 @@ const site = (k: keyof typeof WORLD.sites): [number, number, number] => [WORLD.s
 
 /**
  * Each district stands on its own hex; the tanker anchors offshore, in open water north-east
- * of the island, close enough to stay in the home view on a laptop, a TV and a phone.
+ * of the island (its whole hull over sea hexes, not the beach), close enough to stay in the
+ * home view on a laptop, a TV and a phone.
  */
 export const DISTRICT_POS: Partial<Record<FocusKey, [number, number, number]>> = {
   debt: site("debt"),
@@ -39,8 +40,29 @@ export const DISTRICT_POS: Partial<Record<FocusKey, [number, number, number]>> =
   reserves: site("reserves"),
   unemp: site("unemp"),
   cred: site("cred"),
-  oil: [11.2, 0, -8.6],
+  oil: [12.6, 0, -11.2],
 };
+
+/** The tanker's hull: its length and its heading (turn about the vertical, in radians). */
+const HULL_LENGTH = 4.2;
+const HULL_YAW = -0.3;
+
+// Development only: the tanker rides the swell, so it must float. Warn if its middle or either
+// end of its hull is over a land hex (a moved anchorage, or a change to the island's map).
+if (process.env.NODE_ENV !== "production") {
+  const [x, , z] = DISTRICT_POS.oil!;
+  const dx = (Math.cos(HULL_YAW) * HULL_LENGTH) / 2;
+  const dz = (-Math.sin(HULL_YAW) * HULL_LENGTH) / 2;
+  for (const [px, pz] of [
+    [x, z],
+    [x + dx, z + dz],
+    [x - dx, z - dz],
+  ]) {
+    let near = WORLD.tiles[0];
+    for (const t of WORLD.tiles) if (Math.hypot(t.x - px, t.z - pz) < Math.hypot(near.x - px, near.z - pz)) near = t;
+    if (near.land) console.warn(`Island: the oil tanker at (${px.toFixed(1)}, ${pz.toFixed(1)}) sits on a ${near.kind} hex; move DISTRICT_POS.oil out to sea.`);
+  }
+}
 
 /**
  * How far each landmark reaches round its site, in world units: [west, east, north, south,
@@ -1336,9 +1358,9 @@ function Tanker({ q, shown, reducedMotion }: Props) {
   });
   return (
     <District focusKey="oil" q={q} shown={shown} tagAt={[0, 2.0, 0]} reducedMotion={reducedMotion}>
-      <group ref={group} rotation-y={-0.3}>
+      <group ref={group} rotation-y={HULL_YAW}>
         <mesh castShadow>
-          <boxGeometry args={[4.2, 0.7, 1.3]} />
+          <boxGeometry args={[HULL_LENGTH, 0.7, 1.3]} />
           <meshStandardMaterial color={P.hull} roughness={0.7} flatShading={P.flat} />
         </mesh>
         <mesh position={[-1.5, 0.75, 0]} castShadow>

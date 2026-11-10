@@ -254,7 +254,9 @@ function CameraRig({ reducedMotion, mode, paused }: { reducedMotion: boolean; mo
     // two seconds rather than starting or stopping dead, and turns about the view's centre.
     const idle = clock.elapsedTime - lastInteraction.current > 10;
     const want = mode !== "play" && !reducedMotion && idle && !interacting && !focus && !flyTo.current ? 1 : 0;
-    spin.current = want > spin.current ? Math.min(1, spin.current + dt / 2) : Math.max(0, spin.current - dt / 2);
+    // Ease toward `want` and hold there (at full speed it used to step down every other frame).
+    if (want > spin.current) spin.current = Math.min(1, spin.current + dt / 2);
+    else if (want < spin.current) spin.current = Math.max(0, spin.current - dt / 2);
     if (spin.current > 0) {
       offset.copy(camera.position).sub(c.target).applyAxisAngle(UP, SPIN_RATE * smoothstep(spin.current) * Math.min(dt, 0.1));
       camera.position.copy(c.target).add(offset);

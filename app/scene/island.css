@@ -45,6 +45,9 @@
   line-height: 1.25;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
+  /* When the tag layer moves a tag to another spot round its building, it glides there. Only
+     the offset (--x / --y) glides: drei's wrapper still follows the building at once. */
+  transition: transform 200ms var(--ease, ease-out);
 }
 .isl-tag-name {
   color: var(--lab-ink-2);
@@ -59,6 +62,16 @@
 .isl-tag-arrow {
   font-size: 0.78em;
   color: var(--lab-ink);
+}
+/* A TV, read from the sofa: headline-size tags (about 24 px on an 18 px root, 28 px on 21 px). */
+@media (min-width: 2000px) {
+  .isl-tag {
+    font-size: var(--t-lg);
+    padding: 0.25rem 0.75rem;
+  }
+  .isl-tag-arrow {
+    font-size: 0.9em;
+  }
 }
 .isl-tag-value {
   font-weight: var(--w-bold, 700);
@@ -121,6 +134,10 @@
   height: var(--sh, 10px);
   transform: translateX(-50%);
   background: color-mix(in srgb, var(--lab-ink) 55%, transparent);
+  transition:
+    left 200ms var(--ease, ease-out),
+    top 200ms var(--ease, ease-out),
+    height 200ms var(--ease, ease-out);
 }
 
 .isl-sr {
@@ -141,13 +158,19 @@
   visibility: hidden;
 }
 
-/* Reduced motion: tags appear and go at once. */
+/* Reduced motion: tags appear, go and change spots at once. */
 .lab-label-layer.is-still .isl-pin,
-.is-reduced .isl-pin {
+.lab-label-layer.is-still .isl-tag,
+.lab-label-layer.is-still .isl-stem,
+.is-reduced .isl-pin,
+.is-reduced .isl-tag,
+.is-reduced .isl-stem {
   transition: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .isl-pin {
+  .isl-pin,
+  .isl-tag,
+  .isl-stem {
     transition: none;
   }
 }

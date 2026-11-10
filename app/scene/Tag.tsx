@@ -9,21 +9,38 @@ export type TagStatus = "at-risk" | "failed" | "breached";
 const STATUS_WORD: Record<TagStatus, string> = { "at-risk": "at risk", failed: "off track", breached: "limit breached" };
 
 const v = new THREE.Vector3();
+/** drei's Html moves a tag only when its position changed by more than this (its own `eps`). */
+const DREI_EPS = 0.001;
 /**
- * drei's default places the tag with a new [x, y] array every frame. This writes into two
- * arrays in turn instead (drei compares the new position with the last one it was given, so
- * it must not get the same array twice running): no allocation per frame.
+ * drei's default places the tag with a new [x, y] array every frame. This writes into one of
+ * two arrays instead: no allocation per frame. drei keeps the array it was last given as its
+ * "old" position, but only on a frame when it moved the tag, so the array to write is always
+ * the one drei is not holding. (Flipping every call wrote into the held array after any frame
+ * without movement: drei then compared the new position with itself and skipped the move, so
+ * a tag could stall, then catch up in one jump.)
  */
 function makeCalculate() {
   const a = [0, 0];
   const b = [0, 0];
-  let flip = false;
+  /** The array drei holds as its last position; null while it still holds its own [0, 0]. */
+  let held: number[] | null = null;
+  /** drei's first call places the tag once on mounting and keeps nothing. */
+  let mounted = false;
   return (el: THREE.Object3D, camera: THREE.Camera, size: { width: number; height: number }) => {
     v.setFromMatrixPosition(el.matrixWorld).project(camera);
-    flip = !flip;
-    const out = flip ? a : b;
-    out[0] = v.x * (size.width / 2) + size.width / 2;
-    out[1] = -(v.y * (size.height / 2)) + size.height / 2;
+    const x = v.x * (size.width / 2) + size.width / 2;
+    const y = -(v.y * (size.height / 2)) + size.height / 2;
+    const out = held === a ? b : a;
+    out[0] = x;
+    out[1] = y;
+    if (!mounted) {
+      mounted = true;
+      return out;
+    }
+    // On a frame, drei takes this array as its old position exactly when it moves the tag.
+    const hx = held ? held[0] : 0;
+    const hy = held ? held[1] : 0;
+    if (Math.abs(hx - x) > DREI_EPS || Math.abs(hy - y) > DREI_EPS) held = out;
     return out;
   };
 }
