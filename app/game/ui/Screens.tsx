@@ -86,7 +86,7 @@ export function TitleScreen() {
   );
 }
 
-type Tab = "campaign" | "history" | "today" | "contagion";
+type Tab = "campaign" | "history" | "today" | "contagion" | "desk";
 
 export function MissionSelect() {
   const progress = useGame((s) => s.progress);
@@ -112,6 +112,7 @@ export function MissionSelect() {
               { value: "history", label: "History" },
               { value: "today", label: "World today" },
               { value: "contagion", label: "Contagion" },
+              { value: "desk", label: "Scenario desk" },
             ]}
           />
           <div className="flex flex-wrap items-center gap-2">
@@ -162,6 +163,8 @@ export function MissionSelect() {
               ))}
             </ol>
           </>
+        ) : tab === "desk" ? (
+          <DeskTab />
         ) : tab === "contagion" ? (
           <ContagionTab />
         ) : (
@@ -197,6 +200,25 @@ export function MissionSelect() {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function DeskTab() {
+  const setScreen = useGame((s) => s.setScreen);
+  return (
+    <div className="game-mission game-contagion-intro">
+      <span className="game-mission-number">For teaching and discussion</span>
+      <span className="game-mission-title">Scenario desk</span>
+      <span className="game-mission-kicker">
+        Pick an economy, or a real country on its WEO baseline, and ask &ldquo;what if?&rdquo;: tighter global financial conditions, an oil spike, a sudden stop, fiscal slippage and more. Add a policy response, argue about the result, then compare up to three scenarios against the baseline in charts and a WEO-style table.
+      </span>
+      <span className="game-mission-meta">10 scenarios · 8 policy responses · results are illustrative, not forecasts</span>
+      <span className="mt-3">
+        <button type="button" className="lab-btn lab-btn-primary lab-btn-md" onClick={() => setScreen("desk")}>
+          Open the scenario desk
+        </button>
+      </span>
     </div>
   );
 }

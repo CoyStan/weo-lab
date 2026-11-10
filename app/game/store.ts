@@ -21,7 +21,7 @@ import type { InstitutionId } from "../model/types";
 
 export type FrameworkTab = "why" | "path" | "channels" | "accounts" | "stress";
 
-export type Screen = "title" | "missions" | "briefing" | "play" | "sandbox" | "contagion";
+export type Screen = "title" | "missions" | "briefing" | "play" | "sandbox" | "contagion" | "desk";
 
 export type Recap = {
   quarter: number;

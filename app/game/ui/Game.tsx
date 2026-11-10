@@ -20,6 +20,9 @@ import { PlayScene } from "../../scenes/registry";
 import { useUiMode } from "../../next/state";
 import "../../contagion/contagion.css";
 
+/** WEO-style scenario analysis for teaching and discussion (see app/desk/). */
+const Desk = dynamic(() => import("../../desk/Desk"), { ssr: false });
+
 /** The three-beat play screen, opened with ?ui=next (see app/next/). */
 const NextPlay = dynamic(() => import("../../next/NextPlay"), { ssr: false });
 
@@ -130,6 +133,8 @@ export default function Game() {
         next ? <NextPlay /> : <Play scene={<PlayScene />} />
       ) : screen === "contagion" ? (
         <Contagion />
+      ) : screen === "desk" ? (
+        <Desk />
       ) : (
         <div className="game-backdrop">
           <div className="game-backdrop-scene" aria-hidden="true">
