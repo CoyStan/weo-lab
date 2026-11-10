@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import type { WeoData } from "../game/economies.ts";
+import { setFrameworkData, TODAY, type WeoData } from "../game/economies.ts";
+import { accountsFor, sectorTables, type FrameworkData } from "./framework.ts";
 import { annual, baselineFor, DESK_METRICS, DESK_QUARTERS, deviation, economies, findings, layered, responsesFor, RESPONSES, run, SCENARIOS, SIZES, slotConfig, slotLabel, toCsv, years } from "./logic.ts";
 
 const data = JSON.parse(readFileSync(new URL("../data/weo.json", import.meta.url), "utf8")) as WeoData;
@@ -82,4 +83,48 @@ test("annual figures, findings and the CSV agree with the paths", () => {
   assert.match(csv[0], /not a forecast/);
   assert.equal(csv[1].split(",").length, 3 + DESK_QUARTERS / 4);
   assert.equal(slotLabel(slot), "Oil price spike + tighten monetary policy");
+});
+
+// ---- The country framework from public data ---------------------------------------------
+
+const fw = JSON.parse(readFileSync(new URL("../data/framework.json", import.meta.url), "utf8")) as FrameworkData;
+
+test("public data give every country a four-sector framework, and most identities hold", () => {
+  let checked = 0;
+  let held = 0;
+  for (const spec of TODAY) {
+    const tables = sectorTables(fw, data, spec.iso);
+    assert.deepEqual(tables.map((t) => t.id), ["real", "fiscal", "external", "monetary"]);
+    for (const t of tables) {
+      for (const l of t.lines) assert.ok(l.value === null || Number.isFinite(l.value), `${spec.iso} ${t.id} ${l.label}`);
+      if (t.check) {
+        checked++;
+        if (t.check.ok) held++;
+        assert.ok(Math.abs(t.check.residual) < 12, `${spec.iso} ${t.id}: residual ${t.check.residual}`);
+      }
+    }
+    const fiscal = tables.find((t) => t.id === "fiscal")!;
+    assert.ok(fiscal.check?.ok, `${spec.iso}: revenue less expenditure is the balance`);
+  }
+  assert.ok(checked >= 50 && held / checked > 0.7, `${held} of ${checked} identities hold within tolerance`);
+});
+
+test("countries start from their own sector balances, and the model's accounts still add up", () => {
+  setFrameworkData(fw);
+  try {
+    const bra = accountsFor(fw, "BRA", 3.5);
+    assert.ok(bra.money0! > 60 && bra.credit0! > 50, "Brazil's money and credit come from its data");
+    for (const iso of ["BRA", "USA", "IND", "JPN", "TUR"]) {
+      const path = run(baselineFor(data, `today:${iso}`)).path;
+      for (const s of path) {
+        const a = s.acct;
+        assert.ok(Math.abs(a.cons + a.inv + a.gov + a.exports - a.imports - 100) < 1e-6, `${iso}: GDP identity`);
+        assert.ok(Math.abs(a.money - (a.mNfa + a.creditGov + a.creditPrivate + a.otherNet)) < 1e-6, `${iso}: monetary survey`);
+        assert.ok(a.cons > 25 && a.cons < 95, `${iso}: consumption ${a.cons.toFixed(1)}% of GDP`);
+      }
+    }
+    assert.ok(Math.abs(run(baselineFor(data, "today:BRA")).path[0].acct.money - bra.money0!) < 1e-6);
+  } finally {
+    setFrameworkData(null);
+  }
 });

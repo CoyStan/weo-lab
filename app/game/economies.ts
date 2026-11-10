@@ -9,6 +9,7 @@
 // estimates, and the game says so.
 
 import { baselineConfig } from "../model/economy.ts";
+import { accountsFor, type FrameworkData } from "../desk/framework.ts";
 import { getPreset, registerPreset, type Preset } from "../model/presets.ts";
 import { mulberry32 } from "../model/random.ts";
 import type { Decision, FxRegime, OneOffAction, ScenarioConfig, ScheduledShock, ShockKind } from "../model/types.ts";
@@ -106,11 +107,18 @@ export function todayPresetId(iso: string) {
   return `today-${iso}`;
 }
 
+let FRAMEWORK: FrameworkData | null = null;
+/** Public sector data by country (app/data/framework.json): when set, countries start from their own sector balances. */
+export function setFrameworkData(fw: FrameworkData | null) {
+  FRAMEWORK = fw;
+}
+
 /** Register a country's preset and build its WEO-calibrated baseline. */
 export function buildToday(data: WeoData, spec: CountrySpec, seed: number): { config: ScenarioConfig; reference: ScenarioConfig } {
   const c = data.countries[spec.iso];
   const potential = avg([v(c, "growth", 2029), v(c, "growth", 2030), v(c, "growth", 2031)]) ?? 2;
   const preset = buildPreset(todayPresetId(spec.iso), c, 2025, spec.archetype, spec.regime, spec.target, potential, { reserves: spec.reserves }, `${c.name}, from the IMF's ${data.vintage} data`);
+  if (FRAMEWORK) preset.accounts = accountsFor(FRAMEWORK, spec.iso, preset.defaultPolicy.publicInvestment);
   registerPreset(preset);
   const base: ScenarioConfig = { ...baselineConfig(preset.id), startYear: 2026 };
   const targets: YearTarget[] = TODAY_YEARS.map((year) => ({ year, growth: v(c, "growth", year), infl: v(c, "infl", year), balance: v(c, "balance", year), debt: v(c, "debt", year) }));

@@ -341,7 +341,7 @@ function pass(
 
   // Accounts at the start: trade, income and transfers reproduce the initial current
   // account; private consumption closes the national accounts.
-  const AP = accountParams(preset.archetype);
+  const AP = { ...accountParams(preset.archetype), ...preset.accounts };
   const ob0 = init.structPB + P.autoStabilizer * init.gap - (init.iEff / 100) * init.debt;
   const income0 = (externalYield(AP.nfa0, A.usRate, init.spread) / 100) * AP.nfa0;
   const M0 = P.importsGDP;

@@ -355,6 +355,76 @@
   margin-right: 0.3rem;
 }
 
+.dk-data {
+  border: 1px solid var(--lab-line);
+  border-radius: var(--lab-radius-panel, 1rem);
+  background: var(--dk-card);
+  padding: 0.7rem 0.9rem;
+}
+.dk-data > summary {
+  cursor: pointer;
+}
+.dk-data > summary span {
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 72%, transparent));
+}
+.dk-sectors {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 0.9rem 1.5rem;
+  margin: 0.75rem 0 0.25rem;
+}
+.dk-sector h3 {
+  margin: 0;
+  font-size: var(--t-md);
+  font-weight: 700;
+}
+.dk-sector h3 span {
+  font-weight: 400;
+}
+.dk-identity {
+  margin: 0 0 0.3rem;
+  font-weight: 600;
+  color: var(--lab-info, #15706b);
+}
+.dk-sector table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.dk-sector th {
+  padding: 0.15rem 0.5rem 0.15rem 0;
+  font-weight: 400;
+  text-align: left;
+}
+.dk-sector th span {
+  display: block;
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 72%, transparent));
+}
+.dk-sector td {
+  padding: 0.15rem 0;
+  text-align: right;
+  vertical-align: top;
+  white-space: nowrap;
+}
+.dk-sector tr.is-total > * {
+  border-top: 1.5px solid var(--lab-ink);
+  font-weight: 700;
+}
+.dk-check {
+  margin: 0.35rem 0 0;
+  font-weight: 600;
+}
+.dk-check.is-ok {
+  color: var(--lab-good, #2f7d32);
+}
+.dk-check.is-off {
+  color: var(--lab-warn, #8a6a0f);
+}
+.dk-source {
+  margin: 0.25rem 0 0;
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 72%, transparent));
+}
+
 @media (max-width: 900px) {
   .dk-body {
     grid-template-columns: minmax(0, 1fr);

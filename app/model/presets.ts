@@ -1,3 +1,4 @@
+import type { AccountParams } from "./accounts.ts";
 import type { Assumptions, FxRegime, Policy } from "./types.ts";
 
 /**
@@ -95,6 +96,8 @@ export type Preset = {
   defaultPolicy: Policy;
   potentialGrowth: number;
   defaultRegime: FxRegime;
+  /** Starting sector balances from the country's own data, where published (see desk/framework.ts). */
+  accounts?: Partial<AccountParams>;
 };
 
 /** Illustrative WEO reference assumptions shared by every preset. */
