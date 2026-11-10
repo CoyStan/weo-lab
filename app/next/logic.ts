@@ -103,7 +103,7 @@ export function electionOutlook(mission: Mission, config: ScenarioConfig, clock:
 }
 
 /** How much an advisor minds a goal that is not theirs (their own count 6). */
-const OTHERS = 0.6;
+const OTHERS = 0.25;
 
 /** Which goals each advisor fights for (as in advisors.ts). */
 const WATCHES: Record<AdvisorId, MetricKey[]> = {
