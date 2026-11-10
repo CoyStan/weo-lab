@@ -92,10 +92,15 @@ export type Travel = {
    * scale), at most two, each the effect of everything the player changed, by quarter.
    */
   diffs: { metric: MetricId; values: number[] }[];
+  /**
+   * Every strip row in words, in the strip's order, each with its helps/hurts word: "Your rate hike: growth −0.2 pp
+   * in 2026Q1, −0.8 pp at worst in 2026Q4, hurts → inflation −0.07 pp in 2026Q1, −1.0 pp by 2027Q4, helps". With two
+   * levers or more moved, one clause each ("Your firmer rule: …. Your float: …").
+   */
   sentence: string;
-  /** The same in two steps, for a phone: what moves at once, and the main goal at the goal date. */
+  /** The same with one figure per row, the furthest one, for a phone. */
   short: string;
-  /** The two steps alone, without the lever's name ("growth −0.2 pp in 2027Q1; public debt −5.3 pp by 2029Q4, helps"). */
+  /** The short form without the lever's name when one lever moved ("growth −0.8 pp at worst in 2026Q4, hurts → …"); with several, each named. */
   steps: string;
 };
 
@@ -126,6 +131,13 @@ export const CHANNELS: ChannelMeta[] = [
   { id: "snowball", title: "Debt snowball", sub: "interest vs growth", icon: "snowball" },
 ];
 export const CHANNEL_ORDER = CHANNELS.map((c) => c.id);
+/** A commodity exporter's price bust is lost income, not higher costs: on its road the "Costs" card is named for world prices. */
+export const isBust = (c: Cause | undefined) => c?.icon === "commodity-bust";
+/** A road's card: "Costs", or "World prices" where the commodity bust is one of the causes on it (same road, same routing). */
+export function channelMeta(id: ChannelId, bust = false): ChannelMeta {
+  const ch = CHANNELS.find((c) => c.id === id)!;
+  return id === "costs" && bust ? { ...ch, title: "World prices", sub: "food, fuel, commodities we buy and sell" } : ch;
+}
 
 const METRICS: Record<MetricId, { label: string; unit: string; digits: number; good: 1 | -1; /** One "unit of push" for arrow widths. */ ref: number }> = {
   infl: { label: "Inflation", unit: "%", digits: 1, good: -1, ref: 1 },
@@ -211,6 +223,11 @@ const POLICY_ICON: Record<string, IconId> = { rates: "rates", budget: "budget", 
 /** Shocks whose one-line description names a goal the map tracks (SHOCKS[kind].short, first part). */
 const SHOCK_NAMES: Partial<Record<ShockKind, MetricId>> = { "food-price": "infl" };
 
+/** "Commodities −35%" at 1.2 times the usual size: "Commodities −42% (1.2× usual)". The display only; the shock is the model's. */
+function scaledShort(short: string, m: number): string {
+  return `${short.replace(/\d+(?:\.\d+)?/g, (x) => num(Number(x) * m, 1))} (${num(m, 1)}× usual)`;
+}
+
 /** What the player changed in one instrument group, in a few words. */
 function leverText(group: string, p: Policy, u: Policy, config: ScenarioConfig, start: ScenarioConfig): { title: string; sub: string } {
   if (group === "rates") {
@@ -228,20 +245,30 @@ function leverText(group: string, p: Policy, u: Policy, config: ScenarioConfig, 
     return { title: p.fiscalAdjustment === u.fiscalAdjustment ? "Your budget" : tighter ? "Your budget squeeze" : "Your budget boost", sub: bits.join(", ") || "earlier quarters" };
   }
   if (group === "currency") {
-    const bits: string[] = [];
-    if (p.fxRegime !== u.fxRegime) bits.push(`${u.fxRegime} → ${p.fxRegime}`);
-    if (p.fxIntervention !== u.fxIntervention) bits.push(`intervention ${num(p.fxIntervention, 0)}%`);
-    if (p.capitalControls !== u.capitalControls) bits.push(p.capitalControls ? "capital controls" : "controls lifted");
+    // One move gets its own name ("Your float"); several share "Your currency moves", each in the sub line.
+    const moves: { title: string; bit: string }[] = [];
+    const REGIME = { float: "float", managed: "managed rate", peg: "peg" } as const;
+    if (p.fxRegime !== u.fxRegime) moves.push({ title: `Your ${REGIME[p.fxRegime]}`, bit: `${u.fxRegime} → ${p.fxRegime}` });
+    if (p.fxIntervention !== u.fxIntervention) moves.push({ title: p.fxIntervention > u.fxIntervention ? "Your heavier intervention" : "Your lighter intervention", bit: `intervention ${num(u.fxIntervention, 0)}% → ${num(p.fxIntervention, 0)}%` });
+    if (p.capitalControls !== u.capitalControls) moves.push({ title: p.capitalControls ? "Your capital controls" : "Your controls lifted", bit: p.capitalControls ? "capital controls" : "controls lifted" });
     const dev = config.oneOffs.filter((o) => o.kind === "devalue").length > start.oneOffs.filter((o) => o.kind === "devalue").length;
-    if (dev) bits.push("devaluation");
-    return { title: "Your currency moves", sub: bits.join(", ") || "earlier quarters" };
+    if (dev) moves.push({ title: "Your devaluation", bit: "devaluation" });
+    return { title: moves.length === 1 ? moves[0].title : "Your currency moves", sub: moves.map((x) => x.bit).join(", ") || "earlier quarters" };
   }
+  // Support: "reforms" only when a reform changed; an IMF programme alone is named for itself.
+  const imf = p.imfProgram !== u.imfProgram;
+  const reforms = p.laborReform !== u.laborReform || p.productivityReform !== u.productivityReform || p.tradeOpenness !== u.tradeOpenness;
+  const inst = (config.institutions ?? []).length > (start.institutions ?? []).length;
+  const deal = config.oneOffs.some((o) => o.kind === "restructure") && !start.oneOffs.some((o) => o.kind === "restructure");
   const bits: string[] = [];
-  if (p.imfProgram !== u.imfProgram) bits.push(`IMF ${num(p.imfProgram, 1)}% GDP`);
-  if (p.laborReform !== u.laborReform || p.productivityReform !== u.productivityReform || p.tradeOpenness !== u.tradeOpenness) bits.push("reforms");
-  if ((config.institutions ?? []).length > (start.institutions ?? []).length) bits.push("institutions");
-  if (config.oneOffs.some((o) => o.kind === "restructure")) bits.push("debt deal");
-  return { title: "Your reforms and support", sub: bits.join(", ") || "earlier quarters" };
+  if (imf) bits.push(p.imfProgram > 0 ? `IMF ${num(p.imfProgram, 1)}% GDP a year` : "IMF programme ended");
+  if (reforms) bits.push("reforms");
+  if (inst) bits.push("institutions");
+  if (deal) bits.push("debt deal");
+  const only = bits.length === 1;
+  const title =
+    only && imf ? (p.imfProgram > 0 ? "Your IMF programme" : "Your IMF exit") : only && reforms ? "Your reforms" : only && inst ? "Your new institutions" : only && deal ? "Your debt deal" : reforms ? "Your reforms and support" : "Your support";
+  return { title, sub: bits.join(", ") || "earlier quarters" };
 }
 
 function goalText(mission: Mission | undefined, m: MetricId, unit: string, labels: string[]): string | null {
@@ -320,14 +347,16 @@ export function buildStory(input: StoryInput): Story {
   };
   for (const comp of decomp.components) {
     if (comp.kind === "momentum") {
-      causes.push({ id: "momentum", kind: "momentum", title: "Its own drift", sub: "what would happen anyway", icon: "drift" });
+      // The drift is the economy with no shocks and the policy the player found, so the card says that policy is in it.
+      const sub = policyUntouched.rateMode === "manual" ? `no shocks, rate kept at ${num(policyUntouched.manualRate)}%` : "no shocks, policy as you found it";
+      causes.push({ id: "momentum", kind: "momentum", title: "Its own drift", sub, icon: "drift" });
       addFlows("momentum", "momentum", comp);
     } else if (comp.kind === "environment") {
       const shockId = comp.id.startsWith("shock:") ? comp.id.slice(6) : null;
       const s = shockId ? config.shocks.find((x) => x.id === shockId) : null;
       if (s) {
         const spec = SHOCKS[s.kind];
-        const size = Math.abs(s.magnitude - 1) < 0.01 ? spec.short.split(",")[0] : `${num(s.magnitude, 1)}× the usual size`;
+        const size = Math.abs(s.magnitude - 1) < 0.01 ? spec.short.split(",")[0] : scaledShort(spec.short, s.magnitude);
         const title = s.id === "surprise-confidence" ? "Markets lose trust" : spec.name;
         const names = Math.abs(s.magnitude - 1) < 0.01 ? SHOCK_NAMES[s.kind] : undefined;
         causes.push({ id: comp.id, kind: "shock", title, sub: size, from: labels[s.quarter] ?? "", icon: s.kind, names });
@@ -358,48 +387,78 @@ export function buildStory(input: StoryInput): Story {
     // the moves leave at 0 in every quarter shown is left out. Which goals, never what they say: the figures are the model's.
     const goals = outcomes.filter((o) => o.goal).map((o) => o.metric);
     const size = (d: { metric: MetricId; values: number[] }) => Math.abs(d.values[end] ?? 0) / METRICS[d.metric].ref;
-    const diffs = (goals.length ? goals : metrics)
+    let diffs = (goals.length ? goals : metrics)
       .map((m) => ({ metric: m, values: diff(m) }))
       .filter((d) => d.values.slice(first, end + 1).some((v) => !flat(v, d.metric)))
       .sort((a, b) => size(b) - size(a))
       .slice(0, 2);
-    const main = diffs[0] ?? null;
+    // Growth moves first and carries the move on to inflation or unemployment: its row goes first, so the
+    // sentence reads in the order things happen ("growth … → inflation …"). Otherwise the rows sit side by side.
+    if (diffs.length === 2 && diffs[1].metric === "growth" && (diffs[0].metric === "infl" || diffs[0].metric === "unemp")) diffs = [diffs[1], diffs[0]];
+    const join = diffs.length === 2 && diffs[0].metric === "growth" ? " → " : "; ";
     const now = Math.min(end, clock + 1);
-    const mid = Math.min(end, clock + 4);
     const name = (m: MetricId) => METRICS[m].label.toLowerCase();
     const amount = (v: number, m: MetricId) => `${signed(v, m === "spread" ? 0 : Math.abs(v) < 0.095 && !flat(v, m) ? 2 : 1)}${unitWord(m)}`;
+    const toneAt = (m: MetricId, v: number, t: number) => (Math.sign(v) === outcomes.find((x) => x.metric === m)?.good(t) ? "good" : "bad");
     // ", helps" or ", hurts" for a mission goal, so the sentence never leans on the strip's colours.
     const word = (m: MetricId, v: number, t: number) => {
       const o = outcomes.find((x) => x.metric === m);
-      return o?.goal && !flat(v, m) ? (Math.sign(v) === o.good(t) ? ", helps" : ", hurts") : "";
+      return o?.goal && !flat(v, m) ? (toneAt(m, v, t) === "good" ? ", helps" : ", hurts") : "";
     };
-    // First what moves at once (growth), then the main goal as it builds. An arrow only where one leads to the
-    // other (growth to inflation or unemployment); for debt, the budget balance or reserves the two are side by side:
-    // in the model a squeeze that lowers demand raises the debt ratio, and debt falls because of the primary surplus.
-    const head = main?.metric !== "growth" && !flat(growth[now] ?? 0, "growth") ? `growth ${amount(growth[now], "growth")} in ${labels[now]}${word("growth", growth[now], now)}` : null;
-    const join = main && (main.metric === "infl" || main.metric === "unemp") ? " → " : "; ";
-    const at = (t: number, by: boolean) => `${amount(main!.values[t], main!.metric)} ${by ? "by" : "in"} ${labels[t]}`;
-    const steps: { t: number; text: string }[] = [];
-    if (main) {
-      if (!head || end <= now) steps.push({ t: now, text: at(now, false) });
-      if (mid < end && mid > now) steps.push({ t: mid, text: at(mid, true) });
-      if (end > now) steps.push({ t: end, text: at(end, true) });
+    // One row in words: what moves in the quarter being decided, and, when it goes much further later (at least
+    // half as far again, and 0.05 pp or more), how far and when: "growth −0.2 pp in 2026Q1, −0.8 pp at worst in
+    // 2026Q4, hurts". The worst (or best) point is the biggest push from the deciding quarter to the goal date, as
+    // goalPushes() finds it. The short form keeps that further figure, not the first one.
+    const clause = (m: MetricId, at: (t: number) => number): { long: string; short: string } => {
+      const n = at(now);
+      let w = now;
+      for (let q = now + 1; q <= end; q++) if (Math.abs(at(q)) > Math.abs(at(w))) w = q;
+      const vw = at(w);
+      // Never 0.05 pp (5 bp) in any quarter: too small to help or hurt, as the strip's row says ("tiny").
+      if (!matters(vw, m)) {
+        const s = `${name(m)} stays tiny (${amount(vw, m)} at most, ${labels[w]})`;
+        return { long: s, short: s };
+      }
+      const lead = `${name(m)} ${amount(n, m)} in ${labels[now]}`;
+      if (w === now || !matters(vw, m) || Math.abs(vw) < 1.5 * Math.abs(n)) return { long: `${lead}${word(m, n, now)}`, short: `${lead}${word(m, n, now)}` };
+      const when = w === end ? `by ${labels[w]}` : `${toneAt(m, vw, w) === "bad" ? "at worst" : "at best"} in ${labels[w]}`;
+      const far = `${amount(vw, m)} ${when}${word(m, vw, w)}`;
+      // The first step says its own word only when it matters and its tone differs from the later one.
+      const leadWord = matters(n, m) && word(m, n, now) !== word(m, vw, w) ? word(m, n, now) : "";
+      return { long: `${lead}${leadWord}, ${far}`, short: `${name(m)} ${far}` };
+    };
+    // A lever's own push is worth naming on a row when it reaches 0.05 pp (5 bp) in some quarter the strip shows.
+    const cellsMove = (at: (t: number) => number, m: MetricId) => {
+      for (let t = first; t <= end; t++) if (matters(at(t), m)) return true;
+      return false;
+    };
+    const rowsFor = (at: (m: MetricId) => (t: number) => number, only = false) => {
+      const list = diffs.filter((d) => !only || cellsMove(at(d.metric), d.metric)).map((d) => clause(d.metric, at(d.metric)));
+      return { long: list.map((x) => x.long).join(join), short: list.map((x) => x.short).join(join), n: list.length };
+    };
+    const none = `too small to show on your goals by ${labels[end]}`;
+    let sentence: string;
+    let short: string;
+    let steps: string;
+    if (levers.length >= 2) {
+      // Each lever its own clause, on the strip's rows where its own push is worth naming, from its own piece of the
+      // decomposition (the strip adds them up). With three levers or more, one figure a row (the furthest), so every
+      // lever fits the strip's lines.
+      const parts = levers.map((c) => {
+        const comp = decomp.components.find((x) => x.id === c.id);
+        const r = rowsFor((m) => (t) => comp?.values[m]?.[t] ?? 0, true);
+        return { long: `${c.title}: ${r.n ? r.long : none}`, short: `${c.title}: ${r.n ? r.short : none}` };
+      });
+      sentence = parts.map((x) => (levers.length >= 3 ? x.short : x.long)).join(". ");
+      short = parts.map((x) => x.short).join(". ");
+      steps = short;
+    } else {
+      const r = rowsFor((m) => (t) => diffs.find((d) => d.metric === m)?.values[t] ?? 0);
+      sentence = `${lever}: ${r.n ? r.long : none}`;
+      short = `${lever}: ${r.n ? r.short : none}`;
+      steps = r.n ? r.short : none;
     }
-    // The tone word after the last step, and after an earlier one whose tone differs.
-    const said = (list: { t: number; text: string }[]) =>
-      list
-        .map((s, i) => {
-          const w = word(main!.metric, main!.values[s.t], s.t);
-          const next = list[i + 1];
-          return `${s.text}${!next || w !== word(main!.metric, main!.values[next.t], next.t) ? w : ""}`;
-        })
-        .join(", ");
-    const mainText = main && steps.length ? `${name(main.metric)} ${said(steps)}` : `too small to show on your goals by ${labels[end]}`;
-    const shortSteps = main ? (head ? steps.slice(-1) : [steps[0], ...(steps.length > 1 ? steps.slice(-1) : [])]) : [];
-    const shortText = main && shortSteps.length ? `${name(main.metric)} ${said(shortSteps)}` : mainText;
-    const sentence = head ? `${head}${join}${mainText}` : mainText;
-    const short = head ? `${head}${join}${shortText}` : shortText;
-    travel = { lever, growth, diffs, sentence: `${lever}: ${sentence}`, short: `${lever}: ${short}`, steps: short };
+    travel = { lever, growth, diffs, sentence, short, steps };
   }
 
   return { clock, end, first, labels, causes, flows, outcomes, travel };
@@ -503,10 +562,10 @@ export function drawnAt(story: Story, t: number, max: number): { drawn: Drawn[];
   const isGoal = new Set(story.outcomes.filter((o) => o.goal).map((o) => o.metric));
   const debtGoal = isGoal.has("debt");
   const must = (d: Drawn) => debtGoal && d.flow.metric === "debt" && Math.abs(d.value) >= 0.095;
-  // Each goal's biggest push.
+  // Each goal's biggest push, when it is worth a word (0.05 pp, 5 bp): a goal with none says "no push to speak of yet".
   const best: Drawn[] = [];
   for (const o of story.outcomes) {
-    const b = all.filter((d) => d.flow.metric === o.metric && Math.abs(d.value) >= 0.005).sort((a, b) => b.n - a.n)[0];
+    const b = all.filter((d) => d.flow.metric === o.metric && matters(d.value, d.flow.metric)).sort((a, b) => b.n - a.n)[0];
     if (b) best.push(b);
   }
   // The player's own: each lever's main road on each goal, then its other roads.
@@ -532,8 +591,44 @@ export function drawnAt(story: Story, t: number, max: number): { drawn: Drawn[];
     .filter((d) => !keep.includes(d) && !lever.has(d.flow.cause) && (must(d) || d.n >= Math.max(0.15, 0.12 * top)))
     .sort((a, b) => Number(must(b)) - Number(must(a)) || b.n - a.n);
   keep.push(...rest.slice(0, Math.max(0, max - keep.length)));
-  const hidden = all.filter((d) => d.n >= 0.05 && !keep.includes(d)).length;
+  // A lever is never one of "N more pushes": every lever moved has its own place in the cause column (index.tsx).
+  const hidden = all.filter((d) => d.n >= 0.05 && !keep.includes(d) && !lever.has(d.flow.cause)).length;
   return { drawn: keep, hidden };
+}
+
+/**
+ * A goal's visible pushes, rounded so that they and one "others" figure add up exactly to the change its card
+ * shows. `pills` are the causes' whole pushes (true values), `change` the goal's true change and `shown` that
+ * change as the card rounds it, at `digits`. A push shown with two decimals ("−0.07") keeps them; the others are
+ * rounded to the card's step by largest remainder, together with what the hidden pushes add up to, so the sum
+ * lands on the card's figure. `others` is what is left (the hidden pushes, plus the two-decimal pushes' hundredths);
+ * `fine` says it needs two decimals to add up.
+ */
+export function reconcile(pills: number[], change: number, shown: number, m: MetricId, digits: number): { values: number[]; others: number; fine: boolean } {
+  const sub = Math.pow(10, digits + 1); // hundredths on a one-digit goal
+  const step = 10; // one of the card's steps, in hundredths
+  const small = (v: number) => m !== "spread" && digits >= 1 && Math.abs(v) < 0.095;
+  const out = pills.map((v) => (small(v) ? Math.round(v * 100) * (sub / 100) : 0));
+  const big = pills.map((_, i) => i).filter((i) => !small(pills[i]));
+  const total = Math.round(shown * sub);
+  const fixed = out.reduce((a, b) => a + b, 0);
+  const rest = change - pills.reduce((a, b) => a + b, 0);
+  const items = [...big.map((i) => pills[i]), rest].map((v) => (v * sub) / step);
+  const floors = items.map((x) => Math.floor(x + 1e-9));
+  let k = Math.round((total - fixed) / step) - floors.reduce((a, b) => a + b, 0);
+  // On a near tie a visible push keeps its own rounding and "others" gives way.
+  const byRem = items.map((x, i) => ({ i, r: x - floors[i] - (i === items.length - 1 ? 0.08 : 0) })).sort((a, b) => b.r - a.r);
+  for (let j = 0; k > 0; j++, k--) floors[byRem[j % byRem.length].i] += 1;
+  for (let j = 0; k < 0; j++, k++) floors[byRem[byRem.length - 1 - (j % byRem.length)].i] -= 1;
+  big.forEach((i, j) => (out[i] = floors[j] * step));
+  const others = total - out.reduce((a, b) => a + b, 0);
+  return { values: out.map((x) => x / sub), others: others / sub, fine: others % step !== 0 };
+}
+
+/** "others ▼ −0.2": what the visible pushes leave of a goal's change, at the precision that makes them add up. */
+export function othersText(r: { others: number; fine: boolean }, m: MetricId, digits: number): string | null {
+  if (Math.abs(r.others) < 1e-9) return null;
+  return `${r.others > 0 ? "▲" : "▼"} ${signed(r.others, r.fine ? digits + 1 : digits)}${pushUnit(m)}`;
 }
 
 /** "+2.4", "−0.07", "+30 bp": a push's size, in its goal's units. */
