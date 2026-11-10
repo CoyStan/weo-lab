@@ -20,7 +20,7 @@ import { explain, type ExplainKey } from "../game/explain";
 import { deltaUnit, fmtNum, GAME_METRICS, unitShort } from "../game/metrics";
 import { MISSIONS, type MetricKey, type Objective, type ObjectiveStatus } from "../game/missions";
 import { useSettings } from "../game/settings";
-import { useGame, type Recap } from "../game/store";
+import { forecastFor, useGame, type Recap } from "../game/store";
 import { useTurn } from "../game/useTurn";
 import { splitLead } from "../game/ui/Advisors";
 import { useUntouched } from "../game/ui/Goals";
@@ -28,7 +28,7 @@ import Levers from "../game/ui/Levers";
 import Reforms from "../game/ui/Reforms";
 import { sound } from "../game/audio";
 import GoalChart, { EffectBars, type ChartLine } from "./Chart";
-import { advisorPlans, advisorRun, goalMetrics, journey, judged, lagCall, moveName, policyIn, shockCall, versus, withChanges, type AdvisorRun, type Call, type Plan } from "./logic";
+import { advisorPlans, advisorRun, electionOutlook, goalMetrics, journey, judged, lagCall, moveName, policyIn, shockCall, versus, withChanges, type AdvisorRun, type Call, type Plan } from "./logic";
 import { setUiMode, useNext } from "./state";
 import "./next.css";
 
@@ -195,6 +195,20 @@ function Header() {
   const setSettings = useSettings((s) => s.set);
   const menu = useRef<HTMLDetailsElement>(null);
   const close = () => menu.current?.removeAttribute("open");
+  const modalKind = useGame((s) => s.modal?.kind ?? null);
+  // The menu never rides along into the next beat, and Escape or a click elsewhere shuts it.
+  useEffect(() => menu.current?.removeAttribute("open"), [clock, modalKind]);
+  useEffect(() => {
+    const shut = (e: Event) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !menu.current?.contains(e.target as Node)) menu.current?.removeAttribute("open");
+    };
+    window.addEventListener("keydown", shut);
+    window.addEventListener("pointerdown", shut);
+    return () => {
+      window.removeEventListener("keydown", shut);
+      window.removeEventListener("pointerdown", shut);
+    };
+  }, []);
   const end = mission.quarters;
   const right = calls.filter((c) => c.right).length;
   const classic = () => setUiMode("classic");
@@ -211,7 +225,8 @@ function Header() {
         {Array.from({ length: end }, (_, i) => i + 1).map((t) => {
           const shock = config.shocks.find((s) => s.quarter === t && (!s.id.startsWith("surprise") || t <= clock + 1));
           return (
-            <li key={t} className={`nx-track-q ${t <= clock ? "is-done" : t === clock + 1 ? "is-now" : ""} ${shock ? "has-news" : ""}`} title={`${quarterLabel(t)}${shock ? `: ${SHOCKS[shock.kind].name}` : ""}`}>
+            <li key={t} className={`nx-track-q ${t <= clock ? "is-done" : t === clock + 1 ? "is-now" : ""} ${shock ? "has-news" : ""} ${mission.politics.elections.includes(t) ? "has-vote" : ""}`} title={`${quarterLabel(t)}${shock ? `: ${SHOCKS[shock.kind].name}` : ""}${mission.politics.elections.includes(t) ? ` · election: you need ${mission.politics.threshold} votes` : ""}`}>
+              {mission.politics.elections.includes(t) ? <span className="nx-track-vote" aria-hidden="true">vote</span> : null}
               {(t - 1) % 4 === 0 ? <span className="nx-track-year">{quarterLabel(t).slice(0, 4)}</span> : null}
             </li>
           );
@@ -291,7 +306,8 @@ function GoalPanel({
   const du = deltaUnit(meta.unit);
   const d = movedDelta ? movedDelta.to - movedDelta.from : 0;
   const good = main && movedDelta ? (main.op === "<=" ? d < 0 : d > 0) : null;
-  const flat = Math.abs(d) < 0.5 * Math.pow(10, -meta.digits);
+  // A move too small to matter is not coloured as good or bad news.
+  const flat = Math.abs(d) < (meta.digits === 0 ? 5 : 0.1);
   // A figure that rounds onto its goal gets one more decimal, so "1.5 against 1.5: missed" never happens.
   const vs = (v: number, o: Objective | undefined) => fmtNum(v, o && fmtNum(v, meta.digits) === fmtNum(o.threshold, meta.digits) && Math.abs(v - o.threshold) > 1e-9 ? meta.digits + 1 : meta.digits);
   const judgedAt = main && j ? (main.when === "every" ? `${main.op === ">=" ? "lowest" : "highest"}, ${shortQ(j.t)}` : main.when === "year" ? `${main.year} ${metric === "debt" ? "year end" : "average"}` : clock >= end ? `final, ${shortQ(end)}` : `forecast for ${shortQ(j.t)}`) : "";
@@ -311,7 +327,8 @@ function GoalPanel({
           </p>
         ) : main && j ? (
           <p className="nx-goal-value">
-            {vs(j.value, main)}
+            {clock < end ? <span className="nx-goal-cap">now </span> : null}
+            {clock < end ? fmtNum(actual[clock][metric], meta.digits) : vs(j.value, main)}
             <span className="nx-goal-unit">{unit}</span>
           </p>
         ) : null}
@@ -323,8 +340,7 @@ function GoalPanel({
           </p>
         ) : main && j ? (
           <p className="nx-goal-when">
-            {judgedAt} · <Status status={statuses[main.id]} />
-            {clock < end ? <span className="nx-goal-now"> · now {fmtNum(actual[clock][metric], meta.digits)}{meta.unit === "months of imports" ? " mo" : meta.unit === "% of GDP" ? "%" : unit}</span> : null}
+            {clock < end ? <><strong>{vs(j.value, main)}{meta.unit === "months of imports" ? " mo" : meta.unit === "% of GDP" || meta.unit === "%" ? "%" : unit}</strong> {judgedAt}</> : judgedAt} · <Status status={statuses[main.id]} />
           </p>
         ) : null}
       </header>
@@ -418,7 +434,11 @@ function DecideBeat() {
     if (done) return [];
     const list = advisorPlans(mission, turnStart, actual, clock);
     // Doing nothing is always on the table, so every plan has something to be compared with.
-    if (!list.some((p) => p.hold) && list[0]) list.push({ advisors: [], title: "Change nothing this quarter", changes: {}, hold: true, effects: list[0].effects.map((e) => ({ ...e, value: e.base, ok: e.baseOk })) });
+    if (!list.some((p) => p.hold) && list[0]) {
+      const base = forecastFor(turnStart, clock);
+      const bonus = mission.objectives.filter((o) => o.bonus);
+      list.push({ advisors: [], title: "Change nothing this quarter", changes: {}, hold: true, effects: list[0].effects.map((e) => ({ ...e, value: e.base, ok: e.baseOk })), stars: { ok: bonus.filter((o) => judged(o, mission, actual, base, clock).ok).length, total: bonus.length }, election: electionOutlook(mission, turnStart, clock) });
+    }
     return list;
   }, [mission, turnStart, actual, clock, done]);
   const policyKey = JSON.stringify(policy);
@@ -429,7 +449,8 @@ function DecideBeat() {
     else sound.play("tick");
   };
 
-  const landing = config.shocks.filter((s) => s.quarter === clock + 1 && !s.id.startsWith("surprise"));
+  const announced = useGame((s) => s.announced);
+  const landing = config.shocks.filter((s) => s.quarter === clock + 1 && (!s.id.startsWith("surprise") || announced.includes(s.id)));
   const atRisk = mission.objectives.filter((o) => !o.bonus && statuses[o.id] === "at-risk");
 
   const finish = () => {
@@ -449,6 +470,7 @@ function DecideBeat() {
   const rows = shown.length >= 3 ? 2 : shown.length;
   const bonusRows = Math.max(...shown.map((m) => mission.objectives.filter((o) => o.metric === m && o.bonus).length));
   const h = narrow ? 132 : Math.round(Math.min(400, Math.max(120, (vp.h - 66 - 82 - 46 - (rows - 1) * 16) / rows - (140 + bonusRows * 24))));
+  const election = useMemo(() => (done ? null : electionOutlook(mission, config, clock)), [mission, config, clock, done]);
   const agree = plans.filter((p) => p.advisors.length).length === 1 && mission.advisors.length > 1;
   const noneWins = plans.length > 0 && plans.every((p) => p.effects.some((e) => !e.ok));
   // A shock the briefing warned about may still be on its way: never call such a quarter quiet.
@@ -467,6 +489,11 @@ function DecideBeat() {
               <><Status status="on-track" /> Every goal is on track on the staff forecast{landing.length ? "." : warned ? ", which leaves out anything only warned about." : ". Nothing new this quarter."}</>
             )}
           </p>
+          {election ? (
+            <p className="nx-brief-line">
+              <Status status={election.ok ? "on-track" : "at-risk"} /> Election at the end of {quarterLabel(election.quarter)}: you need {election.need} vote{election.need === 1 ? "" : "s"}; on the staff forecast you will have {election.votes}. Growth and jobs win votes; austerity, recession and fast-rising prices lose them.
+            </p>
+          ) : null}
           <details className="nx-hint">
             <summary>Stuck? Show a hint</summary>
             <p>{mission.hint}</p>
@@ -565,7 +592,7 @@ function Coach({ close }: { close: () => void }) {
       <ol>
         <li><strong>Read the lines.</strong> Solid is what has happened; dashed is the staff forecast. Land it in the green gate, and keep it off the hatched fence.</li>
         <li><strong>Make your move.</strong> Back an advisor&apos;s plan or drag a lever. The shaded wedge is what your move does, and where it widens is when it arrives.</li>
-        <li><strong>End the quarter</strong> and watch it play out. You decide again every quarter.</li>
+        <li><strong>End the quarter</strong> and watch it play out. You decide again every quarter. (“pp” means percentage points.)</li>
       </ol>
       <button type="button" className="lab-btn lab-btn-soft lab-btn-sm" onClick={close}>Got it</button>
     </section>
@@ -611,6 +638,16 @@ function PlanCard({ plan, index, active, onBack }: { plan: Plan; index: number; 
             );
           })}
         </span>
+        {plan.stars.total || plan.election ? (
+          <span className="nx-plan-extras">
+            {plan.stars.total ? <span>★ {plan.stars.ok} of {plan.stars.total} bonus goals</span> : null}
+            {plan.election ? (
+              <span className={plan.election.ok ? "is-ok" : "is-miss"}>
+                <span aria-hidden="true">{plan.election.ok ? "✓" : "✕"}</span> {plan.election.votes} vote{plan.election.votes === 1 ? "" : "s"} at the {shortQ(plan.election.quarter)} election (need {plan.election.need})
+              </span>
+            ) : null}
+          </span>
+        ) : null}
         {plan.note ? <span className="nx-plan-note">{plan.note}</span> : null}
       </span>
       <span className="nx-plan-pick">
@@ -744,6 +781,31 @@ const SHORT_DRIVER: Record<string, string> = {
   other: "other things",
 };
 
+/**
+ * Why a goal moved this quarter, from the model's own drivers: the two biggest pushes and
+ * "everything else", so the figures add up to the change. Growth is explained through output
+ * against capacity, which is what the drivers measure.
+ */
+function whyLine(m: MetricKey, recap: Recap): { total: string; text: string } | null {
+  const key = WHY[m];
+  if (!key) return null;
+  const { parts } = explain(key, recap.now);
+  if (!parts.length) return null;
+  const sum = parts.reduce((a, x) => a + x.value, 0);
+  const top = parts.slice(0, 2);
+  const rest = sum - top.reduce((a, x) => a + x.value, 0);
+  const name = (k: string, label: string) => SHORT_DRIVER[k] ?? label.toLowerCase();
+  const list = top.map((x) => `${name(x.key, x.label)} ${signed(x.value, 1, "")}`);
+  if (Math.abs(rest) >= 0.05) list.push(`everything else ${signed(rest, 1, "")}`);
+  // A shock that pushed harder last quarter is on its way out: say so, since that is often the whole story.
+  const group = key === "growth" ? "gap" : key;
+  const was = (recap.prev.drivers[group] as Record<string, number>).shocks ?? 0;
+  const is = (recap.now.drivers[group] as Record<string, number>).shocks ?? 0;
+  const fading = Math.abs(was) - Math.abs(is) >= 0.3 ? ` The shock is fading: its push was ${signed(was, 1, " pp")} last quarter.` : "";
+  const what = key === "growth" ? "output against capacity moved" : key === "debt" ? "debt moved" : "inflation moved";
+  return { total: `${what} ${signed(sum, 1, " pp")}`, text: `${list.join(", ")}.${fading}` };
+}
+
 function ResultBeat({ recap }: { recap: Recap }) {
   const { mission, clock, statuses, config, forecast, actual } = useTurn();
   // What the player's moves so far are still doing: the forecast against never having moved.
@@ -764,7 +826,7 @@ function ResultBeat({ recap }: { recap: Recap }) {
   const from = recap.from ?? recap.quarter - 1;
   const p = useProgress(recap.quarter, 1100 + 250 * Math.min(6, recap.quarter - from - 1));
   const now = from + (clock - from) * p;
-  const metrics = goalMetrics(mission).slice(0, narrow ? 2 : 3);
+  const metrics = goalMetrics(mission).slice(0, narrow ? 3 : 4);
   const settled = p >= 1;
   const last = clock >= mission.quarters;
   // The headline leads with a goal the player is judged on; a paper headline about something else goes under it.
@@ -772,11 +834,14 @@ function ResultBeat({ recap }: { recap: Recap }) {
     const text = recap.headline.text;
     const all = goalMetrics(mission);
     if (recap.events.some((e) => e.kind === "shock" || e.kind === "crisis" || e.kind === "regime") || all.some((m) => text.toLowerCase().includes(GAME_METRICS[m].label.toLowerCase().split(" ")[0]))) return text;
-    const m = all[0];
+    const scale = (k: MetricKey) => (k === "spread" ? 100 : k === "debt" ? 3 : k === "cred" ? 10 : 1);
+    const m = [...all].sort((x, y) => Math.abs(recap.now[y] - recap.prev[y]) / scale(y) - Math.abs(recap.now[x] - recap.prev[x]) / scale(x))[0];
     const meta = GAME_METRICS[m];
     const d = recap.now[m] - recap.prev[m];
     const flat = Math.abs(d) < 0.5 * Math.pow(10, -meta.digits);
-    return `${meta.label} ${flat ? "holds at" : d > 0 ? "rises to" : "falls to"} ${fmtNum(recap.now[m], meta.digits)}${unitShort(meta.unit)}`;
+    const plural = m === "reserves" || m === "gfn";
+    const verb = flat ? (plural ? "hold at" : "holds at") : d > 0 ? (plural ? "rise to" : "rises to") : plural ? "fall to" : "falls to";
+    return `${meta.label} ${verb} ${fmtNum(recap.now[m], meta.digits)}${unitShort(meta.unit)}`;
   }, [recap, mission]);
   return (
     <main className="nx-stage">
@@ -790,16 +855,10 @@ function ResultBeat({ recap }: { recap: Recap }) {
 
         <div className="nx-result-charts" data-count={metrics.length}>
           {metrics.map((m) => {
-            const key = WHY[m];
-            const parts = key && !recap.skipped?.length ? explain(key, recap.now).parts.slice(0, 2) : [];
+            const why = recap.skipped?.length ? null : whyLine(m, recap);
             return (
               <GoalPanel key={m} metric={m} height={narrow ? 140 : metrics.length > 2 ? 170 : 200} now={now} ghost={null} showJourney={false} compact moved={{ from: recap.prev[m], to: recap.now[m], p }}>
-                {parts.length ? (
-                  <p className="nx-moved">
-                    <strong>Why:</strong> mostly {parts.map((x) => `${SHORT_DRIVER[x.key] ?? x.label.toLowerCase()} (${signed(x.value, 1, " pp")})`).join(" and ")}
-                    {key === "growth" ? " on output against capacity" : ""}.
-                  </p>
-                ) : null}
+                {why ? <p className="nx-moved"><strong>Why {why.total}:</strong> {why.text}</p> : null}
               </GoalPanel>
             );
           })}
@@ -862,7 +921,7 @@ function ResultBeat({ recap }: { recap: Recap }) {
           </ul>
           <div className="nx-actions">
             <button type="button" className="lab-btn lab-btn-ghost lab-btn-md" onClick={() => setFramework(true, DECOMP.includes(metrics[0]) ? (metrics[0] as never) : undefined)}>
-              Why did it move? <kbd aria-hidden="true">W</kbd>
+              Dig deeper: every sector <kbd aria-hidden="true">W</kbd>
             </button>
             <button type="button" data-primary ref={focusHere} className="lab-btn lab-btn-primary lab-btn-md" onClick={closeModal}>
               {last ? "See how it ended" : `Plan ${quarterLabel(clock + 1)}`} <kbd aria-hidden="true">Enter</kbd>
@@ -898,7 +957,7 @@ function DebriefBeat() {
   const outcome = modal.outcome;
   const won = outcome.kind === "won";
   const next = mission.number ? MISSIONS.find((m) => m.number === mission.number + 1) : undefined;
-  const metrics = goalMetrics(mission).slice(0, narrow ? 2 : 3);
+  const metrics = goalMetrics(mission).slice(0, narrow ? 3 : 4);
   const lines = (m: MetricKey): ChartLine[] => [
     { label: "Had you done nothing", values: nothing.map((s) => s[m]), tone: "nothing" },
     ...(comparison ? [{ label: comparisonLabel ?? "What happened", values: comparison.map((s) => s[m]), tone: "compare" as const }] : []),

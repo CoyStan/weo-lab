@@ -82,7 +82,23 @@ export type Plan = {
   effects: PlanEffect[];
   /** Set when the plan guards against a shock the staff forecast leaves out. */
   note?: string;
+  /** Bonus goals on track under the plan, of how many. */
+  stars: { ok: number; total: number };
+  /** The next election on the forecast under the plan. */
+  election: Election | null;
 };
+
+export type Election = { quarter: number; need: number; votes: number; ok: boolean };
+
+/** The next election still ahead and the votes the staff forecast gives you at it. */
+export function electionOutlook(mission: Mission, config: ScenarioConfig, clock: number): Election | null {
+  const quarter = mission.politics.elections.find((q) => q > clock && q <= mission.quarters);
+  if (quarter === undefined) return null;
+  const r = simulate(knownConfig(config, clock));
+  const e = ledger(mission.politics, config, r.path, r.events, quarter).elections.find((x) => x.quarter === quarter);
+  if (!e) return null;
+  return { quarter, need: mission.politics.threshold, votes: e.votes, ok: e.won };
+}
 
 /** Which goals each advisor fights for (as in advisors.ts). */
 const WATCHES: Record<AdvisorId, MetricKey[]> = {
@@ -151,7 +167,9 @@ export function planTitle(policy: Policy, changes: Partial<Policy>): string {
   if (changes.fiscalAdjustment !== undefined && changes.fiscalAdjustment !== policy.fiscalAdjustment) {
     const v = changes.fiscalAdjustment;
     if (changes.imfProgram !== undefined) parts.push(`tighten the budget ${trim(v)} pp a year`);
-    else if (v === 0) parts.push("Stop changing the budget");
+    else if (v === 0) parts.push(policy.fiscalAdjustment > 0 ? "Stop tightening the budget" : "Stop loosening the budget");
+    else if (policy.fiscalAdjustment > 0 && v > 0) parts.push(`${v > policy.fiscalAdjustment ? "Step up" : "Ease"} budget tightening from ${trim(policy.fiscalAdjustment)} to ${trim(v)} pp of GDP a year`);
+    else if (policy.fiscalAdjustment < 0 && v < 0) parts.push(`${v < policy.fiscalAdjustment ? "Loosen the budget further" : "Loosen the budget less"}: from ${trim(-policy.fiscalAdjustment)} to ${trim(-v)} pp of GDP a year`);
     else parts.push(`${v > 0 ? "Tighten" : "Loosen"} the budget by ${trim(Math.abs(v))} pp of GDP a year`);
   }
   if (changes.publicInvestment !== undefined) parts.push(`${changes.publicInvestment > policy.publicInvestment ? "Raise" : "Cut"} public investment to ${trim(changes.publicInvestment)}% of GDP`);
@@ -281,8 +299,11 @@ export function advisorPlans(mission: Mission, config: ScenarioConfig, actual: Q
     const same = plans.find((p) => JSON.stringify(p.changes) === key);
     if (same) same.advisors.push(advisor);
     else {
+      const next = withChanges(config, quarter, changes);
+      const bonus = mission.objectives.filter((o) => o.bonus);
+      const stars = { ok: bonus.filter((o) => judged(o, mission, actual, best.path, clock).ok).length, total: bonus.length };
       const guards = advisor === "chief" && warned && Boolean(best.move) && candidates[0].risk !== null && mission.objectives.some((o) => !o.bonus && miss(o, mission, actual, candidates[0].risk!, clock) > miss(o, mission, actual, best.risk!, clock) + 1e-6);
-      plans.push({ advisors: [advisor], title: planTitle(policy, changes), changes, hold: !best.move, effects: effectsOf(mission, actual, best.path, base, clock), ...(guards ? { note: "A buffer against the shock analysts warn about, which the staff forecast leaves out." } : {}) });
+      plans.push({ advisors: [advisor], title: planTitle(policy, changes), changes, hold: !best.move, effects: effectsOf(mission, actual, best.path, base, clock), stars, election: electionOutlook(mission, next, clock), ...(guards ? { note: "A buffer against the shock analysts warn about, which the staff forecast leaves out." } : warned ? { note: "Safe on the staff forecast only: it leaves out the shock analysts warn about." } : {}) });
     }
   }
   return plans;
@@ -368,23 +389,26 @@ export function shockCall(mission: Mission, config: ScenarioConfig, actual: Quar
   const unit = UNIT[metric] ?? "";
   const digits = metric === "spread" ? 0 : 1;
   const name = SHOCKS[shock.kind].name.toLowerCase();
-  const peakT = (() => {
-    let p = clock + 1;
-    for (let q = clock + 1; q <= t; q++) if (Math.abs(hold[q][metric] - now) > Math.abs(hold[p][metric] - now)) p = q;
-    return p;
-  })();
-  const path = `${NOUN[metric]} ${metric === "reserves" || metric === "gfn" ? "go" : "goes"} from ${now.toFixed(digits)}${unit} today to ${hold[peakT][metric].toFixed(digits)}${unit} in ${quarterLabel(peakT)}${peakT === t ? "" : `, and is at ${then.toFixed(digits)}${unit} by ${quarterLabel(t)}`}`;
+  let peakT = clock + 1;
+  for (let q = clock + 1; q <= t; q++) if (Math.abs(hold[q][metric] - now) > Math.abs(hold[peakT][metric] - now)) peakT = q;
+  const verb = metric === "reserves" || metric === "gfn" ? "go" : "goes";
+  const flat = Math.abs(then - now) < 0.05 && Math.abs(hold[peakT][metric] - now) < 0.05;
+  const via = peakT !== t && Math.abs(hold[peakT][metric] - then) >= band ? `, by way of ${hold[peakT][metric].toFixed(digits)}${unit} in ${quarterLabel(peakT)}` : "";
+  const path = flat ? `${NOUN[metric]} ${metric === "reserves" || metric === "gfn" ? "stay" : "stays"} at ${now.toFixed(digits)}${unit} through ${quarterLabel(t)}` : `${NOUN[metric]} ${verb} from ${now.toFixed(digits)}${unit} today to ${then.toFixed(digits)}${unit} in ${quarterLabel(t)}${via}`;
+  // Reserves that do not move under a shock are being protected by something: say what.
+  const policy = policyForTurn(config, clock);
+  const why = metric === "reserves" && answer === "same" ? (policy.fxRegime === "float" || (policy.fxRegime === "managed" && policy.fxIntervention === 0) ? " The central bank is not selling reserves, so the currency takes the hit instead." : "") : "";
   return {
     id: `shock:${shock.id}`,
     kind: "shock",
-    prompt: `The ${name} hits. If you change nothing, where will ${NOUN[metric]} be a year from now, compared with today's ${now.toFixed(digits)}${unit}?`,
+    prompt: `The ${name} hits. If you change nothing, where will ${NOUN[metric]} be ${t - clock === 4 ? "a year from now" : `by ${quarterLabel(t)}`}, compared with today's ${now.toFixed(digits)}${unit}?`,
     options: [
       { id: "higher", label: "Clearly higher" },
       { id: "same", label: "About the same" },
       { id: "lower", label: "Clearly lower" },
     ],
     answer,
-    reveal: `On the staff forecast with policy unchanged, ${path}.`,
+    reveal: `On the staff forecast with policy unchanged, ${path}.${why}`,
   };
 }
 
@@ -426,7 +450,7 @@ export function lagCall(mission: Mission, forecast: QuarterState[], base: Quarte
     ? `It is still building when the mission ends (${versus(best.end, digits, unit)} by ${quarterLabel(end)}).`
     : `It is at its widest in ${quarterLabel(best.peakT)} (${versus(best.peak, digits, unit)}).`;
   return {
-    id: `lag:${best.metric}:${clock}`,
+    id: `lag:${best.metric}`,
     kind: "lag",
     prompt: `${moveName}. When will ${noun} feel it most sharply?`,
     options: [

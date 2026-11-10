@@ -249,7 +249,7 @@ export default function GoalChart({
             <g>
               <circle cx={x(worstT)} cy={y(line[worstT])} r={4} className={`nx-ring ${ok(every, lineTarget[worstT]) ? "" : "is-bad"}`} />
               <text x={x(worstT)} y={y(line[worstT]) + ((every.op === ">=") !== objectives.some((o) => Math.abs(y(o.threshold) - (y(line[worstT!]) + (every.op === ">=" ? 15 : -14))) < 13) ? 19 : -10)} textAnchor="middle" className="nx-mark">
-                {every.op === ">=" ? "low" : "peak"} {fmtNum(lineTarget[worstT], meta.digits)}
+                {every.op === ">=" ? "low" : "peak"} {fmtNum(lineTarget[worstT], fmtNum(lineTarget[worstT], meta.digits) === fmtNum(every.threshold, meta.digits) && Math.abs(lineTarget[worstT] - every.threshold) > 1e-9 ? meta.digits + 1 : meta.digits)}
               </text>
             </g>
           ) : null}

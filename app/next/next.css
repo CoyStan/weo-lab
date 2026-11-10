@@ -114,6 +114,22 @@
   background: var(--lab-warn-mark, #e7b83d);
   content: "";
 }
+.nx-track-vote {
+  position: absolute;
+  top: -1.15rem;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 1.5px solid var(--lab-ink);
+  border-radius: 0.3rem;
+  background: var(--nx-card);
+  padding: 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.nx-head:has(.nx-track-vote) .nx-track {
+  padding-top: 1.1rem;
+}
 .nx-track-year {
   position: absolute;
   top: 0.75rem;
@@ -323,8 +339,14 @@
   font-size: max(13px, 0.5em);
   font-weight: 600;
 }
-.nx-goal-now {
-  white-space: nowrap;
+.nx-goal-cap {
+  margin-right: 0.15em;
+  font-size: max(13px, 0.45em);
+  font-weight: 600;
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 72%, transparent));
+}
+.nx-goal-when strong {
+  color: var(--lab-ink);
 }
 .nx-goal-panel.is-compact .nx-goal-name {
   font-size: var(--t-md);
@@ -630,6 +652,20 @@
   color: var(--nx-bad);
   font-weight: 700;
 }
+.nx-plan-extras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.9rem;
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 75%, transparent));
+}
+.nx-plan-extras .is-ok > span:first-child {
+  color: var(--nx-good);
+  font-weight: 700;
+}
+.nx-plan-extras .is-miss {
+  color: var(--nx-bad);
+  font-weight: 700;
+}
 .nx-plan-note {
   color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 72%, transparent));
   font-style: italic;
@@ -731,6 +767,9 @@
 }
 .nx-result-charts[data-count="3"] {
   grid-template-columns: 1fr 1fr 1fr;
+}
+.nx-result-charts[data-count="4"] {
+  grid-template-columns: 1fr 1fr;
 }
 .nx-news-charts .nx-goal-panel,
 .nx-result-charts .nx-goal-panel {
@@ -1149,8 +1188,18 @@
   }
   .nx-news-charts[data-count="2"],
   .nx-result-charts[data-count="2"],
-  .nx-result-charts[data-count="3"] {
+  .nx-result-charts[data-count="3"],
+  .nx-result-charts[data-count="4"] {
     grid-template-columns: 1fr;
+  }
+  .nx kbd,
+  .game.has-kbd .nx kbd {
+    display: none;
+  }
+  /* A sliver of the next chart shows there is more to swipe to. */
+  .nx-charts::after {
+    flex: 0 0 0.25rem;
+    content: "";
   }
   .nx-end {
     position: fixed;
