@@ -8,7 +8,10 @@ import { MISSIONS } from "../missions";
 import { sound } from "../audio";
 import { useSettings } from "../settings";
 import { useGame } from "../store";
-import { MoveStrip } from "./Goals";
+import { decidingQuarter, goalEffect, useUntouched } from "./Goals";
+import { useTween } from "./useTween";
+import { Valence, type Tone } from "./Valence";
+import type { Objective, ObjectiveStatus } from "../missions";
 import Glyph from "./Glyph";
 import Capital from "./Capital";
 import Reforms from "./Reforms";
@@ -71,6 +74,9 @@ export default function Play({ scene }: { scene: ReactNode }) {
   const preset = getPreset(mission.presetId);
   const done = clock >= mission.quarters;
   const news = useMemo(() => events.filter((e) => e.quarter === clock && e.kind !== "decision"), [events, clock]);
+  // Known shocks that land in the quarter being decided: the island's news band names them while
+  // the player decides (a surprise is news only once it has hit).
+  const landing = useMemo(() => (done ? [] : config.shocks.filter((s) => s.quarter === clock + 1 && !s.id.startsWith("surprise")).map((s) => ({ name: SHOCKS[s.kind].name, short: SHOCKS[s.kind].short }))), [config, clock, done]);
   // Phones: the End bar is a fixed dock; its height becomes --sticky-h on the page, so the
   // scroll area ends clear of it and focused levers are never hidden under it (game.css).
   const footRef = useRef<HTMLDivElement>(null);
@@ -143,7 +149,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
         <div className="game-agenda-bar">
           <Agenda />
         </div>
-        <MoveStrip />
+        <EndStrip />
         <span className={`game-end-note ${modal || run ? "is-waiting" : ""}`}>
           {modal ? `Waiting: close the ${modal.kind === "recap" ? "recap" : modal.kind === "shock" ? "news card" : "debrief"} first.` : run ? "Waiting: quarters are playing." : changed ? "You changed policy this quarter." : "No changes: policy carries on as it is."}
         </span>
@@ -224,7 +230,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
               ]}
             />
           </div>
-          {tips && mission.number === 1 && clock === 0 && !changed ? <p className="game-coach">Move the policy rate and watch the blue forecast on each goal.</p> : null}
+          {tips && mission.number === 1 && clock === 0 && !changed ? <p className="game-coach">Move the policy rate and watch the Forecast line on each goal.</p> : null}
           <div className="game-agenda-top">
             <Agenda />
           </div>
@@ -234,7 +240,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
         </aside>
 
         <section className="game-stage" aria-label="Cause and effect map, or the island">
-          <SceneSlot map={scene} news={news}>
+          <SceneSlot map={scene} news={news} landing={landing}>
             {run ? <RunTicker /> : null}
             {/* The quarter's news, for screen readers: on screen the map names it under its header
                 and the island in a band along its top edge, so nothing floats over a card. */}
@@ -253,7 +259,7 @@ export default function Play({ scene }: { scene: ReactNode }) {
         </section>
 
         <aside className="game-col game-col-goals" aria-label="Goals">
-          <h2 className="game-col-title">Goals</h2>
+          <h2 className="game-col-title" tabIndex={-1}>Goals</h2>
           <Goals />
           {wide ? <DecisionLog /> : null}
         </aside>
@@ -262,9 +268,11 @@ export default function Play({ scene }: { scene: ReactNode }) {
   );
 }
 
-/** One-time pointer to the island toggle, kept per browser. */
+/** One-time pointer to the island toggle, kept per browser (and for this page, if storage is blocked). */
 const COACH_KEY = "palari.weo-lab.island-coach.v1";
+let coachRetired = false;
 const coachSeen = () => {
+  if (coachRetired) return true;
   try {
     return window.localStorage.getItem(COACH_KEY) === "1";
   } catch {
@@ -272,6 +280,7 @@ const coachSeen = () => {
   }
 };
 const retireCoach = () => {
+  coachRetired = true;
   try {
     window.localStorage.setItem(COACH_KEY, "1");
   } catch {
@@ -281,6 +290,12 @@ const retireCoach = () => {
 
 type IdleWindow = Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
 
+/** A known shock landing in the quarter being decided, for the island's news band. */
+type Landing = { name: string; short: string };
+
+/** What the one-time island pointer may not cover while a newcomer reads the map. */
+const COACH_COVERS = ".st-title, .st-hint, .st-key, .st-colheads > span, .st-goal, .st-lgoal, .st-strip, .st-lfoot";
+
 /**
  * The scene slot: the cause-and-effect map, or the island, switched with the Map / Island
  * control (top-left over the map; top-right over the goal-by-goal list on phones and short
@@ -289,7 +304,7 @@ type IdleWindow = Window & { requestIdleCallback?: (cb: () => void, o?: { timeou
  * the first switch is immediate; it stays mounted but paused while the map is up. The two
  * views cross-fade together (200 ms; at once with reduced motion).
  */
-function SceneSlot({ map, news, children }: { map: ReactNode; news: SimEvent[]; children: ReactNode }) {
+function SceneSlot({ map, news, landing, children }: { map: ReactNode; news: SimEvent[]; landing: Landing[]; children: ReactNode }) {
   const view = useSceneView();
   const mapId = useMapId();
   const reduced = useReducedMotionFlag();
@@ -351,16 +366,22 @@ function SceneSlot({ map, news, children }: { map: ReactNode; news: SimEvent[]; 
   }, [shown]);
 
   // The first play screen points at the toggle once, for a few seconds, once the map's cards have
-  // come in (about 2 s); switching retires it. It sits just under the control; where it would
-  // still cover the map's key line, a goal or the strip while a newcomer reads them, it waits
-  // for the second quarter (after the first recap closes).
+  // come in (about 2 s); visiting the island retires it for good. It sits beside the control on
+  // the title row where that is clear, else just under the control; where both would cover the
+  // map's title, a column heading, the key line, a goal or the strip while a newcomer reads them,
+  // it waits for the second quarter (after the first recap closes). Then, if neither spot is
+  // clear, it sits beside the control over the map's title, which the player has read by then,
+  // rather than over the quarter's news or a goal.
   const clock = useLab((s) => s.clock);
   const [coach, setCoach] = useState(false);
   const [defer, setDefer] = useState(false);
+  const [spot, setSpot] = useState<"beside" | "under" | "over-title">("beside");
   const waiting = defer && clock < 1;
   useEffect(() => {
     if (modal || waiting || coachSeen()) return;
-    const show = window.setTimeout(() => setCoach(true), 2000);
+    const show = window.setTimeout(() => {
+      if (!coachSeen()) setCoach(true);
+    }, 2000);
     const hide = window.setTimeout(() => {
       setCoach(false);
       retireCoach();
@@ -371,23 +392,33 @@ function SceneSlot({ map, news, children }: { map: ReactNode; news: SimEvent[]; 
     };
   }, [modal, waiting]);
   useEffect(() => {
-    if (view === "island") retireCoach();
+    if (view === "island") {
+      retireCoach();
+      setCoach(false);
+    }
   }, [view]);
   const coachRef = useRef<HTMLParagraphElement>(null);
   useLayoutEffect(() => {
     const el = coachRef.current;
     const slot = slotRef.current;
-    if (!coach || !el || !slot || clock >= 1) return;
+    if (!coach || !el || !slot || spot === "over-title") return;
     const r = el.getBoundingClientRect();
-    const covers = [...slot.querySelectorAll<HTMLElement>(".st-hint, .st-key, .st-goal, .st-lgoal, .st-strip, .st-lfoot")].some((x) => {
+    const covers = [...slot.querySelectorAll<HTMLElement>(COACH_COVERS)].some((x) => {
       const b = x.getBoundingClientRect();
       return b.width > 0 && r.left < b.right && b.left < r.right && r.top < b.bottom && b.top < r.bottom;
     });
-    if (covers) {
+    if (!covers) return;
+    // Beside the control first, then under it; then the first quarter waits, and later ones
+    // take the title row.
+    if (spot === "beside") setSpot("under");
+    else if (clock < 1) {
       setCoach(false);
       setDefer(true);
-    }
-  }, [coach, clock, list, view]);
+    } else setSpot("over-title");
+  }, [coach, clock, list, view, spot]);
+  useEffect(() => {
+    if (!coach) setSpot("beside");
+  }, [coach]);
 
   // The map's header leaves room for the control, and the island's news band is as tall as it:
   // its size, as --scene-tabs-w and --scene-tabs-h on the slot.
@@ -407,38 +438,47 @@ function SceneSlot({ map, news, children }: { map: ReactNode; news: SimEvent[]; 
 
   const mapLabel = mapId === "story" ? "Map" : SCENES[mapId].label;
   return (
-    <div
-      ref={slotRef}
-      className={`game-scene has-tabs is-${island ? "island" : "map"}${mapId === "story" ? " is-story" : ""}${list ? " is-list" : ""}${news.length ? " has-news" : ""}${reduced ? " is-instant" : ""}`}
-    >
+    <div ref={slotRef} className={`game-scene has-tabs is-${island ? "island" : "map"}${mapId === "story" ? " is-story" : ""}${list ? " is-list" : ""}${reduced ? " is-instant" : ""}`}>
+      {/* The control comes first in the tab order, as it sits first on screen (top corner). */}
+      <div ref={tabsRef} className="game-scene-tabs" role="group" aria-label="Show the map or the island (key I)">
+        <button type="button" data-view="map" aria-pressed={view === "map"} aria-controls="game-view-map" aria-keyshortcuts="I" onClick={() => setSceneView("map")}>
+          <SlotIcon name="map" />
+          {mapLabel}
+        </button>
+        {/* While the island builds, a turning ring takes the island picture's place: same box, so
+            neither label moves. */}
+        <button
+          type="button"
+          data-view="island"
+          aria-pressed={view === "island"}
+          aria-controls={mounted ? "game-view-island" : undefined}
+          aria-keyshortcuts="I"
+          aria-busy={building || undefined}
+          title={building ? "Loading" : undefined}
+          onClick={() => setSceneView("island")}
+        >
+          {building ? <span className="game-scene-tabs-spin" aria-hidden="true" /> : <SlotIcon name="island" />}
+          Island
+        </button>
+        <kbd className="game-scene-tabs-kbd" title="Press I to switch">
+          I
+        </kbd>
+      </div>
       <div className="game-scene-views">
         <div id="game-view-map" className={`game-scene-view is-map${island ? "" : " is-on"}`} inert={island} aria-hidden={island || undefined}>
           {map}
         </div>
         {mounted ? (
           <div id="game-view-island" className={`game-scene-view is-island${island ? " is-on" : " is-under"}`} inert={!island} aria-hidden={!island || undefined}>
-            {/* The island and its tag layer in one box, so a news band can sit above both. */}
+            {/* The island and its tag layer in one box under the news band, which is always there
+                during play: the island keeps one frame from quarter to quarter. */}
             <div className="game-scene-island">
               <PlayIsland paused={view !== "island" && ready} onReady={onReady} onDrawn={onDrawn} />
             </div>
-            <IslandNews news={news} />
+            <IslandNews news={news} landing={landing} />
             {mapId === "story" ? <StoryIslandLine /> : null}
           </div>
         ) : null}
-      </div>
-      <div ref={tabsRef} className="game-scene-tabs" role="group" aria-label="Show the map or the island (key I)">
-        <button type="button" data-view="map" aria-pressed={view === "map"} aria-controls="game-view-map" aria-keyshortcuts="I" onClick={() => setSceneView("map")}>
-          <SlotIcon name="map" />
-          {mapLabel}
-        </button>
-        <button type="button" data-view="island" aria-pressed={view === "island"} aria-controls={mounted ? "game-view-island" : undefined} aria-keyshortcuts="I" aria-busy={building || undefined} onClick={() => setSceneView("island")}>
-          <SlotIcon name="island" />
-          Island
-          {building ? <span className="game-scene-tabs-spin" aria-hidden="true" /> : null}
-        </button>
-        <kbd className="game-scene-tabs-kbd" title="Press I to switch">
-          I
-        </kbd>
       </div>
       {building ? (
         <span className="sr-only" role="status">
@@ -446,7 +486,7 @@ function SceneSlot({ map, news, children }: { map: ReactNode; news: SimEvent[]; 
         </span>
       ) : null}
       {coach && !modal && view === "map" ? (
-        <p ref={coachRef} className="game-scene-coach" role="status">
+        <p ref={coachRef} className="game-scene-coach" data-spot={spot === "under" ? "under" : "beside"} role="status">
           Peek at the island:{" "}
           <span className="game-scene-coach-key">
             press <kbd>I</kbd>
@@ -460,29 +500,59 @@ function SceneSlot({ map, news, children }: { map: ReactNode; news: SimEvent[]; 
 }
 
 /**
- * The island view's news: the quarter's events in one band along the island's top edge, beside
- * the Map / Island control. The island is drawn below the band (game.css), so the news covers
- * nothing; the map names the same news under its own header.
+ * The island view's news: one band along the island's top edge, beside the Map / Island control.
+ * It names the known shock landing in the quarter being decided ("This quarter, 2026Q1 · Food
+ * price surge: inflation +2 pp, subsidies 0.5% GDP") and the news of the quarter just played,
+ * this quarter's first; with neither, a quiet "No news this quarter". The band is always there,
+ * so the island under it never re-frames; the map names the same news under its own header.
  */
-function IslandNews({ news }: { news: SimEvent[] }) {
+function IslandNews({ news, landing }: { news: SimEvent[]; landing: Landing[] }) {
   const clock = useLab((s) => s.clock);
-  if (!news.length) return null;
-  const text = news.map((e) => `${e.title}: ${e.detail}`).join(" · ");
+  const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+  const parts: { key: string; head: ReactNode; items: { title: string; detail: string }[] }[] = [];
+  if (landing.length)
+    parts.push({
+      key: "now",
+      head: (
+        <>
+          This quarter<span className="game-scene-islandnews-q">, {quarterLabel(clock + 1)}</span>
+        </>
+      ),
+      items: landing.map((l) => ({ title: l.name, detail: lower(l.short) })),
+    });
+  if (news.length)
+    parts.push({
+      key: "played",
+      head: (
+        <>
+          News<span className="game-scene-islandnews-q">, {quarterLabel(clock)}</span>
+        </>
+      ),
+      items: news.map((e) => ({ title: e.title, detail: e.detail })),
+    });
+  const text = parts.map((p) => p.items.map((it) => `${it.title}: ${it.detail}`).join(" · ")).join(" · ");
   // Narrow slots (phones) keep the titles alone, so the news reads in full beside the control.
   return (
-    <p className="game-scene-islandnews" title={text} aria-hidden="true">
-      <b>
-        News<span className="game-scene-islandnews-q">, {quarterLabel(clock)}</span>
-      </b>
-      <span className="game-scene-islandnews-text">
-        {news.map((e, i) => (
-          <span key={`${e.title}-${i}`}>
-            {i ? " · " : ""}
-            {e.title}
-            <span className="game-scene-islandnews-detail">: {e.detail}</span>
-          </span>
-        ))}
-      </span>
+    <p className={`game-scene-islandnews${parts.length ? "" : " is-quiet"}`} title={text || undefined} aria-hidden="true">
+      {parts.length ? (
+        <span className="game-scene-islandnews-text">
+          {parts.map((p, k) => (
+            <span key={p.key}>
+              {k ? " · " : ""}
+              <b>{p.head}</b>
+              {p.items.map((it, i) => (
+                <span key={`${it.title}-${i}`}>
+                  {" · "}
+                  {it.title}
+                  <span className="game-scene-islandnews-detail">: {it.detail}</span>
+                </span>
+              ))}
+            </span>
+          ))}
+        </span>
+      ) : (
+        <span className="game-scene-islandnews-text">No news this quarter</span>
+      )}
     </p>
   );
 }
@@ -727,7 +797,8 @@ function ChartIcon() {
 /**
  * What needs a decision this quarter. When nothing does, the box still says what is happening:
  * the news that lands this quarter, else a goal in trouble; "Quiet quarter" (and the Skip
- * suggestion) only when there is neither.
+ * suggestion) only when there is neither. A quarter with news never says "Nothing needs a
+ * decision": it says the goals stay on track as set, or names the goal in trouble.
  */
 function Agenda() {
   const { mission, config, clock, statuses, forecast, actual, policy, books, deciding, events } = useTurn();
@@ -746,12 +817,19 @@ function Agenda() {
         : played
           ? `${played.title}, ${quarterLabel(clock)}`
           : `${GAME_METRICS[trouble!.metric].label} ${statuses[trouble!.id] === "failed" ? "goal missed" : "at risk"}`;
+      const rule = policy.rateMode === "rule" ? " (the rule sets the rate for you)" : "";
+      const status = trouble ? (statuses[trouble.id] === "failed" ? "missed" : "at risk") : null;
+      const goalWords = trouble ? `${trouble.label.charAt(0).toLowerCase()}${trouble.label.slice(1)}` : "";
+      const body =
+        landing || played
+          ? trouble
+            ? `Your ${GAME_METRICS[trouble.metric].label.toLowerCase()} goal is ${status}: ${goalWords}. The map shows what ${landing ? "it pushes" : "pushed it"}.`
+            : `Your goals stay on track as set: no change needed${rule}. The map shows what ${landing ? "it pushes" : "it pushed"}.`
+          : `Goal: ${goalWords}. The map shows what pushes it; your levers stay as set unless you change them.`;
       return (
         <div className="game-agenda is-news" role="status">
           <strong>{lead}</strong>
-          <span>
-            Nothing needs a decision{policy.rateMode === "rule" ? ": the rule sets the rate for you" : ""}. The map shows what {landing || played ? "it pushes" : "pushes it"}; your levers stay as set unless you change them.
-          </span>
+          <span>{body}</span>
         </div>
       );
     }
@@ -789,6 +867,116 @@ function Agenda() {
       )}
     </div>
   );
+}
+
+const STATUS_WORD: Record<ObjectiveStatus, string> = { met: "met", failed: "missed", "on-track": "on track", "at-risk": "at risk" };
+const STATUS_RANK: Record<ObjectiveStatus, number> = { failed: 0, "at-risk": 1, "on-track": 2, met: 3 };
+/** A goal's name in the End bar: "Debt", "Jobless", never lower case. */
+const stripName = (label: string) => {
+  const s = label.replace("Public ", "").replace("Unemployment", "Jobless");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+
+/**
+ * The End bar's goal strip (laptops under 1180 px and phones, where the goals column is out of
+ * sight): each goal's forecast at the quarter that decides it, dated ("Inflation 3.0 by 27Q4",
+ * "Growth low 1.4 in 26Q4"), its status (dot and word), and what the player's moves since the
+ * mission began do to it ("▼ 1.0 pp helps"), as the goal cards read them. Under 760 px only
+ * the goals in trouble show, at most two rows: the rest fold into one line ("2 more on track")
+ * that takes the player to the goals.
+ */
+function EndStrip() {
+  const { mission, config, actual, forecast, clock, statuses } = useTurn();
+  const { untouched } = useUntouched(config, clock, forecast, actual);
+  const reduced = useReducedMotionFlag();
+  const end = mission.quarters;
+  if (clock >= end) return null;
+  const metrics = Array.from(new Set(mission.objectives.map((o) => o.metric)));
+  const rows = metrics.map((metric, order) => {
+    const objectives = mission.objectives.filter((o) => o.metric === metric);
+    const main = objectives.find((o) => !o.bonus) ?? objectives[0];
+    const status: ObjectiveStatus | undefined = main ? statuses[main.id] : undefined;
+    // An every-quarter goal reads its low (or high) point, as its card does; others the end.
+    const deciding = decidingQuarter(main, forecast, clock, end);
+    const q = deciding ? deciding.worst : end;
+    return { metric, order, main, objectives, status, deciding, q, d: goalEffect(main, forecast, untouched, clock, end, metric).d, value: forecast[q][metric] };
+  });
+  const troubled = (r: (typeof rows)[number]) => r.status === "at-risk" || r.status === "failed";
+  // Phones: the goals in trouble, worst first; the strip keeps to two rows.
+  const worst = rows.filter(troubled).sort((a, b) => STATUS_RANK[a.status!] - STATUS_RANK[b.status!] || a.order - b.order);
+  const phone = new Set((worst.length === 2 && rows.length === 2 ? worst : worst.slice(0, 1)).map((r) => r.metric));
+  const folded = rows.filter((r) => !phone.has(r.metric));
+  const foldedTrouble = folded.filter(troubled).length;
+  const foldedOk = folded.length - foldedTrouble;
+  const more = !folded.length
+    ? ""
+    : !phone.size
+      ? folded.length === 2
+        ? "Both goals on track"
+        : folded.length === 1
+          ? `${stripName(GAME_METRICS[folded[0].metric].label)} on track`
+          : `All ${folded.length} goals on track`
+      : [foldedTrouble ? `${foldedTrouble} more in trouble` : "", foldedOk ? `${foldedOk} more on track` : ""].filter(Boolean).join(", ");
+  const toGoals = () => {
+    const col = document.querySelector<HTMLElement>(".game-col-goals");
+    if (!col) return;
+    col.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+    col.querySelector<HTMLElement>(".game-col-title")?.focus({ preventScroll: true });
+  };
+  return (
+    <div className="game-move-strip" aria-label="Your goals: the forecast and what your moves do">
+      {rows.map((r) => {
+        const meta = GAME_METRICS[r.metric];
+        const tone = toneOf(r.main, r.d);
+        return (
+          <span key={r.metric} className={`game-move-strip-item${phone.has(r.metric) ? "" : " is-folded"}`}>
+            {/* The status word goes with the level; the helps/hurts word goes with the move. */}
+            <span className="game-move-strip-level">
+              <b>{stripName(meta.label)}</b>
+              {r.deciding && r.main ? <span className="game-move-strip-at"> {r.main.op === ">=" ? "low" : "high"}</span> : null}{" "}
+              <span className="tabular-nums">
+                <TweenNum value={r.value} digits={meta.digits} />
+              </span>
+              <span className="game-move-strip-at">
+                {" "}
+                {r.deciding ? "in" : "by"} {quarterLabel(r.q).slice(2)}
+              </span>
+              {r.status ? (
+                <>
+                  {" "}
+                  · <span className={`game-status is-${r.status}`}>{STATUS_WORD[r.status]}</span>
+                </>
+              ) : null}
+            </span>
+            {Math.abs(r.d) >= 0.05 ? (
+              <span className={`game-move-strip-d is-${tone}`}>
+                <Glyph name={r.d > 0 ? "up" : "down"} />
+                <TweenNum value={Math.abs(r.d)} digits={meta.digits} />
+                {deltaUnit(meta.unit)} <Valence tone={tone} />
+              </span>
+            ) : null}
+          </span>
+        );
+      })}
+      {more ? (
+        <button type="button" className="game-move-strip-more" onClick={toGoals}>
+          {more} <span aria-hidden="true">↓</span>
+          <span className="sr-only">: show the goals</span>
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/** Whether a move toward the goal helps it (as the goal cards say). */
+function toneOf(o: Objective | undefined, d: number): Tone {
+  if (!o || Math.abs(d) < 0.05) return "neutral";
+  return (o.op === "<=" ? d < 0 : d > 0) ? "good" : "bad";
+}
+
+/** A goal figure that eases to its new value when a lever or the clock moves it. */
+function TweenNum({ value, digits }: { value: number; digits: number }) {
+  return <>{fmtNum(useTween(value), digits)}</>;
 }
 
 /** Shown over the scene slot (map or island) while quarters play by themselves. */
