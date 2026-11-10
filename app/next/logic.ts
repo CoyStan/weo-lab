@@ -105,6 +105,15 @@ export function electionOutlook(mission: Mission, config: ScenarioConfig, clock:
 /** How much an advisor minds a goal that is not theirs (their own count 6). */
 const OTHERS = 0.25;
 
+/**
+ * True while a shock the briefing warned about is still to come. A surprise the briefing never
+ * hinted at stays a surprise: nothing on screen, and no advisor, may give it away.
+ */
+export function shockWarned(mission: Mission, config: ScenarioConfig, clock: number): boolean {
+  if (!/\bwarn|skittish|due for\b/i.test(mission.briefing.join(" "))) return false;
+  return config.shocks.some((x) => isSurprise(x) && x.quarter > clock + 1);
+}
+
 /** Which goals each advisor fights for (as in advisors.ts). */
 const WATCHES: Record<AdvisorId, MetricKey[]> = {
   governor: ["infl", "cred", "rate"],
@@ -214,7 +223,7 @@ export function advisorPlans(mission: Mission, config: ScenarioConfig, actual: Q
   // The staff forecast leaves out shocks that have only been warned about. The mission chief
   // plans for them all the same ("build buffers before the bust"): their plans are also judged
   // on the path where the warned shocks do land.
-  const warned = config.shocks.some((x) => isSurprise(x) && x.quarter > clock + 1);
+  const warned = shockWarned(mission, config, clock);
   const riskOf = (c: ScenarioConfig) => (warned && mission.advisors.includes("chief") ? simulate({ ...knownConfig(c, clock), shocks: c.shocks }).path : null);
   // An election lost on the forecast ends the mission, whatever the goals say.
   const losesVote = (c: ScenarioConfig, path: QuarterState[], events: SimEvent[]) => ledger(mission.politics, c, path, events, end).elections.some((e) => e.quarter > clock && !e.won);

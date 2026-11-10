@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { simulate } from "../model/economy.ts";
 import { MISSIONS, policyForTurn } from "../game/missions.ts";
-import { advisorPlans, advisorRun, forecastOf, goalMetrics, journey, lagCall, moveMenu, moveName, planTitle, shockCall, versus, withChanges } from "./logic.ts";
+import { advisorPlans, advisorRun, forecastOf, goalMetrics, journey, lagCall, moveMenu, moveName, planTitle, shockCall, shockWarned, versus, withChanges } from "./logic.ts";
 
 const m1 = MISSIONS.find((m) => m.id === "first-quarter")!;
 
@@ -128,4 +128,11 @@ test("differences from not moving are worded as differences, and moves are named
   // A setting that is not in force is not part of the move.
   const ruled = { ...policy, rateMode: "rule" as const };
   assert.equal(moveName(ruled, { ...ruled, manualRate: 20, ruleStrength: 2 }), "Your move: make the rate rule tougher (×2.0)");
+});
+
+test("only a shock the briefing warned about is hinted at before it lands", () => {
+  const by = (id: string) => MISSIONS.find((m) => m.id === id)!;
+  assert.equal(shockWarned(by("cost-shock"), by("cost-shock").setup(), 0), false, "the cost shock is a surprise");
+  assert.equal(shockWarned(by("commodity-bust"), by("commodity-bust").setup(), 0), true, "analysts warn of the commodity bust");
+  for (const p of advisorPlans(by("cost-shock"), by("cost-shock").setup(), simulate(by("cost-shock").setup()).path, 0)) assert.equal(p.note, undefined, "no plan gives the surprise away");
 });

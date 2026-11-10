@@ -28,7 +28,7 @@ import Levers from "../game/ui/Levers";
 import Reforms from "../game/ui/Reforms";
 import { sound } from "../game/audio";
 import GoalChart, { EffectBars, useBox, type ChartLine } from "./Chart";
-import { advisorPlans, advisorRun, electionOutlook, goalMetrics, journey, judged, lagCall, moveName, policyIn, shockCall, versus, withChanges, type AdvisorRun, type Call, type Plan } from "./logic";
+import { advisorPlans, advisorRun, electionOutlook, goalMetrics, journey, judged, lagCall, moveName, policyIn, shockCall, shockWarned, versus, withChanges, type AdvisorRun, type Call, type Plan } from "./logic";
 import { setUiMode, useNext } from "./state";
 import "./next.css";
 
@@ -517,7 +517,7 @@ function DecideBeat() {
   const agree = plans.filter((p) => p.advisors.length).length === 1 && mission.advisors.length > 1;
   const noneWins = plans.length > 0 && plans.every((p) => p.effects.some((e) => !e.ok));
   // A shock the briefing warned about may still be on its way: never call such a quarter quiet.
-  const warned = config.shocks.some((x) => x.id.startsWith("surprise") && x.quarter > clock + 1);
+  const warned = shockWarned(mission, config, clock);
 
   return (
     <main className="nx-decide">
