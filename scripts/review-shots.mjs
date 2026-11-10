@@ -17,7 +17,8 @@
 //               a DevTools screencast (CSS transitions slowed where a 200 ms fade must be seen); the
 //               island's moving parts on a virtual clock that the script steps by hand, since
 //               headless WebGL draws only a few frames a second, except the tags' glide to a new
-//               spot, a CSS transition filmed from a screencast with CSS slowed;
+//               spot, a CSS transition filmed from a screencast with CSS slowed. The island films
+//               include the sky clearing while the recap is open and the storm coming back after;
 //   index.md    every file with one line on what it shows, and what the page said when it was
 //               taken (view, quarter, open card); manifest.json holds the same. A last section
 //               names the standard set's island elements this build has no code for (gulls, road
@@ -999,6 +1000,25 @@ job("motion-island-16-briefing-sink", async (name) => {
   const shots = await stepped(page, { clip, frames: 16, step: 100, settle: 300, act: () => cta.evaluate((el) => el.click()) });
   const screen = await page.evaluate(() => (document.querySelector(".game-briefing") ? "the briefing is up" : "no briefing found"));
   await sheet("motion-island-16-briefing-sink.png", ISLG, `Title screen to mission 1's briefing (Play clicked after frame 1; title and briefing cards hidden by the script): the landmarks mission 1 does not use sink into their hexes and their roads narrow away, 100 ms of animation time apart`, shots, { clip, cols: 4, note: screen });
+  await page.context().close();
+});
+
+// While the recap is open the island's sky clears to a light haze (the storm eases down over a
+// second or two), and the storm comes back once the next quarter is planned, if a shock is still
+// in force. Mission 1's island view, the recap card hidden by the script so the sky shows.
+job("motion-island-17-recap-sky", async (name) => {
+  const page = await playIsland(name);
+  await page.waitForTimeout(1500);
+  await hideCards(page);
+  const clip = await boxOf(page, ".game-scene");
+  const end = page.getByRole("button", { name: /^End / }).first();
+  const clears = await stepped(page, { clip, frames: 10, step: 300, settle: 500, slice: 50, act: () => end.click() });
+  const open = await probe(page);
+  await sheet("motion-island-17-recap-sky-clears.png", ISLG, "Mission 1's island view in the food-price storm, rate 10.5%: End clicked after frame 1 and the recap opens (card hidden by the script): the sky clears to a light haze and the rain fades, 300 ms of animation time apart", clears, { clip, cols: 5, note: describe(open) });
+  const plan = page.locator(".game-modal-backdrop button").filter({ hasText: /^Plan / }).first();
+  const back = await stepped(page, { clip, frames: 10, step: 300, slice: 50, act: () => plan.evaluate((el) => el.click()) });
+  const after = await probe(page);
+  await sheet("motion-island-18-plan-storm-returns.png", ISLG, "The same, the recap's Plan clicked after frame 1: the recap closes and the storm comes back while the shock is still in force (any news card that follows hidden too), 300 ms of animation time apart", back, { clip, cols: 5, note: describe(after) });
   await page.context().close();
 });
 
