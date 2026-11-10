@@ -269,7 +269,7 @@ export function Briefing() {
           ) : null}
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="game-brief-cols mt-4 grid gap-3">
           <div>
             <h2 className="game-section">To win</h2>
             <ul className="flex flex-col gap-1 text-(length:--t-sm)">
@@ -314,7 +314,7 @@ export function Briefing() {
                   <tr key={l}>
                     <th scope="row">{LEVER_NAMES[l]}</th>
                     <td>{LEVER_DOES[l]}</td>
-                    <td>free</td>
+                    <td>{l === "imf" ? "3 votes to start" : l === "controls" ? "2 trust to start" : l === "devalue" ? "1 vote, 2 trust" : l === "restructure" ? "3 trust" : "free"}</td>
                   </tr>
                 ))}
                 {mission.politics.institutions.slice(0, 3).map((id) => (
@@ -341,7 +341,7 @@ export function Briefing() {
 
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <button type="button" className="lab-btn lab-btn-ghost lab-btn-md" onClick={() => setScreen("missions")}>All missions</button>
-          <button type="button" className="lab-btn lab-btn-primary lab-btn-md game-cta" onClick={beginPlay} autoFocus>
+          <button type="button" className="lab-btn lab-btn-primary lab-btn-md game-cta" onClick={beginPlay} ref={(el) => { if (el && document.activeElement !== el) el.focus({ preventScroll: true }); }}>
             Take the job
           </button>
         </div>

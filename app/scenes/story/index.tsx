@@ -101,7 +101,7 @@ const COMPACT_H = 600;
 /** The compact map draws at most this many roads (channels); the rest join "and N more pushes". */
 const COMPACT_CHANNELS = 4;
 
-export default function StoryScene() {
+export default function StoryScene({ immediate = false }: { /** Draw at once, even with a card open (the next screen's Why drawer). */ immediate?: boolean }) {
   const { mission, config, clock, actual, forecast, policy, policyStart, events, statuses } = useTurn();
   const turns = useGame((s) => s.turns);
   const start = turns[0] ?? config;
@@ -188,7 +188,7 @@ export default function StoryScene() {
 
   // The cards drop in once the briefing and shock card are out of the way, so the entrance is seen.
   const modal = useGame((s) => s.modal);
-  const [seen, setSeen] = useState(false);
+  const [seen, setSeen] = useState(immediate);
   useEffect(() => {
     if (!modal && !seen) setSeen(true);
   }, [modal, seen]);

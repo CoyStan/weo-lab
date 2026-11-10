@@ -29,6 +29,7 @@ import { PlayIsland, SCENES, setSceneView, toggleSceneView, useMapId, useSceneVi
 import StoryIslandLine from "../../scenes/story/IslandLine";
 import { useStoryShown } from "../../scenes/story/shown";
 import { useReducedMotionFlag } from "../../scene/useSmooth";
+import { setUiMode } from "../../next/state";
 import type { SimEvent } from "../../model/types";
 import { deltaUnit, fmtNum, GAME_METRICS } from "../metrics";
 
@@ -777,6 +778,7 @@ function HudMenu({ clock }: { clock: number }) {
           Sound: {muted ? "off" : "on"}
         </button>
         <MenuHint close={close} />
+        <button type="button" role="menuitem" onClick={() => { close(); setUiMode("next"); }}>Back to the new screen</button>
         <button type="button" role="menuitem" onClick={() => { close(); openSandbox(true); }}>Open in free play</button>
         <button type="button" role="menuitem" onClick={() => { close(); setSettingsOpen(true); }}>Settings</button>
         <button type="button" role="menuitem" onClick={() => setScreen("missions")}>All missions</button>

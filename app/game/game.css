@@ -211,8 +211,15 @@
 }
 
 .game-briefing {
-  width: min(100%, 46rem);
+  width: min(100%, 56rem);
   margin: auto 0;
+}
+/* Goals and advisors beside the tools table; the table gets the wider column so it reads in sentences. */
+@media (min-width: 640px) {
+  .game-brief-cols {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    column-gap: 1.5rem;
+  }
 }
 
 .game-section {
@@ -4285,8 +4292,13 @@ html:not(.is-kbd) .game button:focus-visible {
 }
 .game-tools td:last-child,
 .game-tools th:last-child {
+  /* The cost column takes only what it needs, so "What it does" keeps the room to read. */
+  width: 1%;
   padding-right: 0;
   white-space: nowrap;
+}
+.game-tools tbody th {
+  width: 30%;
 }
 .game-tools-more,
 .game-capital-note {

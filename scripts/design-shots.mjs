@@ -37,7 +37,7 @@ const server = createServer((req, res) => {
 });
 await new Promise((r) => server.listen(0, r));
 // SCENE=<id> in the environment shoots a scene concept (?scene=<id>, see app/scenes/registry.tsx).
-const query = new URLSearchParams({ ...(themeId ? { theme: themeId } : {}), ...(process.env.SCENE ? { scene: process.env.SCENE } : {}) }).toString();
+const query = new URLSearchParams({ ui: "classic", ...(themeId ? { theme: themeId } : {}), ...(process.env.SCENE ? { scene: process.env.SCENE } : {}) }).toString();
 const url = `http://localhost:${server.address().port}/${query ? `?${query}` : ""}`;
 
 const browser = await chromium.launch();
