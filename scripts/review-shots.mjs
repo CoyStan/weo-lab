@@ -16,16 +16,20 @@
 //   motion-*    contact sheets. The map and the Map / Island control are filmed in real time from
 //               a DevTools screencast (CSS transitions slowed where a 200 ms fade must be seen); the
 //               island's moving parts on a virtual clock that the script steps by hand, since
-//               headless WebGL draws only a few frames a second;
+//               headless WebGL draws only a few frames a second, except the tags' glide to a new
+//               spot, a CSS transition filmed from a screencast with CSS slowed;
 //   index.md    every file with one line on what it shows, and what the page said when it was
-//               taken (view, quarter, open card); manifest.json holds the same.
+//               taken (view, quarter, open card); manifest.json holds the same. A last section
+//               names the standard set's island elements this build has no code for (gulls, road
+//               traffic), so their absence is stated rather than silently skipped.
 //
 // Env: ONLY=<regex> runs only the jobs whose names match (index.md keeps the files of earlier
 // runs into the same folder); JOBS=<n> runs that many jobs at once (default 2; the real-time
 // films always run alone, so the load does not change what they show).
 
+import { execFileSync } from "node:child_process";
 import { createServer } from "node:http";
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { extname, join, resolve } from "node:path";
 
@@ -65,7 +69,7 @@ const GROUPS = [
   ["mission", "Missions 2, 4 and 6: budget and currency levers moved (map view)"],
   ["backdrop", "The island as backdrop: title screen and free play"],
   ["motion-map", "Motion: the map and the Map / Island control (real time)"],
-  ["motion-island", "Motion: the island's moving parts (virtual clock)"],
+  ["motion-island", "Motion: the island's moving parts (virtual clock; the tag glide in real time)"],
 ];
 const manifestPath = join(outDir, "manifest.json");
 const manifest = new Map(existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, "utf8")).map((e) => [e.file, e]) : []);
@@ -80,7 +84,7 @@ function record(file, group, what, note = "") {
 function writeIndex() {
   const entries = [...manifest.values()];
   writeFileSync(manifestPath, JSON.stringify(entries, null, 2));
-  const lines = ["# Review shots", "", `Taken by scripts/review-shots.mjs from out/ (built from git ${gitHead()}). Square brackets: what the page said when the file was taken.`, ""];
+  const lines = ["# Review shots", "", `Taken by scripts/review-shots.mjs from out/ (${provenance()}). Square brackets: what the page said when the file was taken.`, ""];
   for (const [id, title] of GROUPS) {
     const rows = entries.filter((e) => e.group === id).sort((a, b) => a.file.localeCompare(b.file, "en", { numeric: true }));
     if (!rows.length) continue;
@@ -88,21 +92,43 @@ function writeIndex() {
     for (const e of rows) lines.push(`- \`${e.file}\`: ${e.what}${e.note ? ` [${e.note}]` : ""}`);
     lines.push("");
   }
+  const absent = absentFromBuild();
+  if (absent.length) {
+    lines.push("## In the standard set, not in this build", "");
+    for (const a of absent) lines.push(`- ${a}`);
+    lines.push("");
+  }
   writeFileSync(join(outDir, "index.md"), lines.join("\n"));
 }
 
-function gitHead() {
+const git = (...args) => {
   try {
-    const head = readFileSync(resolve(".git/HEAD"), "utf8").trim();
-    if (!head.startsWith("ref: ")) return head.slice(0, 7);
-    const ref = head.slice(5);
-    const loose = resolve(".git", ref);
-    if (existsSync(loose)) return readFileSync(loose, "utf8").trim().slice(0, 7);
-    const packed = readFileSync(resolve(".git/packed-refs"), "utf8").split("\n").find((l) => l.endsWith(` ${ref}`));
-    return packed ? packed.slice(0, 7) : "unknown";
+    return execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch {
-    return "unknown";
+    return "";
   }
+};
+
+/** What the shots were taken from: the checkout's commit, whether app/ differs from it, and when out/ was built. */
+function provenance() {
+  const head = git("rev-parse", "--short", "HEAD") || "unknown";
+  const branch = git("rev-parse", "--abbrev-ref", "HEAD");
+  const dirty = git("status", "--porcelain", "--", "app", "public");
+  const built = statSync(join(root, "index.html")).mtime.toISOString().replace(/\.\d+Z$/, "Z");
+  return `checkout at ${head}${branch && branch !== "HEAD" ? ` on ${branch}` : ""}${dirty ? ", with uncommitted changes in app/ or public/" : ", app/ and public/ as committed"}; out/index.html written ${built}`;
+}
+
+/**
+ * The standard set asks for gulls and road traffic on the island. Say so when the island's code
+ * has none, so a missing film reads as "not in the build", not as a film that was skipped.
+ */
+function absentFromBuild() {
+  const dirs = ["app/scene", "app/scenes/story"].map((d) => resolve(d)).filter((d) => existsSync(d));
+  const src = dirs.flatMap((d) => readdirSync(d).filter((f) => /\.(tsx?|css)$/.test(f)).map((f) => readFileSync(join(d, f), "utf8"))).join("\n");
+  const out = [];
+  if (!/gull/i.test(src)) out.push("Gulls: no code in app/scene or app/scenes/story mentions gulls (they were removed in round 1, commit 78a38e9), so there is nothing to film.");
+  if (!/traffic/i.test(src)) out.push("Road traffic: no code in app/scene or app/scenes/story mentions traffic (removed in round 1, commit 78a38e9); the roads only lay out or narrow away as landmarks rise or sink (`motion-island-16-*`).");
+  return out;
 }
 
 // ---- Pages -------------------------------------------------------------------------------
@@ -299,6 +325,15 @@ async function slowCss(page, rate) {
  * at i * every ms (the last frame the page painted by then; its caption says how old it was).
  */
 async function cast(page, { frames, every, act, lead = 500 }) {
+  const { got, t0, took } = await screencast(page, { ms: frames * every + 600, act, lead });
+  const out = pick(got, Array.from({ length: frames }, (_, i) => t0 + i * every), every, t0);
+  // How long the key press or tap took to return: the page may only react once it has.
+  if (act) out[0].note += ` · the action returned after ${took} ms`;
+  return out;
+}
+
+/** Every frame a DevTools screencast sends for `ms` after `act` starts (t0, wall clock). */
+async function screencast(page, { ms, act, lead = 500 }) {
   const cdp = await page.context().newCDPSession(page);
   const got = [];
   cdp.on("Page.screencastFrame", (f) => {
@@ -310,21 +345,21 @@ async function cast(page, { frames, every, act, lead = 500 }) {
   const t0 = Date.now();
   if (act) await act();
   const took = Date.now() - t0;
-  await page.waitForTimeout(Math.max(0, frames * every + 600 - took));
+  await page.waitForTimeout(Math.max(0, ms - took));
   await cdp.send("Page.stopScreencast");
   await cdp.detach().catch(() => {});
   if (!got.length) throw new Error("the screencast sent no frames");
-  const out = [];
-  for (let i = 0; i < frames; i++) {
-    const at = t0 + i * every;
+  return { got, t0, took };
+}
+
+/** For each wall-clock time, the last frame painted by then; captions in ms from `zero`. */
+function pick(got, times, every, zero) {
+  return times.map((at) => {
     let best = got[0];
     for (const s of got) if (s.t <= at) best = s;
     const age = Math.max(0, Math.round(at - best.t));
-    out.push({ src: `data:image/jpeg;base64,${best.data}`, full: { width: best.w, height: best.h }, note: `${i * every} ms${age > every ? ` · last paint ${age} ms before` : ""}` });
-  }
-  // How long the key press or tap took to return: the page may only react once it has.
-  if (act) out[0].note += ` · the action returned after ${took} ms`;
-  return out;
+    return { src: `data:image/jpeg;base64,${best.data}`, full: { width: best.w, height: best.h }, note: `${Math.round(at - zero)} ms${age > every ? ` · last paint ${age} ms before` : ""}` };
+  });
 }
 
 /**
@@ -872,6 +907,98 @@ job("motion-island-14-reduced", async (name) => {
   const clip = await boxOf(page, ".lab-scene");
   const shots = await stepped(page, { clip, frames: 4, step: 4000, settle: 12000, slice: 250 });
   await sheet("motion-island-14-reduced.png", ISLG, "Reduced motion, free-play overview, 4 s of animation time apart from 12 s: nothing should move (no beams sweeping, smoke, clouds or camera turn)", shots, { clip, cols: 4 });
+  await page.context().close();
+});
+
+// The tags: when the tag layer moves a tag to another spot round its building it glides there
+// (a 200 ms CSS transition on its offset), and a tag with no room fades out. The idle turn in
+// free play moves tags every few seconds: film it in real time with CSS slowed 10x, log every
+// spot change from the page (the layer keeps each tag's spot on its element), and lay out the
+// frames round the first change, cropped to that tag.
+job(
+  "motion-island-15-tag-glide",
+  async (name) => {
+    const page = await open(name, { noHint: true });
+    await page.goto(`${base}?mode=sandbox`);
+    // The idle turn starts once the canvas has been left alone for 10 s and eases in over 2 s.
+    await page.waitForTimeout(12000);
+    await page.evaluate(() => {
+      const moves = [];
+      window.__tagMoves = moves;
+      const layer = document.querySelector(".lab-label-layer");
+      if (!layer) throw new Error("no tag layer");
+      const read = (el) => ({ spot: el.__islSpot ?? -1, x: parseFloat(el.style.getPropertyValue("--x")) || 0, y: parseFloat(el.style.getPropertyValue("--y")) || 0, off: el.hasAttribute("data-off") });
+      const state = new Map();
+      for (const el of layer.querySelectorAll(".isl-pin")) state.set(el, read(el));
+      new MutationObserver((list) => {
+        const t = Date.now();
+        for (const m of list) {
+          const el = m.target;
+          if (!(el instanceof HTMLElement) || !el.classList.contains("isl-pin")) continue;
+          const prev = state.get(el);
+          const now = read(el);
+          state.set(el, now);
+          if (!prev || (prev.spot === now.spot && prev.off === now.off)) continue;
+          const tag = el.children[1];
+          const a = el.getBoundingClientRect();
+          moves.push({ t, name: el.querySelector(".isl-tag-name")?.textContent?.trim() ?? "?", from: prev, to: now, ax: a.left, ay: a.top, w: tag?.offsetWidth ?? 0, h: tag?.offsetHeight ?? 0 });
+        }
+      }).observe(layer, { attributes: true, attributeFilter: ["style", "data-off"], subtree: true });
+    });
+    const canvas = await boxOf(page, ".lab-scene");
+    const slow = await slowCss(page, 0.1);
+    const ms = 24000;
+    const { got, t0 } = await screencast(page, { ms });
+    await slow.detach().catch(() => {});
+    const moves = await page.evaluate(() => window.__tagMoves);
+    const glides = moves.filter((m) => !m.from.off && !m.to.off && m.from.spot >= 0);
+    const fades = moves.length - glides.length;
+    const tally = `${glides.length} spot change${glides.length === 1 ? "" : "s"} and ${fades} tag${fades === 1 ? "" : "s"} hidden or shown in ${ms / 1000} s of the idle turn, logged from the page`;
+    const first = glides.find((m) => m.t >= t0 + 600 && m.t <= t0 + ms - 2800);
+    if (!first) {
+      const shots = pick(got, Array.from({ length: 8 }, (_, i) => t0 + i * 3000), 3000, t0);
+      await sheet("motion-island-15-tag-glide.png", ISLG, `Free-play overview on its idle turn, CSS slowed 10x, 3 s apart: no tag changed spot in a part of the film that could be shown (${tally})`, shots, { clip: canvas, cols: 4 });
+    } else {
+      // The tag before and after, round the building's anchor, padded and kept on the canvas.
+      const xs = [first.ax, first.ax + first.from.x, first.ax + first.from.x + first.w, first.ax + first.to.x, first.ax + first.to.x + first.w];
+      const ys = [first.ay, first.ay + first.from.y, first.ay + first.from.y + first.h, first.ay + first.to.y, first.ay + first.to.y + first.h];
+      const pad = 80;
+      const w = Math.min(canvas.width, Math.max(400, Math.max(...xs) - Math.min(...xs) + 2 * pad));
+      const h = Math.min(canvas.height, Math.max(240, Math.max(...ys) - Math.min(...ys) + 2 * pad));
+      const cx = (Math.max(...xs) + Math.min(...xs)) / 2;
+      const cy = (Math.max(...ys) + Math.min(...ys)) / 2;
+      const clip = {
+        x: Math.round(Math.min(Math.max(canvas.x, cx - w / 2), canvas.x + canvas.width - w)),
+        y: Math.round(Math.min(Math.max(canvas.y, cy - h / 2), canvas.y + canvas.height - h)),
+        width: Math.round(w),
+        height: Math.round(h),
+      };
+      const shots = pick(got, Array.from({ length: 12 }, (_, i) => first.t - 500 + i * 250), 250, first.t);
+      const move = `"${first.name}" from (${first.from.x}, ${first.from.y}) to (${first.to.x}, ${first.to.y}) px off its building`;
+      await sheet("motion-island-15-tag-glide.png", ISLG, `A tag gliding to a new spot: free-play overview on its idle turn, real time with CSS slowed 10x (the 200 ms glide runs 2 s; the camera turns at its usual pace), cropped to the tag; 0 ms is when the tag layer moved ${move}, 250 ms apart (${tally})`, shots, { clip, cols: 4 });
+      // The same moment on the whole canvas, to see where the tag sits.
+      const wide = pick(got, [first.t - 500, first.t + 1000, first.t + 2500], 250, first.t);
+      await sheet("motion-island-15-tag-glide-wide.png", ISLG, `The same spot change on the whole canvas: before, mid-glide and after (CSS slowed 10x)`, wide, { clip: canvas, cols: 3 });
+    }
+    await page.context().close();
+  },
+  true,
+);
+
+// A mission's island shows only what the mission is about: on the briefing the landmarks
+// mission 1 does not need sink into their hexes and their roads narrow away (0.7 s).
+job("motion-island-16-briefing-sink", async (name) => {
+  const page = await open(name, { vclock: true });
+  await page.goto(base);
+  await page.waitForTimeout(5000);
+  // The title and briefing cards hidden (script CSS only), so the island behind them shows.
+  await page.addStyleTag({ content: ".game-backdrop > :not(.game-backdrop-scene) { visibility: hidden !important; }" });
+  const clip = await boxOf(page, ".game-backdrop-scene");
+  // The hidden button is out of the accessibility tree: click it from the page.
+  const cta = page.locator(".game-cta").first();
+  const shots = await stepped(page, { clip, frames: 16, step: 100, settle: 300, act: () => cta.evaluate((el) => el.click()) });
+  const screen = await page.evaluate(() => (document.querySelector(".game-briefing") ? "the briefing is up" : "no briefing found"));
+  await sheet("motion-island-16-briefing-sink.png", ISLG, `Title screen to mission 1's briefing (Play clicked after frame 1; title and briefing cards hidden by the script): the landmarks mission 1 does not use sink into their hexes and their roads narrow away, 100 ms of animation time apart`, shots, { clip, cols: 4, note: screen });
   await page.context().close();
 });
 
