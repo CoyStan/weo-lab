@@ -116,9 +116,14 @@ export default function GoalChart({
   for (let t = 0; t <= end; t++) ghostTarget.push(ghost ? (t <= clock ? actual[t] : ghost[t])[metric] : lineTarget[t]);
 
   // The scale is eased with the lines, so a big move never snaps the axis.
-  const all = [...lineTarget, ...ghostTarget, ...objectives.map((o) => o.threshold), ...extra.flatMap((x) => x.values.slice(0, end + 1))];
-  const rawLo = Math.min(...all);
-  const rawHi = Math.max(...all);
+  const all = [...lineTarget, ...ghostTarget, ...objectives.map((o) => o.threshold)];
+  const mainLo = Math.min(...all);
+  const mainHi = Math.max(...all);
+  // Comparison lines may widen the scale, but only so far: a path that ran off a cliff must not flatten the player's own.
+  const reach = Math.max(mainHi - mainLo, meta.digits === 0 ? 20 : 1) * 0.35;
+  const others = extra.flatMap((x) => x.values.slice(0, end + 1));
+  const rawLo = Math.max(mainLo - reach, Math.min(mainLo, ...others));
+  const rawHi = Math.min(mainHi + reach, Math.max(mainHi, ...others));
   const step = niceStep(Math.max(rawHi - rawLo, meta.digits === 0 ? 20 : 1), compact ? 3 : 4);
   const loT = Math.floor((rawLo - step * 0.15) / step) * step;
   const hiT = Math.ceil((rawHi + step * 0.15) / step) * step;
@@ -234,9 +239,14 @@ export default function GoalChart({
             );
           })}
 
-          {extra.map((ex) => (
-            <path key={ex.label} d={pathOf(ex.values, 0, end)} className={`nx-extra is-${ex.tone}`} />
-          ))}
+          <clipPath id={`${uid}-plot`}>
+            <rect x={PAD.l - 2} y={PAD.t - 2} width={Math.max(0, W - PAD.l - PAD.r + 4)} height={Math.max(0, H - PAD.t - PAD.b + 4)} />
+          </clipPath>
+          <g clipPath={`url(#${uid}-plot)`}>
+            {extra.map((ex) => (
+              <path key={ex.label} d={pathOf(ex.values, 0, end)} className={`nx-extra is-${ex.tone}`} />
+            ))}
+          </g>
 
           {moved ? <path d={wedge} className="nx-wedge" /> : null}
           {moved ? <path d={pathOf(ghostLine, now, end)} className="nx-ghost" /> : null}

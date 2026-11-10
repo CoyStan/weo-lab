@@ -30,7 +30,7 @@ The classic play screen shows everything at once. This one walks each quarter in
 
 ## How the advisors choose
 
-Each quarter every advisor picks, from a menu of single moves and pairs on the unlocked levers, the one that scores best on the staff forecast. Everyone wants the mission won; each weighs their own goals more, likes some room to spare on them, and prefers smaller moves. They never back a plan that loses an election on the forecast. The mission chief also judges plans on the path where shocks that were only warned about do land, which is why that advice differs in calm quarters.
+Each quarter every advisor picks, from a menu of single moves and pairs on the unlocked levers, the one that scores best on the staff forecast. Each argues their own corner: their own goals count far more than anyone else's, they like some room to spare on them, and they prefer smaller moves. So their plans can break a goal that is not theirs (the plan card shows it with a ✕), and the player has to weigh them. They never back a plan that loses an election on the forecast. The mission chief also judges plans on the path where shocks that were only warned about do land, which is why that advice differs in calm quarters.
 
 They are advisors, not oracles: the debrief replays the mission backing each one every quarter, and some of them lose.
 
