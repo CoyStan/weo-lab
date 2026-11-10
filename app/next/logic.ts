@@ -12,7 +12,7 @@ import { policyAt, quarterLabel, simulate } from "../model/economy.ts";
 import { getPreset } from "../model/presets.ts";
 import type { Policy, QuarterState, ScenarioConfig, ScheduledShock, SimEvent } from "../model/types.ts";
 import { SHOCKS } from "../model/shocks.ts";
-import { knownConfig, missionOutcome, policyForTurn, yearQuarters, yearValue, type AdvisorId, type LeverId, type MetricKey, type Mission, type Objective, type Outcome } from "../game/missions.ts";
+import { isSurprise, knownConfig, missionOutcome, policyForTurn, yearQuarters, yearValue, type AdvisorId, type LeverId, type MetricKey, type Mission, type Objective, type Outcome } from "../game/missions.ts";
 import { affordable, ledger } from "../game/politics.ts";
 
 export const trim = (v: number, d = 2) => v.toFixed(d).replace(/\.?0+$/, "");
@@ -80,6 +80,8 @@ export type Plan = {
   hold: boolean;
   /** Where each primary goal lands under the plan, next to where it lands if nothing changes. */
   effects: PlanEffect[];
+  /** Set when the plan guards against a shock the staff forecast leaves out. */
+  note?: string;
 };
 
 /** Which goals each advisor fights for (as in advisors.ts). */
@@ -112,7 +114,7 @@ export function moveMenu(policy: Policy, unlocked: Set<LeverId>): Move[] {
     for (const v of [0.6, 1, 1.5, 2, 2.5]) if (Math.abs(v - policy.ruleStrength) > 0.05) out.push({ lever: "rule", changes: { ruleStrength: v }, size: Math.abs(v - policy.ruleStrength) * 2 });
   }
   if (unlocked.has("fiscal")) {
-    for (const d of [-1, -0.5, 0.5, 1]) {
+    for (const d of [-1, -0.5, 0.5, 1, 2, 3]) {
       const v = Math.min(3, Math.max(-2, policy.fiscalAdjustment + d));
       if (v !== policy.fiscalAdjustment) out.push({ lever: "fiscal", changes: { fiscalAdjustment: v }, size: Math.abs(d) * 2 });
     }
@@ -157,7 +159,7 @@ export function planTitle(policy: Policy, changes: Partial<Policy>): string {
   if (changes.fxIntervention !== undefined && changes.fxRegime === undefined) parts.push(changes.fxIntervention === 0 ? "Stop selling reserves" : `Meet ${Math.round(changes.fxIntervention)}% of currency pressure from reserves`);
   if (changes.capitalControls !== undefined) parts.push(changes.capitalControls ? "Slow money leaving (capital flow measures)" : "Lift capital flow measures");
   if (!parts.length) return "Hold steady";
-  const s = parts.join(", ");
+  const s = parts.map((x, i) => (i ? x.charAt(0).toLowerCase() + x.slice(1) : x)).join(" and ");
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
@@ -185,16 +187,21 @@ export function advisorPlans(mission: Mission, config: ScenarioConfig, actual: Q
   const policy = policyForTurn(config, clock);
   const end = mission.quarters;
   const base = forecastOf(config, clock);
-  type Candidate = { move: Move | null; path: QuarterState[]; events: SimEvent[]; lostVote: boolean };
+  type Candidate = { move: Move | null; path: QuarterState[]; events: SimEvent[]; lostVote: boolean; risk: QuarterState[] | null };
+  // The staff forecast leaves out shocks that have only been warned about. The mission chief
+  // plans for them all the same ("build buffers before the bust"): their plans are also judged
+  // on the path where the warned shocks do land.
+  const warned = config.shocks.some((x) => isSurprise(x) && x.quarter > clock + 1);
+  const riskOf = (c: ScenarioConfig) => (warned && mission.advisors.includes("chief") ? simulate({ ...knownConfig(c, clock), shocks: c.shocks }).path : null);
   // An election lost on the forecast ends the mission, whatever the goals say.
   const losesVote = (c: ScenarioConfig, path: QuarterState[], events: SimEvent[]) => ledger(mission.politics, c, path, events, end).elections.some((e) => e.quarter > clock && !e.won);
   const held = simulate(knownConfig(config, clock));
-  const candidates: Candidate[] = [{ move: null, path: base, events: held.events, lostVote: losesVote(config, held.path, held.events) }];
+  const candidates: Candidate[] = [{ move: null, path: base, events: held.events, lostVote: losesVote(config, held.path, held.events), risk: riskOf(config) }];
   for (const move of moveMenu(policy, new Set(mission.unlocks))) {
     const next = withChanges(config, quarter, move.changes);
     const result = simulate(knownConfig(next, clock));
     if (!affordable(mission.politics, next, result.path, result.events, end).ok) continue;
-    candidates.push({ move, path: result.path, events: result.events, lostVote: losesVote(next, result.path, result.events) });
+    candidates.push({ move, path: result.path, events: result.events, lostVote: losesVote(next, result.path, result.events), risk: riskOf(next) });
   }
   const lowOf = (path: QuarterState[]) => {
     let low = path[Math.min(quarter, end)];
@@ -208,6 +215,7 @@ export function advisorPlans(mission: Mission, config: ScenarioConfig, actual: Q
       const mine = WATCHES[advisor].includes(o.metric);
       s += m * (o.bonus ? (mine ? 1 : 0.2) : mine ? 6 : 2);
     }
+    if (advisor === "chief" && c.risk) for (const o of mission.objectives) if (!o.bonus) s += (4 * miss(o, mission, actual, c.risk, clock)) / SCALE[o.metric];
     for (const rule of mission.fail) {
       if ("event" in rule) {
         if (c.events.some((e) => e.title === rule.event && e.quarter <= end)) s += 40;
@@ -233,6 +241,30 @@ export function advisorPlans(mission: Mission, config: ScenarioConfig, actual: Q
     s += 0.05 * (c.move?.size ?? 0);
     return s;
   };
+  // Two moves at once: each advisor's three best single moves on different levers, paired up.
+  const singles = candidates.filter((c) => c.move);
+  const seenPairs = new Set<string>();
+  for (const advisor of mission.advisors) {
+    const top: Candidate[] = [];
+    for (const c of [...singles].sort((a, b) => score(advisor, a) - score(advisor, b))) {
+      if (top.length < 3 && !top.some((t) => t.move!.lever === c.move!.lever)) top.push(c);
+    }
+    for (let i = 0; i < top.length; i++) {
+      for (let j = i + 1; j < top.length; j++) {
+        const a = top[i].move!;
+        const b = top[j].move!;
+        if (a.lever === "imf" || b.lever === "imf") continue; // a programme already sets the budget
+        const changes = { ...a.changes, ...b.changes };
+        const key = JSON.stringify(Object.entries(changes).sort());
+        if (seenPairs.has(key)) continue;
+        seenPairs.add(key);
+        const next = withChanges(config, quarter, changes);
+        const result = simulate(knownConfig(next, clock));
+        if (!affordable(mission.politics, next, result.path, result.events, end).ok) continue;
+        candidates.push({ move: { lever: a.lever, changes, size: a.size + b.size }, path: result.path, events: result.events, lostVote: losesVote(next, result.path, result.events), risk: riskOf(next) });
+      }
+    }
+  }
   const plans: Plan[] = [];
   for (const advisor of mission.advisors) {
     let best = candidates[0];
@@ -248,7 +280,10 @@ export function advisorPlans(mission: Mission, config: ScenarioConfig, actual: Q
     const key = JSON.stringify(changes);
     const same = plans.find((p) => JSON.stringify(p.changes) === key);
     if (same) same.advisors.push(advisor);
-    else plans.push({ advisors: [advisor], title: planTitle(policy, changes), changes, hold: !best.move, effects: effectsOf(mission, actual, best.path, base, clock) });
+    else {
+      const guards = advisor === "chief" && warned && Boolean(best.move) && candidates[0].risk !== null && mission.objectives.some((o) => !o.bonus && miss(o, mission, actual, candidates[0].risk!, clock) > miss(o, mission, actual, best.risk!, clock) + 1e-6);
+      plans.push({ advisors: [advisor], title: planTitle(policy, changes), changes, hold: !best.move, effects: effectsOf(mission, actual, best.path, base, clock), ...(guards ? { note: "A buffer against the shock analysts warn about, which the staff forecast leaves out." } : {}) });
+    }
   }
   return plans;
 }
@@ -267,6 +302,10 @@ export type Journey = {
   peakT: number;
   /** Effect at the mission's end. */
   end: number;
+  /** The quarter the effect grows fastest: when the move "bites". */
+  biteT: number;
+  /** True when the effect is still growing as the mission ends, so the peak shown is only the last quarter. */
+  building: boolean;
 };
 
 /** What the player's changes do to a metric over time: the forecast minus the same forecast without them. */
@@ -279,7 +318,18 @@ export function journey(metric: MetricKey, forecast: QuarterState[], base: Quart
     series.push(d);
     if (Math.abs(d) > Math.abs(series[peakT - from])) peakT = t;
   }
-  return { metric, series, from, next: series[0] ?? 0, peak: series[peakT - from] ?? 0, peakT, end: series[series.length - 1] ?? 0 };
+  let biteT = from;
+  let step = Math.abs(series[0] ?? 0);
+  for (let i = 1; i < series.length; i++) {
+    const d = Math.abs(series[i] - series[i - 1]);
+    if (d > step + 1e-9) {
+      step = d;
+      biteT = from + i;
+    }
+  }
+  const n = series.length;
+  const building = peakT === end && n >= 2 && Math.abs(series[n - 1]) > Math.abs(series[n - 2]) * 1.03;
+  return { metric, series, from, next: series[0] ?? 0, peak: series[peakT - from] ?? 0, peakT, end: series[n - 1] ?? 0, biteT, building };
 }
 
 // ---- Call it ------------------------------------------------------------------------
@@ -311,7 +361,9 @@ export function shockCall(mission: Mission, config: ScenarioConfig, actual: Quar
   const hold = forecastOf(config, clock);
   const now = actual[clock][metric];
   const then = hold[t][metric];
-  const band = BAND[metric];
+  // "About the same" must never hide a move that eats most of the room left to a goal.
+  const goal = mission.objectives.find((o) => o.metric === metric && !o.bonus);
+  const band = goal ? Math.max(0.05, Math.min(BAND[metric], 0.4 * Math.abs(now - goal.threshold))) : BAND[metric];
   const answer = then > now + band ? "higher" : then < now - band ? "lower" : "same";
   const unit = UNIT[metric] ?? "";
   const digits = metric === "spread" ? 0 : 1;
@@ -321,7 +373,7 @@ export function shockCall(mission: Mission, config: ScenarioConfig, actual: Quar
     for (let q = clock + 1; q <= t; q++) if (Math.abs(hold[q][metric] - now) > Math.abs(hold[p][metric] - now)) p = q;
     return p;
   })();
-  const path = `${NOUN[metric]} goes from ${now.toFixed(digits)}${unit} today to ${hold[peakT][metric].toFixed(digits)}${unit} in ${quarterLabel(peakT)}${peakT === t ? "" : `, and is at ${then.toFixed(digits)}${unit} by ${quarterLabel(t)}`}`;
+  const path = `${NOUN[metric]} ${metric === "reserves" || metric === "gfn" ? "go" : "goes"} from ${now.toFixed(digits)}${unit} today to ${hold[peakT][metric].toFixed(digits)}${unit} in ${quarterLabel(peakT)}${peakT === t ? "" : `, and is at ${then.toFixed(digits)}${unit} by ${quarterLabel(t)}`}`;
   return {
     id: `shock:${shock.id}`,
     kind: "shock",
@@ -336,50 +388,72 @@ export function shockCall(mission: Mission, config: ScenarioConfig, actual: Quar
   };
 }
 
+/** Stocks pile up for as long as a flow runs, so "when does it bite" has no honest answer for them. */
+const STOCKS: MetricKey[] = ["reserves", "debt"];
+
+/** "0.07 pp lower" / "1.2 pp higher": a difference from not moving, never a change over time. */
+export function versus(v: number, digits: number, unit: string): string {
+  const a = Math.abs(v);
+  const d = a < 0.095 && digits === 1 ? 2 : digits;
+  if (a < 0.5 * Math.pow(10, -d)) return "no different";
+  return `${a.toFixed(d)}${unit} ${v > 0 ? "higher" : "lower"}`;
+}
+
 /**
- * After the player moves a lever: "when does this hit hardest?" The answer is
- * the quarter where the forecast with the move is furthest from the forecast without it.
+ * After the player moves a lever: "when does this bite?" The answer is the
+ * quarter in which the gap between the forecast with the move and the forecast
+ * without it grows fastest. (Not the quarter the gap is widest: an effect that
+ * is still building is widest in whatever quarter the mission happens to end.)
  */
 export function lagCall(mission: Mission, forecast: QuarterState[], base: QuarterState[], clock: number, moveName: string): Call | null {
   const end = mission.quarters;
   if (end - clock < 5) return null;
   let best: Journey | null = null;
   for (const metric of goalMetrics(mission)) {
-    if (!NOUN[metric]) continue;
+    if (!NOUN[metric] || STOCKS.includes(metric)) continue;
     const j = journey(metric, forecast, base, clock, end);
     if (Math.abs(j.peak) / SCALE[metric] < 0.15) continue;
     if (!best || Math.abs(j.peak) / SCALE[metric] > Math.abs(best.peak) / SCALE[best.metric]) best = j;
   }
   if (!best) return null;
-  const ahead = best.peakT - clock;
-  const answer = ahead <= 1 ? "now" : ahead <= 3 ? "soon" : "later";
+  const after = best.biteT - (clock + 1);
+  const answer = after <= 0 ? "now" : after <= 2 ? "soon" : "later";
   const digits = best.metric === "spread" ? 0 : 1;
-  const unit = best.metric === "spread" ? " bp" : best.metric === "reserves" ? " months" : " pp";
-  const sign = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(Math.abs(v) < 0.1 && digits === 1 ? 2 : digits)}${unit}`;
+  const unit = best.metric === "spread" ? " bp" : " pp";
+  const noun = NOUN[best.metric]!;
+  const when = after <= 0 ? "this very quarter" : `in ${quarterLabel(best.biteT)}, ${after} quarter${after === 1 ? "" : "s"} after this one`;
+  const tail = best.building
+    ? `It is still building when the mission ends (${versus(best.end, digits, unit)} by ${quarterLabel(end)}).`
+    : `It is at its widest in ${quarterLabel(best.peakT)} (${versus(best.peak, digits, unit)}).`;
   return {
-    id: `lag:${best.metric}`,
+    id: `lag:${best.metric}:${clock}`,
     kind: "lag",
-    prompt: `${moveName}. When will ${NOUN[best.metric]} feel it most?`,
+    prompt: `${moveName}. When will ${noun} feel it most sharply?`,
     options: [
       { id: "now", label: "Right away, this quarter" },
-      { id: "soon", label: "In about half a year" },
-      { id: "later", label: "A year or more from now" },
+      { id: "soon", label: "In the next quarter or two" },
+      { id: "later", label: "Three or more quarters from now" },
     ],
     answer,
-    reveal: `It moves ${NOUN[best.metric]} by ${sign(best.next)} this quarter and by ${sign(best.peak)} at its strongest, in ${quarterLabel(best.peakT)}: ${ahead} quarter${ahead === 1 ? "" : "s"} from now.`,
+    reveal: `Against not moving, ${noun} is ${versus(best.next, digits, unit)} this quarter. The gap grows fastest ${when}. ${tail}`,
   };
 }
 
-/** A short name for what changed this turn ("Your rate hike to 10.5%"), for prompts and captions. */
+/** A short name for what changed this turn ("You raised the rate to 10.5%"), for prompts and captions. */
 export function moveName(before: Policy, after: Policy): string {
   const changes: Partial<Policy> = {};
   for (const k of Object.keys(after) as (keyof Policy)[]) if (after[k] !== before[k]) (changes as Record<string, unknown>)[k] = after[k];
-  if (!Object.keys(changes).length) return "You held policy";
   const keys = Object.keys(changes);
-  if (keys.length === 1 && changes.manualRate !== undefined) return `You ${changes.manualRate > before.manualRate ? "raised" : "cut"} the rate to ${trim(changes.manualRate)}%`;
+  if (!keys.length) return "You held policy";
+  if (keys.length === 1 && changes.manualRate !== undefined) {
+    // Behind a peg the lever is a floor under the rate, not the rate itself.
+    if (after.fxRegime === "peg") return `You ${changes.manualRate > before.manualRate ? "raised" : "lowered"} the rate floor to ${trim(changes.manualRate)}%`;
+    return `You ${changes.manualRate > before.manualRate ? "raised" : "cut"} the rate to ${trim(changes.manualRate)}%`;
+  }
   if (keys.length === 1 && changes.fiscalAdjustment !== undefined) return `You ${changes.fiscalAdjustment > before.fiscalAdjustment ? "tightened" : "loosened"} the budget`;
   if (keys.length === 1 && changes.fxRegime !== undefined) return changes.fxRegime === "float" ? "You floated the currency" : "You changed the currency regime";
-  return "You changed policy";
+  const title = planTitle(before, changes);
+  return title === "Hold steady" ? "You changed policy" : `Your move: ${title.charAt(0).toLowerCase()}${title.slice(1)}`;
 }
 
 /** The policy in force in quarter t under a config. */

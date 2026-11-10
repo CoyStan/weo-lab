@@ -173,8 +173,8 @@ export default function GoalChart({
   // An every-quarter goal is decided at its worst quarter still ahead: mark it.
   const every = objectives.find((o) => o.when === "every" && !o.bonus) ?? objectives.find((o) => o.when === "every");
   let worstT: number | null = null;
-  if (every && clock < end) {
-    worstT = Math.max(clock + 1, every.from ?? 1);
+  if (every) {
+    worstT = Math.max(1, every.from ?? 1);
     for (let t = worstT; t <= end; t++) if (every.op === "<=" ? lineTarget[t] > lineTarget[worstT] : lineTarget[t] < lineTarget[worstT]) worstT = t;
     if (worstT === end) worstT = null;
   }
@@ -214,9 +214,9 @@ export default function GoalChart({
               const x0 = x(Math.max(0, (o.from ?? 1) - 0.5));
               return (
                 <g key={o.id} className={cls}>
-                  <rect x={x0} width={x(end) - x0} y={dir < 0 ? yy - 9 : yy} height={9} fill={`url(#${uid}-hatch)`} />
+                  <rect x={x0} width={x(end) - x0} y={dir < 0 ? yy - 14 : yy} height={14} fill={`url(#${uid}-hatch)`} className="nx-fence" />
                   <line x1={x0} x2={x(end)} y1={yy} y2={yy} className="nx-goal-line" />
-                  <text x={x(end) - 4} y={labelY} textAnchor="end" className="nx-goal-text">{star}{compact ? "" : "stay "}{num}</text>
+                  <text x={x(end) - 4} y={labelY} textAnchor="end" className="nx-goal-text">{star}stay {num}</text>
                 </g>
               );
             }
@@ -228,7 +228,7 @@ export default function GoalChart({
               <g key={o.id} className={cls}>
                 <rect x={x0} width={Math.max(6, x1 - x0)} y={Math.min(yy, far)} height={Math.abs(far - yy)} className="nx-gate" />
                 <line x1={x0} x2={x1} y1={yy} y2={yy} className="nx-goal-line" />
-                <text x={x0 - 6} y={dir < 0 ? yy + 16 : yy - 7} textAnchor="end" className="nx-goal-text">{star}{compact ? "" : o.when === "year" ? `${o.year} ` : "land "}{num}</text>
+                <text x={x0 - 6} y={Math.abs((dir < 0 ? yy + 12 : yy - 11) - y(line[Math.max(0, qs[0] - 1)])) < 16 ? (dir < 0 ? yy - 7 : yy + 16) : dir < 0 ? yy + 16 : yy - 7} textAnchor="end" className="nx-goal-text">{star}{o.when === "year" ? `${o.year} ` : "land "}{num}</text>
               </g>
             );
           })}
@@ -249,7 +249,7 @@ export default function GoalChart({
           {worstT !== null && every ? (
             <g>
               <circle cx={x(worstT)} cy={y(line[worstT])} r={4} className={`nx-ring ${ok(every, lineTarget[worstT]) ? "" : "is-bad"}`} />
-              <text x={x(worstT)} y={y(line[worstT]) + (every.op === ">=" ? 19 : -10)} textAnchor="middle" className="nx-mark">
+              <text x={x(worstT)} y={y(line[worstT]) + ((every.op === ">=") !== objectives.some((o) => Math.abs(y(o.threshold) - (y(line[worstT!]) + (every.op === ">=" ? 15 : -14))) < 13) ? 19 : -10)} textAnchor="middle" className="nx-mark">
                 {every.op === ">=" ? "low" : "peak"} {fmtNum(lineTarget[worstT], meta.digits)}
               </text>
             </g>

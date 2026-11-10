@@ -22,11 +22,12 @@ import { MISSIONS, type MetricKey, type Objective, type ObjectiveStatus } from "
 import { useSettings } from "../game/settings";
 import { useGame, type Recap } from "../game/store";
 import { useTurn } from "../game/useTurn";
+import { splitLead } from "../game/ui/Advisors";
 import Levers from "../game/ui/Levers";
 import Reforms from "../game/ui/Reforms";
 import { sound } from "../game/audio";
 import GoalChart, { EffectBars, type ChartLine } from "./Chart";
-import { advisorPlans, advisorRun, goalMetrics, journey, judged, lagCall, moveName, policyIn, shockCall, withChanges, type AdvisorRun, type Call, type Plan } from "./logic";
+import { advisorPlans, advisorRun, goalMetrics, journey, judged, lagCall, moveName, policyIn, shockCall, versus, withChanges, type AdvisorRun, type Call, type Plan } from "./logic";
 import { setUiMode, useNext } from "./state";
 import "./next.css";
 
@@ -277,6 +278,9 @@ function GoalPanel({
   const d = movedDelta ? movedDelta.to - movedDelta.from : 0;
   const good = main && movedDelta ? (main.op === "<=" ? d < 0 : d > 0) : null;
   const flat = Math.abs(d) < 0.5 * Math.pow(10, -meta.digits);
+  // A figure that rounds onto its goal gets one more decimal, so "1.5 against 1.5: missed" never happens.
+  const vs = (v: number, o: Objective | undefined) => fmtNum(v, o && fmtNum(v, meta.digits) === fmtNum(o.threshold, meta.digits) && Math.abs(v - o.threshold) > 1e-9 ? meta.digits + 1 : meta.digits);
+  const judgedAt = main && j ? (main.when === "every" ? `${main.op === ">=" ? "lowest" : "highest"}, ${shortQ(j.t)}` : main.when === "year" ? `${main.year} ${metric === "debt" ? "year end" : "average"}` : clock >= end ? `final, ${shortQ(end)}` : `forecast for ${shortQ(j.t)}`) : "";
   return (
     <section className={`nx-goal-panel ${compact ? "is-compact" : ""}`} aria-label={meta.label}>
       <header className="nx-goal-head">
@@ -288,11 +292,11 @@ function GoalPanel({
           </p>
         ) : main && j ? (
           <p className="nx-goal-value">
-            {fmtNum(j.value, meta.digits)}
+            {vs(j.value, main)}
             <span className="nx-goal-unit">{unit}</span>
           </p>
         ) : null}
-        {main ? <p className="nx-goal-label">Goal: {main.label.charAt(0).toLowerCase() + main.label.slice(1)}</p> : null}
+        {main ? <p className="nx-goal-label">{main.bonus ? "★ Bonus goal" : "Goal"}: {main.label.charAt(0).toLowerCase() + main.label.slice(1)}</p> : null}
         {movedDelta ? (
           <p className={`nx-goal-when nx-delta ${good === null || flat ? "" : good ? "is-good" : "is-bad"}`}>
             {flat ? "•" : d > 0 ? "▲" : "▼"} {signed(d, meta.digits, du)}
@@ -300,7 +304,8 @@ function GoalPanel({
           </p>
         ) : main && j ? (
           <p className="nx-goal-when">
-            {clock >= end ? "final" : main.when === "every" ? `${main.op === ">=" ? "lowest" : "highest"}, ${shortQ(j.t)}` : main.when === "year" ? `forecast, ${main.year} ${metric === "debt" ? "year end" : "average"}` : `forecast for ${shortQ(j.t)}`} · <Status status={statuses[main.id]} />
+            {judgedAt} · <Status status={statuses[main.id]} />
+            {clock < end ? <span className="nx-goal-now"> · now {fmtNum(actual[clock][metric], meta.digits)}{unit}</span> : null}
           </p>
         ) : null}
       </header>
@@ -309,10 +314,19 @@ function GoalPanel({
         <p className={`nx-journey ${moved ? "is-on" : ""}`} aria-live="polite">
           {moved ? (
             <>
-              <span className="nx-journey-swatch" aria-hidden="true" /> <strong>Your move:</strong> {signed(trip.next, meta.digits, du)} this quarter
-              {trip.peakT > clock + 1 ? <>, {signed(trip.peak, meta.digits, du)} at its strongest in {shortQ(trip.peakT)}</> : null}
-              {trip.peakT !== end && end > clock + 1 ? <>, {signed(trip.end, meta.digits, du)} by {shortQ(end)}</> : null}.
+              <span className="nx-journey-swatch" aria-hidden="true" /> <strong>Your move:</strong> {versus(trip.next, meta.digits, du)} this quarter than without it
+              {trip.building || trip.peakT === end ? (
+                <>, {versus(trip.end, meta.digits, du)} by {shortQ(end)}{trip.building ? " and still building" : ""}</>
+              ) : (
+                <>
+                  {trip.peakT > clock + 1 ? <>, {versus(trip.peak, meta.digits, du)} at its widest in {shortQ(trip.peakT)}</> : null}
+                  {end > clock + 1 ? <>, {versus(trip.end, meta.digits, du)} by {shortQ(end)}</> : null}
+                </>
+              )}
+              .
             </>
+          ) : changed ? (
+            <>Your move barely shifts {meta.label.toLowerCase()} (under {(0.5 * Math.pow(10, -meta.digits)).toFixed(meta.digits + 1)}{du}).</>
           ) : hint ? (
             <>Back a plan or move a lever, and watch where the line bends: that is when your move arrives.</>
           ) : null}
@@ -320,10 +334,10 @@ function GoalPanel({
       ) : null}
       {movedDelta && main && j ? (
         <p className="nx-bonus">
-          Goal: {clock >= end ? "final" : main.when === "every" ? `${main.op === ">=" ? "lowest" : "highest"} ${fmtNum(j.value, meta.digits)}${unit} in ${shortQ(j.t)}` : `forecast ${fmtNum(j.value, meta.digits)}${unit} for ${shortQ(j.t)}`} · <Status status={statuses[main.id]} />
+          {main.bonus ? "★ Bonus goal" : "Goal"}: {vs(j.value, main)}{unit} ({judgedAt}) · <Status status={statuses[main.id]} />
         </p>
       ) : null}
-      {objectives.filter((o) => o.bonus).map((o) => (
+      {objectives.filter((o) => o.bonus && o !== main).map((o) => (
         <p key={o.id} className="nx-bonus">
           <span aria-hidden="true">★</span> {o.label} · <Status status={statuses[o.id]} />
         </p>
@@ -401,7 +415,7 @@ function DecideBeat() {
   const finish = () => {
     if (run) return;
     const call = changed ? lagCall(mission, forecast, forecastStart, clock, moveName(policyStart, policy)) : null;
-    if (call && !calls.some((c) => c.id === call.id)) {
+    if (call && !calls.some((c) => c.id === call.id) && calls.filter((c) => c.id.startsWith("lag:")).length < 2) {
       setAsking(call);
       return;
     }
@@ -412,10 +426,13 @@ function DecideBeat() {
   const [coach, closeCoach] = useCoach(mission.number === 1 && clock === 0);
   const shown = narrow ? metrics.slice(0, 3) : metrics.slice(0, 4);
   // Charts share the height the window leaves, so the whole decision fits one screen on a laptop.
-  const rows = shown.length === 4 ? 2 : shown.length;
+  const rows = shown.length >= 3 ? 2 : shown.length;
   const bonusRows = Math.max(...shown.map((m) => mission.objectives.filter((o) => o.metric === m && o.bonus).length));
   const h = narrow ? 132 : Math.round(Math.min(400, Math.max(120, (vp.h - 66 - 82 - 46 - (coach ? 122 : 0) - (rows - 1) * 16) / rows - (140 + bonusRows * 24))));
   const agree = plans.filter((p) => p.advisors.length).length === 1 && mission.advisors.length > 1;
+  const noneWins = plans.length > 0 && plans.every((p) => p.effects.some((e) => !e.ok));
+  // A shock the briefing warned about may still be on its way: never call such a quarter quiet.
+  const warned = config.shocks.some((x) => x.id.startsWith("surprise") && x.quarter > clock + 1);
 
   return (
     <main className="nx-decide">
@@ -427,7 +444,7 @@ function DecideBeat() {
             {atRisk.length ? (
               <><Status status="at-risk" /> On the staff forecast you miss: {atRisk.map((o) => o.label.charAt(0).toLowerCase() + o.label.slice(1)).join("; ")}.</>
             ) : (
-              <><Status status="on-track" /> Every goal is on track on the staff forecast{landing.length ? "." : ". Nothing new this quarter."}</>
+              <><Status status="on-track" /> Every goal is on track on the staff forecast{landing.length ? "." : warned ? ", which leaves out anything only warned about." : ". Nothing new this quarter."}</>
             )}
           </p>
         </section>
@@ -444,7 +461,7 @@ function DecideBeat() {
         <div className="nx-side-scroll">
           {plans.length ? (
             <section className="nx-plans" aria-label="What your advisors would do">
-              <h2 className="nx-side-title">{agree ? "Your advisors agree" : "Whose plan do you back?"}</h2>
+              <h2 className="nx-side-title">{noneWins ? "No plan here meets every goal: try the levers too" : agree ? "Your advisors agree" : "Whose plan do you back?"}</h2>
               {plans.map((p, i) => (
                 <PlanCard key={p.title} plan={p} index={i + 1} active={backing(p)} onBack={() => back(p)} />
               ))}
@@ -533,14 +550,14 @@ function Coach({ close }: { close: () => void }) {
 
 function LagDetail({ call }: { call: Call }) {
   const { mission, forecast, forecastStart, clock } = useTurn();
-  const metric = call.id.slice(4) as MetricKey;
+  const metric = call.id.split(":")[1] as MetricKey;
   const meta = GAME_METRICS[metric];
   if (!meta) return null;
   const trip = journey(metric, forecast, forecastStart, clock, mission.quarters);
   return (
     <div className="nx-call-detail">
-      <p className="nx-note">What your move does to {meta.label.toLowerCase()}, quarter by quarter ({deltaUnit(meta.unit).trim()}):</p>
-      <EffectBars series={trip.series} from={trip.from} digits={meta.digits} unit="" highlight={trip.peakT} />
+      <p className="nx-note">How far your move shifts {meta.label.toLowerCase()} from where it would have been, quarter by quarter ({deltaUnit(meta.unit).trim()}). The dark bar is where the gap grows fastest.</p>
+      <EffectBars series={trip.series} from={trip.from} digits={meta.digits} unit="" highlight={trip.biteT} />
     </div>
   );
 }
@@ -564,12 +581,13 @@ function PlanCard({ plan, index, active, onBack }: { plan: Plan; index: number; 
             return (
               <span key={e.objective.id} className={e.ok ? "is-ok" : "is-miss"}>
                 <span aria-hidden="true">{e.ok ? "✓" : "✕"}</span> {meta.label} {e.objective.when === "every" ? (e.objective.op === ">=" ? "low " : "peak ") : ""}
-                <strong>{fmtNum(e.value, meta.digits)}{meta.unit === "%" ? "%" : meta.unit === "bp" ? " bp" : meta.unit === "months of imports" ? " mo" : "%"}</strong>
+                <strong>{fmtNum(e.value, fmtNum(e.value, meta.digits) === fmtNum(e.objective.threshold, meta.digits) && Math.abs(e.value - e.objective.threshold) > 1e-9 ? meta.digits + 1 : meta.digits)}{meta.unit === "%" ? "%" : meta.unit === "bp" ? " bp" : meta.unit === "months of imports" ? " mo" : "%"}</strong>
                 <span className="sr-only">{e.ok ? ", goal met" : ", goal missed"}</span>
               </span>
             );
           })}
         </span>
+        {plan.note ? <span className="nx-plan-note">{plan.note}</span> : null}
       </span>
       <span className="nx-plan-pick">
         {active ? "✓ Chosen" : who.length ? "Back" : "Choose"} <kbd aria-hidden="true">{index}</kbd>
@@ -584,13 +602,13 @@ function useNarrow() {
 
 // ---- Call it -----------------------------------------------------------------------------
 
-function CallCard({ call, onAnswer, onDone, doneLabel, detail }: { call: Call; onAnswer: (picked: string) => void; onDone: () => void; doneLabel: string; detail?: ReactNode }) {
+function CallCard({ call, onAnswer, onDone, doneLabel, detail }: { call: Call; onAnswer: (id: string, picked: string, right: boolean) => void; onDone: () => void; doneLabel: string; detail?: ReactNode }) {
   const [picked, setPicked] = useState<string | null>(null);
   const right = picked === call.answer;
   const pick = (id: string) => {
     if (picked) return;
     setPicked(id);
-    onAnswer(id);
+    onAnswer(call.id, id, id === call.answer);
     sound.play(id === call.answer ? "choose" : "back");
   };
   return (
@@ -655,7 +673,7 @@ function NewsBeat() {
       <article className="nx-news">
         <p className="nx-beat">News · {quarterLabel(main.quarter)}</p>
         <h2 className="nx-headline">{spec.name}</h2>
-        <p className="nx-lede">{spec.description}</p>
+        {phase === "brief" ? <p className="nx-lede">{spec.description}</p> : null}
         <p className="nx-news-size">{shocks.map((s) => SHOCKS[s.kind].short).join(" · ")}</p>
 
         {phase === "call" && call ? (
@@ -692,7 +710,7 @@ const SHORT_DRIVER: Record<string, string> = {
   oil: "oil prices",
   shocks: "the shock",
   fading: "earlier swings fading",
-  monetary: "interest rates",
+  monetary: "the level of interest rates",
   fiscal: "the budget",
   external: "trading partners",
   commodities: "commodity prices",
@@ -713,13 +731,25 @@ function ResultBeat({ recap }: { recap: Recap }) {
   const metrics = goalMetrics(mission).slice(0, narrow ? 2 : 3);
   const settled = p >= 1;
   const last = clock >= mission.quarters;
+  // The headline leads with a goal the player is judged on; a paper headline about something else goes under it.
+  const lead = useMemo(() => {
+    const text = recap.headline.text;
+    const all = goalMetrics(mission);
+    if (recap.events.length || all.some((m) => text.toLowerCase().includes(GAME_METRICS[m].label.toLowerCase().split(" ")[0]))) return text;
+    const m = all[0];
+    const meta = GAME_METRICS[m];
+    const d = recap.now[m] - recap.prev[m];
+    const flat = Math.abs(d) < 0.5 * Math.pow(10, -meta.digits);
+    return `${meta.label} ${flat ? "holds at" : d > 0 ? "rises to" : "falls to"} ${fmtNum(recap.now[m], meta.digits)}${unitShort(meta.unit)}`;
+  }, [recap, mission]);
   return (
     <main className="nx-stage">
       <article className="nx-result">
         <p className="nx-beat">
           {recap.skipped?.length ? `${quarterLabel(from + 1)} to ${quarterLabel(recap.quarter)}` : quarterLabel(recap.quarter)} · what happened
         </p>
-        <h2 className="nx-headline">{recap.headline.text}</h2>
+        <h2 className="nx-headline">{lead}</h2>
+        {lead !== recap.headline.text ? <p className="nx-lede">{recap.headline.text}</p> : null}
         {recap.stopReasons?.length ? <p className="nx-lede">The clock stopped: {recap.stopReasons.join("; ").replace(/^./, (c) => c.toLowerCase())}.</p> : null}
 
         <div className="nx-result-charts" data-count={metrics.length}>
@@ -730,8 +760,8 @@ function ResultBeat({ recap }: { recap: Recap }) {
               <GoalPanel key={m} metric={m} height={narrow ? 140 : metrics.length > 2 ? 170 : 200} now={now} ghost={null} showJourney={false} compact moved={{ from: recap.prev[m], to: recap.now[m], p }}>
                 {parts.length ? (
                   <p className="nx-moved">
-                    <strong>Why:</strong> mostly {parts.map((x) => `${SHORT_DRIVER[x.key] ?? x.label.toLowerCase()} (${signed(x.value, 1, "")})`).join(" and ")}
-                    {key === "growth" ? ", through demand" : ""}.
+                    <strong>Why:</strong> mostly {parts.map((x) => `${SHORT_DRIVER[x.key] ?? x.label.toLowerCase()} (${signed(x.value, 1, " pp")})`).join(" and ")}
+                    {key === "growth" ? " on output against capacity" : ""}.
                   </p>
                 ) : null}
               </GoalPanel>
@@ -746,6 +776,23 @@ function ResultBeat({ recap }: { recap: Recap }) {
                 <strong>{l.label}</strong> {l.text}
               </li>
             ))}
+          </ul>
+        ) : null}
+
+        {recap.advice.length ? (
+          <ul className={`nx-reactions nx-result-foot ${settled ? "is-in" : ""}`} aria-label="How your advisors took it">
+            {recap.advice.slice(0, 3).map((a) => {
+              const who = ADVISORS[a.advisor];
+              return (
+                <li key={a.advisor}>
+                  <img src={`${base}${who.portrait}`} alt="" width={36} height={36} />
+                  <p>
+                    <strong>{who.name}</strong> <span className={`nx-mood is-${a.tone}`}>{a.tone === "worried" ? "▲ worried" : a.tone === "pleased" ? "✓ pleased" : "● steady"}</span>
+                    <span className="nx-quote">“{splitLead(a.text).lead}”</span>
+                  </p>
+                </li>
+              );
+            })}
           </ul>
         ) : null}
 

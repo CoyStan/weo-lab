@@ -182,6 +182,7 @@
   display: grid;
   gap: 1rem;
 }
+.nx-charts[data-count="3"],
 .nx-charts[data-count="4"] {
   grid-template-columns: 1fr 1fr;
 }
@@ -267,8 +268,11 @@
 }
 .nx-goal-unit {
   margin-left: 0.15em;
-  font-size: 0.5em;
+  font-size: max(13px, 0.5em);
   font-weight: 600;
+}
+.nx-goal-now {
+  white-space: nowrap;
 }
 .nx-goal-panel.is-compact .nx-goal-name {
   font-size: var(--t-md);
@@ -313,12 +317,11 @@
 }
 .nx-journey-swatch {
   display: inline-block;
-  width: 0.85rem;
-  height: 0.85rem;
-  border-radius: 0.2rem;
-  background: color-mix(in srgb, var(--nx-forecast) 22%, transparent);
-  outline: 1.5px solid color-mix(in srgb, var(--nx-forecast) 60%, transparent);
-  vertical-align: -0.08rem;
+  width: 1.4rem;
+  height: 0.55rem;
+  border-radius: 0.15rem;
+  background: color-mix(in srgb, var(--nx-forecast) 30%, transparent);
+  vertical-align: 0.05rem;
 }
 
 /* ---- Chart ------------------------------------------------------------------- */
@@ -442,8 +445,15 @@
   fill: color-mix(in srgb, var(--nx-good) 15%, transparent);
 }
 .nx-goal .nx-hatch {
-  stroke: color-mix(in srgb, var(--nx-bad) 55%, transparent);
-  stroke-width: 2;
+  stroke: var(--nx-bad);
+  stroke-width: 2.2;
+}
+/* A fence to stay off is drawn in the warning colour; a gate to land in is green. */
+.nx-goal:has(.nx-fence) .nx-goal-line {
+  stroke: var(--nx-bad);
+}
+.nx-goal:has(.nx-fence) .nx-goal-text {
+  fill: var(--nx-bad);
 }
 .nx-goal.is-bonus .nx-goal-line {
   stroke-dasharray: 2 5;
@@ -566,6 +576,10 @@
 .nx-plan-effects .is-miss > span:first-child {
   color: var(--nx-bad);
   font-weight: 700;
+}
+.nx-plan-note {
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 72%, transparent));
+  font-style: italic;
 }
 .nx-plan-pick {
   align-self: center;
@@ -728,6 +742,39 @@
 .nx-result-foot.is-in {
   opacity: 1;
   transform: none;
+}
+.nx-reactions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.5rem 1.25rem;
+  margin: 0.25rem 0 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+.nx-reactions li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.nx-reactions img {
+  flex: none;
+  border-radius: 0.6rem;
+}
+.nx-reactions p {
+  margin: 0;
+}
+.nx-quote {
+  display: block;
+}
+.nx-mood {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.nx-mood.is-worried {
+  color: var(--nx-warn);
+}
+.nx-mood.is-pleased {
+  color: var(--nx-good);
 }
 .nx-verdicts,
 .nx-skipped {
@@ -1102,6 +1149,14 @@
   }
   .nx-plan-pick kbd {
     display: none;
+  }
+  .nx-plan {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .nx-plan-pick {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    text-align: center;
   }
 }
 

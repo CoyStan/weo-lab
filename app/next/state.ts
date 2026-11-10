@@ -2,7 +2,6 @@
 
 import { create } from "zustand";
 import { useSyncExternalStore } from "react";
-import type { Call } from "./logic";
 
 /** Which play screen to show: the classic dashboard, or the three-beat "next" screen (?ui=next). */
 const readMode = (): "classic" | "next" => {
@@ -31,33 +30,25 @@ export type CallResult = { id: string; picked: string; right: boolean };
 type NextState = {
   /** The mission these calls belong to; a new mission clears them. */
   missionId: string | null;
-  /** Questions already asked this mission (by id), with how they went. */
+  /** Predictions made this mission (by question id), with how they went. */
   calls: CallResult[];
-  /** A question on screen, and what happens once it is answered. */
-  asking: { call: Call; then: "end-quarter" | "news" } | null;
   /** The cause-and-effect map, opened from "Why?". */
   why: boolean;
   setWhy: (open: boolean) => void;
   begin: (missionId: string) => void;
-  ask: (call: Call, then: "end-quarter" | "news") => void;
-  answer: (picked: string) => void;
-  dismiss: () => void;
+  answer: (id: string, picked: string, right: boolean) => void;
 };
 
 export const useNext = create<NextState>((set, get) => ({
   missionId: null,
   calls: [],
-  asking: null,
   why: false,
   setWhy: (open) => set({ why: open }),
   begin: (missionId) => {
-    if (get().missionId !== missionId) set({ missionId, calls: [], asking: null, why: false });
+    if (get().missionId !== missionId) set({ missionId, calls: [], why: false });
   },
-  ask: (call, then) => set({ asking: { call, then } }),
-  answer: (picked) => {
-    const a = get().asking;
-    if (!a || get().calls.some((c) => c.id === a.call.id)) return;
-    set({ calls: [...get().calls, { id: a.call.id, picked, right: picked === a.call.answer }] });
+  answer: (id, picked, right) => {
+    if (get().calls.some((c) => c.id === id)) return;
+    set({ calls: [...get().calls, { id, picked, right }] });
   },
-  dismiss: () => set({ asking: null }),
 }));

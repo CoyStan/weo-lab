@@ -16,7 +16,10 @@ test("every mission gets advisor plans that are real moves on unlocked levers", 
     const policy = policyForTurn(config, 0);
     const menu = moveMenu(policy, new Set(m.unlocks)).map((x) => JSON.stringify(x.changes));
     for (const p of plans) {
-      assert.ok(p.hold ? Object.keys(p.changes).length === 0 : menu.includes(JSON.stringify(p.changes)), `${m.id}: plan "${p.title}" is not on the menu`);
+      // A plan is one menu move, or two on different levers.
+      const single = menu.includes(JSON.stringify(p.changes));
+      const pair = menu.some((a) => menu.some((b) => JSON.stringify({ ...JSON.parse(a), ...JSON.parse(b) }) === JSON.stringify(p.changes)));
+      assert.ok(p.hold ? Object.keys(p.changes).length === 0 : single || pair, `${m.id}: plan "${p.title}" is not on the menu`);
       assert.ok(p.title.length > 3 && !/undefined|NaN/.test(p.title), `${m.id}: title "${p.title}"`);
       assert.ok(p.effects.length >= 1 && p.effects.every((e) => Number.isFinite(e.value)), `${m.id}: effects`);
     }
@@ -73,6 +76,9 @@ test("call-it questions have one right answer among their options and a finite r
   const lag = lagCall(m1, hiked, base, 0, "You raised the rate to 10.5%")!;
   assert.ok(lag, "a two-point hike is worth a question");
   assert.equal(lag.answer, "later", lag.reveal);
+  assert.match(lag.reveal, /still building/, "the effect on inflation has not peaked by the end of the mission");
+  const infl = journey("infl", hiked, base, 0, m1.quarters);
+  assert.ok(infl.biteT >= 3 && infl.biteT < m1.quarters, `the bite comes mid-mission, not in its last quarter (${infl.biteT})`);
   assert.equal(lagCall(m1, base, base, 0, "You held policy"), null, "no move, no question");
 });
 
@@ -99,4 +105,14 @@ test("replaying a mission on one advisor's plans ends in a verdict", () => {
       assert.ok(r.endedAt >= 1 && r.endedAt <= m.quarters);
     }
   }
+});
+
+test("in the commodity mission some advisor finds a plan that survives the bust", () => {
+  const m = MISSIONS.find((x) => x.id === "commodity-bust")!;
+  const won = m.advisors.map((a) => {
+    const run = advisorRun(m, a);
+    while (!run.step());
+    return run.result().outcome.kind === "won";
+  });
+  assert.ok(won.some(Boolean), "with bigger budget steps on the menu, at least one advisor gets through");
 });
