@@ -15,7 +15,7 @@ import type { Policy, QuarterState, ScenarioConfig, ShockKind } from "../../mode
 import type { GoalRoads, PieceRoads, RoadMetric } from "./routes";
 
 export type MetricId = "infl" | "growth" | "debt" | "unemp" | "ob" | "ca" | "reserves" | "spread";
-export type ChannelId = "costs" | "demand" | "expect" | "fx" | "credit" | "budget" | "snowball";
+export type ChannelId = "costs" | "capacity" | "demand" | "expect" | "fx" | "credit" | "budget" | "snowball";
 export type CauseKind = "shock" | "history" | "momentum" | "lever";
 export type IconId =
   | ShockKind
@@ -85,13 +85,17 @@ export type ChannelMeta = { id: ChannelId; title: string; sub: string; icon: Ico
 export type Travel = {
   /** "Your rate hike": what the player changed, in a few words. */
   lever: string;
-  /** Effect of everything the player changed, forecast minus had-you-changed-nothing, by quarter. */
-  demand: number[];
+  /** Effect of everything the player changed on growth, forecast minus had-you-changed-nothing, by quarter. */
+  growth: number[];
+  /**
+   * The strip's rows: the mission's goals the moves change most by the goal date (for each goal's
+   * scale), at most two, each the effect of everything the player changed, by quarter.
+   */
   diffs: { metric: MetricId; values: number[] }[];
   sentence: string;
   /** The same in two steps, for a phone: what moves at once, and the main goal at the goal date. */
   short: string;
-  /** The two steps alone, without the lever's name ("spending −0.4 pp in 2027Q1 → public debt −7.6 pp by 2029Q4"). */
+  /** The two steps alone, without the lever's name ("growth −0.2 pp in 2027Q1; public debt −5.3 pp by 2029Q4, helps"). */
   steps: string;
 };
 
@@ -109,7 +113,10 @@ export type Story = {
 
 export const CHANNELS: ChannelMeta[] = [
   // Oil and commodity prices in the model's drivers (for an exporter, what its goods fetch), food and supply shocks.
-  { id: "costs", title: "Costs", sub: "food, fuel, commodities", icon: "costs" },
+  { id: "costs", title: "Costs", sub: "world prices: food, fuel, commodities", icon: "costs" },
+  // What the economy can produce: potential output and the natural rate, which the model's drivers leave
+  // unexplained (a supply shock's lost capacity, reforms, public investment). Always a rough road.
+  { id: "capacity", title: "Capacity", sub: "what the economy can produce", icon: "supply-shock" },
   { id: "demand", title: "Spending", sub: "people and firms", icon: "demand" },
   { id: "expect", title: "Expectations", sub: "of future prices", icon: "expect" },
   { id: "fx", title: "Exchange rate", sub: "the currency", icon: "fx" },
@@ -136,13 +143,30 @@ export const pushUnit = (m: MetricId) => (m === "spread" ? " bp" : m === "reserv
 /** The same, spelled out for sentences: "+2.4 pp", "+30 bp", "−0.5 mo". */
 export const unitWord = (m: MetricId) => (m === "spread" ? " bp" : m === "reserves" ? " mo" : " pp");
 export const metricLabel = (m: MetricId) => METRICS[m].label;
+/**
+ * Arrow widths count one "unit of push" per goal (ref): 1 pp on most, 2 pp on debt, 0.5 on
+ * unemployment and reserves, 50 bp on a spread. Said in words for the goals drawn whose unit
+ * is not 1 pp, e.g. "Debt arrows at half width; unemployment and reserves at double."
+ */
+export function widthNote(metrics: MetricId[]): string {
+  const name = (m: MetricId) => (m === "debt" ? "debt" : METRICS[m].label.toLowerCase());
+  const half = metrics.filter((m) => m !== "spread" && METRICS[m].ref === 2).map(name);
+  const dbl = metrics.filter((m) => m !== "spread" && METRICS[m].ref === 0.5).map(name);
+  const parts: string[] = [];
+  if (half.length) parts.push(`${half.join(" and ")} arrows at half width`);
+  if (dbl.length) parts.push(half.length ? `${dbl.join(" and ")} at double` : `${dbl.join(" and ")} arrows at double width`);
+  if (metrics.includes("spread")) parts.push("bond spread arrows: 50 bp as wide as 1 pp");
+  const text = parts.join("; ");
+  return text ? `${text[0].toUpperCase()}${text.slice(1)}.` : "";
+}
 /** A push big enough to be worth a sentence: 0.05 pp (5 bp on a spread). */
 export const matters = (v: number, m: MetricId) => Math.abs(v) >= (m === "spread" ? 5 : 0.05);
 
 // The fixed road. Used for goals the model has no drivers for (budget balance, current
-// account, reserves, spreads), and for the part of a push the drivers leave unexplained
-// (potential output, the natural rate, one-offs). The map marks these roads as rough.
-// Everywhere else the road comes from the model's drivers (routes.ts).
+// account, reserves, spreads), and for the part of a push on inflation or debt the drivers
+// leave unexplained (one-offs). What they leave of growth and unemployment is potential
+// output and the natural rate: that goes through capacity (roughRoad). The map marks these
+// roads as rough. Everywhere else the road comes from the model's drivers (routes.ts).
 type Route = Partial<Record<MetricId, ChannelId>>;
 const DEFAULT_ROUTE: Record<MetricId, ChannelId> = { infl: "demand", growth: "demand", unemp: "demand", debt: "budget", ob: "budget", ca: "fx", reserves: "fx", spread: "credit" };
 const ROUTES: Record<string, Route> = {
@@ -152,8 +176,7 @@ const ROUTES: Record<string, Route> = {
   // Public investment's lasting effect is on capacity, paid for from the budget.
   budget: { growth: "budget", unemp: "budget", ca: "demand", reserves: "budget", spread: "budget" },
   currency: { infl: "fx", growth: "fx", unemp: "fx", debt: "fx", ob: "fx", ca: "fx", reserves: "fx", spread: "fx" },
-  // What the drivers leave of reforms is capacity, what people and firms can produce: no road of its own, so
-  // it goes the way of people and firms (spending), marked rough.
+  // What the drivers leave of reforms is capacity (roughRoad), marked rough.
   support: { infl: "expect" },
   "food-price": { infl: "costs" },
   "oil-spike": { infl: "costs", growth: "costs", unemp: "costs" },
@@ -168,6 +191,13 @@ const ROUTES: Record<string, Route> = {
   "banking-crisis": { growth: "credit", unemp: "credit" },
 };
 const route = (key: string, m: MetricId): ChannelId => ROUTES[key]?.[m] ?? DEFAULT_ROUTE[m];
+/**
+ * The road for what the drivers leave unexplained. On growth and unemployment that is potential
+ * output and the natural rate: capacity. The one exception is a commodity bust: for an exporter a
+ * price fall is lost income, not lost capacity, so its rough part stays with world prices (costs).
+ * On inflation and debt (one-offs), the fixed road.
+ */
+const roughRoad = (key: string, m: MetricId, fixed: ChannelId): ChannelId => (m === "growth" || m === "unemp" ? (key === "commodity-bust" ? "costs" : "capacity") : fixed);
 
 const num = (v: number, d = 2) => String(Number(v.toFixed(d)));
 const fmt = (v: number, d = 1) => (Math.abs(v) < 0.5 * Math.pow(10, -d) ? (0).toFixed(d) : v.toFixed(d));
@@ -283,7 +313,7 @@ export function buildStory(input: StoryInput): Story {
       if (!values.some((v) => Math.abs(v) / METRICS[m].ref >= 0.02)) continue;
       const fixed = route(routeKey, m);
       const goalRoads = roadsByPiece?.get(comp.id)?.[m as RoadMetric];
-      const split = goalRoads ? splitByRoad(values, goalRoads, fixed, end) : null;
+      const split = goalRoads ? splitByRoad(values, goalRoads, fixed, roughRoad(routeKey, m, fixed), first, end) : null;
       if (split) for (const r of split) flows.push({ id: `${cause}|${m}|${r.channel}`, cause, channel: r.channel, metric: m, values: r.values, approx: r.approx });
       else flows.push({ id: `${cause}|${m}|${fixed}`, cause, channel: fixed, metric: m, values, approx: true });
     }
@@ -320,41 +350,76 @@ export function buildStory(input: StoryInput): Story {
   if (touched) {
     const levers = causes.filter((c) => c.kind === "lever");
     const lever = levers.length === 1 ? levers[0].title : levers.length ? "Your moves" : "Your earlier moves";
-    const demand = forecast.slice(0, end + 1).map((s, t) => s.gap - untouched[t].gap);
-    const diffs = metrics.slice(0, 2).map((m) => ({ metric: m, values: forecast.slice(0, end + 1).map((s, t) => s[m] - untouched[t][m]) }));
-    const main = diffs[0];
+    const diff = (m: MetricId) => forecast.slice(0, end + 1).map((s, t) => s[m] - untouched[t][m]);
+    const growth = diff("growth");
+    // What the strip shows as 0: under 0.005 (0.5 bp on a spread).
+    const flat = (v: number, m: MetricId) => Math.abs(v) < (m === "spread" ? 0.5 : 0.005);
+    // The rows: the mission's goals, ranked by what the moves change at the goal date for each goal's scale; a goal
+    // the moves leave at 0 in every quarter shown is left out. Which goals, never what they say: the figures are the model's.
+    const goals = outcomes.filter((o) => o.goal).map((o) => o.metric);
+    const size = (d: { metric: MetricId; values: number[] }) => Math.abs(d.values[end] ?? 0) / METRICS[d.metric].ref;
+    const diffs = (goals.length ? goals : metrics)
+      .map((m) => ({ metric: m, values: diff(m) }))
+      .filter((d) => d.values.slice(first, end + 1).some((v) => !flat(v, d.metric)))
+      .sort((a, b) => size(b) - size(a))
+      .slice(0, 2);
+    const main = diffs[0] ?? null;
     const now = Math.min(end, clock + 1);
     const mid = Math.min(end, clock + 4);
     const name = (m: MetricId) => METRICS[m].label.toLowerCase();
-    const amount = (v: number, m: MetricId) => `${signed(v, Math.abs(v) < 0.095 && Math.abs(v) >= 0.005 ? 2 : 1)}${unitWord(m)}`;
-    // First what moves at once (growth, or spending when growth is not on the strip), then the main goal as it builds.
-    const fast = diffs.find((d) => d.metric === "growth");
-    const parts: string[] = [];
-    if (fast && fast !== main) parts.push(`${name(fast.metric)} ${amount(fast.values[now], fast.metric)} in ${labels[now]}`);
-    else if (!fast) parts.push(`spending ${amount(demand[now] ?? 0, "growth")} in ${labels[now]}`);
-    if (fast === main) parts.push(`${name(main.metric)} ${amount(main.values[now], main.metric)} in ${labels[now]}`);
-    if (mid < end && mid > now) parts.push(`${fast === main ? "" : `${name(main.metric)} `}${amount(main.values[mid], main.metric)} by ${labels[mid]}`);
-    if (end > now) parts.push(`${parts.length > 1 || fast === main ? "" : `${name(main.metric)} `}${amount(main.values[end], main.metric)} by ${labels[end]}`);
-    const shortParts = [parts[0]];
-    if (end > now && (fast !== main || parts.length > 1)) shortParts.push(`${fast === main ? "" : `${name(main.metric)} `}${amount(main.values[end], main.metric)} by ${labels[end]}`);
-    travel = { lever, demand, diffs, sentence: `${lever}: ${parts.join(" → ")}`, short: `${lever}: ${shortParts.join(" → ")}`, steps: shortParts.join(" → ") };
+    const amount = (v: number, m: MetricId) => `${signed(v, m === "spread" ? 0 : Math.abs(v) < 0.095 && !flat(v, m) ? 2 : 1)}${unitWord(m)}`;
+    // ", helps" or ", hurts" for a mission goal, so the sentence never leans on the strip's colours.
+    const word = (m: MetricId, v: number, t: number) => {
+      const o = outcomes.find((x) => x.metric === m);
+      return o?.goal && !flat(v, m) ? (Math.sign(v) === o.good(t) ? ", helps" : ", hurts") : "";
+    };
+    // First what moves at once (growth), then the main goal as it builds. An arrow only where one leads to the
+    // other (growth to inflation or unemployment); for debt, the budget balance or reserves the two are side by side:
+    // in the model a squeeze that lowers demand raises the debt ratio, and debt falls because of the primary surplus.
+    const head = main?.metric !== "growth" && !flat(growth[now] ?? 0, "growth") ? `growth ${amount(growth[now], "growth")} in ${labels[now]}${word("growth", growth[now], now)}` : null;
+    const join = main && (main.metric === "infl" || main.metric === "unemp") ? " → " : "; ";
+    const at = (t: number, by: boolean) => `${amount(main!.values[t], main!.metric)} ${by ? "by" : "in"} ${labels[t]}`;
+    const steps: { t: number; text: string }[] = [];
+    if (main) {
+      if (!head || end <= now) steps.push({ t: now, text: at(now, false) });
+      if (mid < end && mid > now) steps.push({ t: mid, text: at(mid, true) });
+      if (end > now) steps.push({ t: end, text: at(end, true) });
+    }
+    // The tone word after the last step, and after an earlier one whose tone differs.
+    const said = (list: { t: number; text: string }[]) =>
+      list
+        .map((s, i) => {
+          const w = word(main!.metric, main!.values[s.t], s.t);
+          const next = list[i + 1];
+          return `${s.text}${!next || w !== word(main!.metric, main!.values[next.t], next.t) ? w : ""}`;
+        })
+        .join(", ");
+    const mainText = main && steps.length ? `${name(main.metric)} ${said(steps)}` : `too small to show on your goals by ${labels[end]}`;
+    const shortSteps = main ? (head ? steps.slice(-1) : [steps[0], ...(steps.length > 1 ? steps.slice(-1) : [])]) : [];
+    const shortText = main && shortSteps.length ? `${name(main.metric)} ${said(shortSteps)}` : mainText;
+    const sentence = head ? `${head}${join}${mainText}` : mainText;
+    const short = head ? `${head}${join}${shortText}` : shortText;
+    travel = { lever, growth, diffs, sentence: `${lever}: ${sentence}`, short: `${lever}: ${short}`, steps: short };
   }
 
   return { clock, end, first, labels, causes, flows, outcomes, travel };
 }
 
 /**
- * Split a piece's push on a goal between at most two roads, by the model's drivers
+ * Split a piece's push on a goal between at most three roads, by the model's drivers
  * (routes.ts). The sizes stay the decomposition's: each quarter's value is shared among
- * the roads that push the same way, so the parts add up to it exactly. What the drivers
- * leave unexplained (`rough`) goes down the fixed road; a road whose push is mostly that
- * is marked approximate. Returns null where nothing pushes.
+ * the kept roads that push the same way, so the parts add up to it exactly. What the drivers
+ * leave unexplained (`rough`) goes down `roughRoad` (capacity for growth and unemployment,
+ * the fixed road otherwise); a road whose push is mostly that is marked approximate. So is
+ * a kept road that also carries a fair share of the roads left out: where, at any quarter
+ * shown (first to end), the same-sign weight on roads not kept is at least a third of the
+ * road's own, its size is not the drivers' alone. Returns null where nothing pushes.
  */
-function splitByRoad(values: number[], goal: GoalRoads, fixed: ChannelId, end: number): { channel: ChannelId; values: number[]; approx: boolean }[] | null {
+function splitByRoad(values: number[], goal: GoalRoads, fixed: ChannelId, roughRoad: ChannelId, first: number, end: number): { channel: ChannelId; values: number[]; approx: boolean }[] | null {
   const weights = (t: number) => {
     const w: Partial<Record<ChannelId, number>> = {};
     for (const [k, v] of Object.entries(goal.roads) as [ChannelId, number[]][]) w[k] = (w[k] ?? 0) + (v[t] ?? 0);
-    w[fixed] = (w[fixed] ?? 0) + (goal.rough[t] ?? 0);
+    w[roughRoad] = (w[roughRoad] ?? 0) + (goal.rough[t] ?? 0);
     return w;
   };
   const T = Math.min(end, values.length - 1);
@@ -362,7 +427,7 @@ function splitByRoad(values: number[], goal: GoalRoads, fixed: ChannelId, end: n
   for (let t = 1; t <= T; t++) if (Math.abs(values[t] ?? 0) > Math.abs(values[peak] ?? 0)) peak = t;
   const vmax = Math.abs(values[peak] ?? 0);
   if (vmax < 1e-9) return null;
-  // The roads that carry at least a quarter of the push at some quarter shown; two at most.
+  // The roads that carry at least a quarter of the push at some quarter shown; three at most.
   const reach = new Map<ChannelId, number>();
   for (let t = 1; t <= T; t++) {
     const v = values[t] ?? 0;
@@ -375,7 +440,7 @@ function splitByRoad(values: number[], goal: GoalRoads, fixed: ChannelId, end: n
   const keep = [...reach.entries()]
     .filter(([, r]) => r >= 0.25 * vmax)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 2)
+    .slice(0, 3)
     .map(([k]) => k);
   if (!keep.length) return null;
   const out = keep.map((channel) => ({ channel, values: values.map(() => 0), approx: false }));
@@ -386,27 +451,46 @@ function splitByRoad(values: number[], goal: GoalRoads, fixed: ChannelId, end: n
     const total = xs.reduce((a, b) => a + b, 0);
     keep.forEach((_, i) => (out[i].values[t] = total > 0 ? (v * xs[i]) / total : i === 0 ? v : 0));
   });
-  // The fixed road is approximate where at least a third of what it carries, at its peak, is the drivers' unexplained part.
   for (const o of out) {
-    if (o.channel !== fixed) continue;
-    let p = 0;
-    for (let t = 1; t <= T; t++) if (Math.abs(o.values[t]) > Math.abs(o.values[p])) p = t;
-    const sign = o.values[p] >= 0 ? 1 : -1;
-    const all = (weights(p)[fixed] ?? 0) * sign;
-    const rough = (goal.rough[p] ?? 0) * sign;
-    o.approx = all <= 0 || rough >= all / 3;
+    // The rough road is approximate where at least a third of what it carries, at its peak, is the drivers' unexplained part.
+    if (o.channel === roughRoad) {
+      let p = 0;
+      for (let t = 1; t <= T; t++) if (Math.abs(o.values[t]) > Math.abs(o.values[p])) p = t;
+      const sign = o.values[p] >= 0 ? 1 : -1;
+      const all = (weights(p)[roughRoad] ?? 0) * sign;
+      const rough = (goal.rough[p] ?? 0) * sign;
+      if (all <= 0 || rough >= all / 3) o.approx = true;
+    }
+    // Any kept road is approximate where the roads left out carry, the same way, a third of its own weight or more.
+    for (let t = Math.max(1, first); t <= T && !o.approx; t++) {
+      const v = values[t] ?? 0;
+      if (Math.abs(v) < 1e-9) continue;
+      const sign = v >= 0 ? 1 : -1;
+      const w = weights(t);
+      const own = Math.max(0, (w[o.channel] ?? 0) * sign);
+      if (own <= 0) continue;
+      let dropped = 0;
+      for (const [k, x] of Object.entries(w) as [ChannelId, number][]) if (!keep.includes(k)) dropped += Math.max(0, x * sign);
+      if (dropped >= own / 3) o.approx = true;
+    }
   }
   return out;
 }
 
 export type Drawn = { flow: Flow; value: number; n: number };
 
+/** A cause's whole push on a goal at quarter t: all its roads added together, drawn or not. */
+export function causeTotal(story: Story, cause: string, m: MetricId, t: number): number {
+  return story.flows.filter((f) => f.cause === cause && f.metric === m).reduce((a, f) => a + (f.values[t] ?? 0), 0);
+}
+
 /**
  * The flows worth drawing at quarter t, at most `max`:
- *   1. every goal's biggest push, so no goal is left without one (debt moves in small
- *      steps and must never vanish into "more pushes");
- *   2. the player's own: on each goal, each lever's biggest road (small at first: that's
- *      the lag), mission goals first, up to half of the slots left;
+ *   1. the player's own first, so the map never folds them away: on each goal, each lever's
+ *      biggest road whenever the lever's whole push there is 0.05 pp or more (small at first:
+ *      that's the lag), mission goals first, then its other roads of 0.05 pp or more;
+ *   2. every goal's biggest push, so no goal is left without one (debt moves in small
+ *      steps and must never vanish into "more pushes"); these keep their room;
  *   3. the rest by size: a push of 0.1 pp or more on a debt goal, then the big ones.
  */
 export function drawnAt(story: Story, t: number, max: number): { drawn: Drawn[]; hidden: number } {
@@ -419,22 +503,33 @@ export function drawnAt(story: Story, t: number, max: number): { drawn: Drawn[];
   const isGoal = new Set(story.outcomes.filter((o) => o.goal).map((o) => o.metric));
   const debtGoal = isGoal.has("debt");
   const must = (d: Drawn) => debtGoal && d.flow.metric === "debt" && Math.abs(d.value) >= 0.095;
-  const keep: Drawn[] = [];
+  // Each goal's biggest push.
+  const best: Drawn[] = [];
   for (const o of story.outcomes) {
-    const best = all.filter((d) => d.flow.metric === o.metric && Math.abs(d.value) >= 0.005).sort((a, b) => b.n - a.n)[0];
-    if (best) keep.push(best);
+    const b = all.filter((d) => d.flow.metric === o.metric && Math.abs(d.value) >= 0.005).sort((a, b) => b.n - a.n)[0];
+    if (b) best.push(b);
   }
-  const mine = new Map<string, Drawn>();
+  // The player's own: each lever's main road on each goal, then its other roads.
+  const main: Drawn[] = [];
+  const more: Drawn[] = [];
+  const pairs = new Map<string, Drawn[]>();
   for (const d of all) {
-    if (!lever.has(d.flow.cause) || d.n < 0.05 || keep.includes(d)) continue;
+    if (!lever.has(d.flow.cause)) continue;
     const k = `${d.flow.cause}|${d.flow.metric}`;
-    if (keep.some((x) => `${x.flow.cause}|${x.flow.metric}` === k)) continue;
-    if (!mine.has(k) || mine.get(k)!.n < d.n) mine.set(k, d);
+    pairs.set(k, [...(pairs.get(k) ?? []), d]);
   }
-  const room = Math.max(0, Math.floor((max - keep.length) / 2));
-  keep.push(...[...mine.values()].sort((a, b) => Number(isGoal.has(b.flow.metric)) - Number(isGoal.has(a.flow.metric)) || b.n - a.n).slice(0, room));
+  for (const list of pairs.values()) {
+    const whole = Math.abs(list.reduce((a, d) => a + d.value, 0)) / metricRef(list[0].flow.metric);
+    const sorted = [...list].sort((a, b) => b.n - a.n);
+    if (whole >= 0.05 || sorted[0].n >= 0.05) main.push(sorted[0]);
+    more.push(...sorted.slice(1).filter((d) => d.n >= 0.05));
+  }
+  const goalFirst = (a: Drawn, b: Drawn) => Number(isGoal.has(b.flow.metric)) - Number(isGoal.has(a.flow.metric)) || b.n - a.n;
+  const mine = [...main.sort(goalFirst), ...more.sort(goalFirst)];
+  const others = best.filter((d) => !mine.includes(d));
+  const keep: Drawn[] = [...mine.slice(0, Math.max(0, max - others.length)), ...others];
   const rest = all
-    .filter((d) => !keep.includes(d) && (lever.has(d.flow.cause) ? d.n >= 0.05 : must(d) || d.n >= Math.max(0.15, 0.12 * top)))
+    .filter((d) => !keep.includes(d) && !lever.has(d.flow.cause) && (must(d) || d.n >= Math.max(0.15, 0.12 * top)))
     .sort((a, b) => Number(must(b)) - Number(must(a)) || b.n - a.n);
   keep.push(...rest.slice(0, Math.max(0, max - keep.length)));
   const hidden = all.filter((d) => d.n >= 0.05 && !keep.includes(d)).length;
@@ -498,11 +593,13 @@ export function headline(story: Story, t: number, max: number): { top: HeadPush 
     return out.sort((a, b) => n(b) - n(a));
   };
   const top = pairs((c) => c.kind !== "lever", drawn.map((d) => d.flow)).find((p) => matters(p.value, p.metric)) ?? null;
-  // The player's own, on any goal (a move that is small now may land later): when it lands, as the strip shows it.
+  // The player's own, on any goal (a move that is small now may land later): when it lands. The strip is the
+  // sum of all the player's moves, so it speaks for a lever only when that lever is the only one moved.
+  const levers = story.causes.filter((c) => c.kind === "lever").length;
   const mineAll = pairs((c) => c.kind === "lever", story.flows).map((p) => {
     if (story.end > t) {
       const strip = story.travel?.diffs.find((d) => d.metric === p.metric);
-      const value = strip ? strip.values[story.end] : total(p.cause.id, p.metric, story.end);
+      const value = strip && levers === 1 ? strip.values[story.end] : total(p.cause.id, p.metric, story.end);
       if (value !== undefined) p.later = { value, label: story.labels[story.end] ?? "", tone: tone(p.metric, value, story.end) };
     }
     p.small = !matters(p.value, p.metric);
@@ -516,6 +613,45 @@ export function headline(story: Story, t: number, max: number): { top: HeadPush 
   // On the same goal as the outside push when the move does about as much there; otherwise where it does most.
   const same = top ? best.find((p) => p.metric === top.metric && reach(p) >= 0.5 * reach(best[0])) : undefined;
   return { top, mine: same ?? best[0] ?? null };
+}
+
+export type GoalPush = HeadPush & {
+  /** The player's own: its biggest push from the next quarter to the goal date, when bigger than now ("at worst"). */
+  extreme?: { value: number; label: string; tone: "good" | "bad" };
+};
+
+/**
+ * One goal's story at quarter t, for a goal in trouble: its biggest push, and the player's own
+ * biggest push there (or, when the player has none, the next biggest), each cause's roads added
+ * together, since the mission's start. The player's own also says how far it goes in the
+ * quarters to come, when that is further than now.
+ */
+export function goalPushes(story: Story, t: number, m: MetricId): GoalPush[] {
+  const o = story.outcomes.find((x) => x.metric === m);
+  if (!o) return [];
+  const levers = story.causes.filter((c) => c.kind === "lever");
+  const strip = levers.length === 1 ? story.travel?.diffs.find((d) => d.metric === m) : undefined;
+  const tone = (v: number, q: number): "good" | "bad" => (Math.sign(v) === o.good(q) ? "good" : "bad");
+  const pushes: GoalPush[] = story.causes.map((c) => {
+    const value = causeTotal(story, c.id, m, t);
+    const p: GoalPush = { cause: c, metric: m, goal: o.label.toLowerCase(), value, tone: tone(value, t) };
+    if (c.kind === "lever") {
+      const at = (q: number) => (strip ? (strip.values[q] ?? 0) : causeTotal(story, c.id, m, q));
+      let far = -1;
+      for (let q = t + 1; q <= story.end; q++) if (Math.abs(at(q)) > Math.abs(far < 0 ? value : at(far))) far = q;
+      if (far > 0 && matters(at(far), m) && Math.abs(at(far)) - Math.abs(value) >= 0.05 * metricRef(m)) p.extreme = { value: at(far), label: story.labels[far] ?? "", tone: tone(at(far), far) };
+      p.small = !matters(value, m);
+    }
+    return p;
+  });
+  const n = (p: GoalPush) => Math.abs(p.value) / metricRef(m);
+  const counts = (p: GoalPush) => matters(p.value, m) || p.extreme !== undefined;
+  const ranked = pushes.filter(counts).sort((a, b) => n(b) - n(a));
+  const first = ranked.find((p) => matters(p.value, m));
+  if (!first) return ranked.filter((p) => p.cause.kind === "lever").slice(0, 1);
+  const own = ranked.find((p) => p !== first && p.cause.kind === "lever");
+  const second = own ?? ranked.find((p) => p !== first && matters(p.value, m));
+  return second ? [first, second] : [first];
 }
 
 /** Largest push on any flow, any quarter shown: one scale for the whole strip of time, so arrows grow as effects build. */
