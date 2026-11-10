@@ -17,7 +17,11 @@ import Play from "./Play";
 import { Briefing, MissionSelect, TitleScreen } from "./Screens";
 import Contagion from "../../contagion/ui/Contagion";
 import { PlayScene } from "../../scenes/registry";
+import { useUiMode } from "../../next/state";
 import "../../contagion/contagion.css";
+
+/** The three-beat play screen, opened with ?ui=next (see app/next/). */
+const NextPlay = dynamic(() => import("../../next/NextPlay"), { ssr: false });
 
 const IslandScene = dynamic(() => import("../../scene/IslandScene"), {
   ssr: false,
@@ -31,6 +35,7 @@ const IslandScene = dynamic(() => import("../../scene/IslandScene"), {
 /** Campaign screens, or the full lab in free play. */
 export default function Game() {
   const screen = useGame((s) => s.screen);
+  const next = useUiMode() === "next";
   const sandboxKeep = useGame((s) => s.sandboxKeep);
   const loadProgress = useGame((s) => s.loadProgress);
   const setScreen = useGame((s) => s.setScreen);
@@ -122,7 +127,7 @@ export default function Game() {
     <div className={`lab game ${reducedMotion ? "is-reduced" : ""} ${hasModal ? "has-modal" : ""} ${hasKbd ? "has-kbd" : ""} min-h-dvh bg-[var(--lab-bg)] text-[var(--lab-ink)]`} data-theme={theme.id} style={{ ...(theme.vars as React.CSSProperties), colorScheme: theme.scheme }}>
       {theme.css ? <style>{theme.css}</style> : null}
       {screen === "play" ? (
-        <Play scene={<PlayScene />} />
+        next ? <NextPlay /> : <Play scene={<PlayScene />} />
       ) : screen === "contagion" ? (
         <Contagion />
       ) : (
@@ -133,7 +138,8 @@ export default function Game() {
           {screen === "title" ? <TitleScreen /> : screen === "missions" ? <MissionSelect /> : <Briefing />}
         </div>
       )}
-      <Modals />
+      {/* The next screen plays the shock, recap and debrief as its own beats. */}
+      {next && screen === "play" ? null : <Modals />}
       {screen === "play" ? <Framework /> : null}
       <SettingsPanel />
     </div>

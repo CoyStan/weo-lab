@@ -1,0 +1,1046 @@
+/* The "next" play screen (?ui=next). Everything is scoped under .nx and uses the
+   theme's tokens, so it follows whichever design is active. Body text is
+   --t-sm (14.4 px) or larger; chart ticks are the one place 13 px is used. */
+
+.nx {
+  --nx-forecast: var(--lab-scenario, #4a3aa7);
+  --nx-good: var(--lab-good, #2f7d32);
+  --nx-bad: var(--lab-bad, #b4503f);
+  --nx-warn: var(--lab-warn, #8a6a0f);
+  --nx-card: var(--lab-paper, #fffdf8);
+  --nx-gap: clamp(0.75rem, 1.4vw, 1.25rem);
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+  font-family: var(--lab-font-ui);
+  font-size: var(--t-sm);
+  line-height: 1.45;
+  color: var(--lab-ink);
+}
+
+.nx kbd {
+  display: none;
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: 0.35rem;
+  padding: 0 0.35rem;
+  font-family: var(--lab-font-ui);
+  font-size: 0.8rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+.game.has-kbd .nx kbd {
+  display: inline-block;
+}
+
+.nx .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---- Header ---------------------------------------------------------------- */
+
+.nx-head {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(8rem, 1fr) auto;
+  align-items: center;
+  gap: var(--nx-gap);
+  border-bottom: 1px solid var(--lab-line);
+  background: var(--nx-card);
+  padding: 0.6rem clamp(0.75rem, 2vw, 1.5rem);
+}
+.nx-head-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+.nx-logo {
+  width: 62px;
+  height: auto;
+  flex: none;
+}
+.nx-kicker,
+.nx-beat {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: 700;
+  color: var(--lab-info, #15706b);
+}
+.nx-mission {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--t-lg);
+  font-weight: 700;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nx-track {
+  display: flex;
+  margin: 0;
+  gap: 4px;
+  padding: 0 0 1.05rem;
+  list-style: none;
+}
+.nx-track-q {
+  position: relative;
+  height: 0.55rem;
+  min-width: 0.4rem;
+  flex: 1;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--lab-ink) 12%, transparent);
+}
+.nx-track-q.is-done {
+  background: var(--lab-ink);
+}
+.nx-track-q.is-now {
+  background: color-mix(in srgb, var(--nx-forecast) 55%, transparent);
+  box-shadow: 0 0 0 2px var(--nx-card), 0 0 0 4px var(--nx-forecast);
+}
+.nx-track-q.has-news::after {
+  position: absolute;
+  top: -0.55rem;
+  left: 50%;
+  width: 0.45rem;
+  height: 0.45rem;
+  transform: translateX(-50%) rotate(45deg);
+  background: var(--lab-warn-mark, #e7b83d);
+  content: "";
+}
+.nx-track-year {
+  position: absolute;
+  top: 0.75rem;
+  left: 0;
+  font-size: 0.8125rem;
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 70%, transparent));
+}
+.nx-head-side {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.nx-score {
+  white-space: nowrap;
+  font-size: var(--t-sm);
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 75%, transparent));
+}
+.nx-score strong {
+  color: var(--lab-ink);
+}
+
+/* ---- Decide ---------------------------------------------------------------- */
+
+.nx-decide {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1.7fr) minmax(20rem, 1fr);
+  align-items: start;
+  gap: var(--nx-gap);
+  width: 100%;
+  max-width: 104rem;
+  margin: 0 auto;
+  padding: 0.75rem clamp(0.75rem, 2vw, 1.5rem) 0.75rem;
+}
+.nx-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.nx-brief {
+  min-height: 3.6rem;
+}
+.nx-brief-line {
+  margin: 0.1rem 0 0;
+  font-size: var(--t-md);
+}
+.nx-charts {
+  display: grid;
+  gap: 1rem;
+}
+.nx-charts[data-count="4"] {
+  grid-template-columns: 1fr 1fr;
+}
+.nx-legend {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+  gap: 0.2rem 1rem;
+  font-size: var(--t-sm);
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 75%, transparent));
+}
+.nx-key {
+  display: inline-block;
+  width: 1.5rem;
+  height: 0;
+  margin-right: 0.3rem;
+  border-top: 3px solid var(--lab-ink);
+  vertical-align: middle;
+}
+.nx-key.is-forecast {
+  border-top: 3px dashed var(--nx-forecast);
+}
+.nx-key.is-ghost {
+  border-top: 2px dotted color-mix(in srgb, var(--lab-ink) 60%, transparent);
+}
+.nx-key.is-nothing {
+  border-top: 2px dashed color-mix(in srgb, var(--lab-ink) 55%, transparent);
+}
+.nx-key.is-compare {
+  border-top: 2.5px solid var(--lab-reference, #eb6834);
+}
+.nx-key.is-gate {
+  width: 0.9rem;
+  height: 0.9rem;
+  border: 0;
+  border-top: 2px solid var(--nx-good);
+  background: color-mix(in srgb, var(--nx-good) 16%, transparent);
+}
+
+.nx-goal-panel {
+  min-width: 0;
+  border: 1px solid var(--lab-line);
+  border-radius: var(--lab-radius-panel, 1rem);
+  background: var(--nx-card);
+  padding: 0.85rem 1rem 0.8rem;
+  box-shadow: var(--lab-panel-shadow);
+}
+.nx-goal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.nx-goal-name {
+  margin: 0;
+  font-size: var(--t-lg);
+  font-weight: 700;
+  line-height: 1.2;
+}
+.nx-goal-label,
+.nx-goal-when,
+.nx-bonus,
+.nx-note {
+  margin: 0.1rem 0 0;
+  font-size: var(--t-sm);
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 75%, transparent));
+}
+.nx-goal-landing {
+  flex: none;
+  text-align: right;
+}
+.nx-goal-value {
+  margin: 0;
+  font-size: var(--t-xl);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.nx-goal-unit {
+  margin-left: 0.1em;
+  font-size: 0.55em;
+  font-weight: 600;
+}
+.nx-goal-panel.is-compact .nx-goal-name {
+  font-size: var(--t-md);
+}
+.nx-goal-panel.is-compact .nx-goal-value {
+  font-size: var(--t-lg);
+}
+
+.nx-status {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.nx-status.is-on-track,
+.nx-status.is-met {
+  color: var(--nx-good);
+}
+.nx-status.is-at-risk {
+  color: var(--nx-warn);
+}
+.nx-status.is-failed {
+  color: var(--nx-bad);
+}
+
+.nx-journey {
+  margin: 0.35rem 0 0;
+  min-height: 2.9em;
+  font-size: var(--t-sm);
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 72%, transparent));
+}
+.nx-journey.is-on {
+  color: var(--lab-ink);
+}
+.nx-journey-swatch {
+  display: inline-block;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 0.2rem;
+  background: color-mix(in srgb, var(--nx-forecast) 22%, transparent);
+  outline: 1.5px solid color-mix(in srgb, var(--nx-forecast) 60%, transparent);
+  vertical-align: -0.08rem;
+}
+
+/* ---- Chart ------------------------------------------------------------------- */
+
+.nx-chart {
+  width: 100%;
+  margin-top: 0.4rem;
+}
+.nx-chart svg {
+  display: block;
+  overflow: visible;
+}
+.nx-grid {
+  stroke: color-mix(in srgb, var(--lab-ink) 9%, transparent);
+  stroke-width: 1;
+}
+.nx-tick {
+  fill: color-mix(in srgb, var(--lab-ink) 72%, transparent);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.nx-actual {
+  fill: none;
+  stroke: var(--lab-ink);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.nx-forecast {
+  fill: none;
+  stroke: var(--nx-forecast);
+  stroke-width: 2.5;
+  stroke-dasharray: 7 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.nx-goal-text {
+  fill: var(--nx-good);
+  font-size: 13px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: var(--nx-card);
+  stroke-width: 4;
+}
+.nx-ghost {
+  fill: none;
+  stroke: color-mix(in srgb, var(--lab-ink) 62%, transparent);
+  stroke-width: 2;
+  stroke-dasharray: 1 6;
+  stroke-linecap: round;
+}
+.nx-wedge {
+  fill: color-mix(in srgb, var(--nx-forecast) 18%, transparent);
+  stroke: none;
+}
+.nx-extra {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.nx-extra.is-nothing {
+  stroke: color-mix(in srgb, var(--lab-ink) 55%, transparent);
+  stroke-dasharray: 6 5;
+}
+.nx-extra.is-compare {
+  stroke: var(--lab-reference, #eb6834);
+  stroke-width: 2.5;
+}
+.nx-today {
+  stroke: color-mix(in srgb, var(--lab-ink) 35%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+.nx-dot {
+  fill: var(--lab-ink);
+  stroke: var(--nx-card);
+  stroke-width: 2;
+}
+.nx-end {
+  fill: var(--nx-card);
+  stroke: var(--nx-forecast);
+  stroke-width: 2.5;
+}
+.nx-ring {
+  fill: var(--nx-card);
+  stroke: var(--nx-forecast);
+  stroke-width: 2;
+}
+.nx-ring.is-bad {
+  stroke: var(--nx-bad);
+}
+.nx-endv {
+  fill: var(--lab-ink);
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.nx-ghostv,
+.nx-mark {
+  fill: color-mix(in srgb, var(--lab-ink) 72%, transparent);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.nx-mark {
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--nx-card);
+  stroke-width: 4;
+}
+.nx-goal .nx-goal-line {
+  stroke: var(--nx-good);
+  stroke-width: 2;
+}
+.nx-goal .nx-gate {
+  fill: color-mix(in srgb, var(--nx-good) 15%, transparent);
+}
+.nx-goal .nx-hatch {
+  stroke: color-mix(in srgb, var(--nx-bad) 55%, transparent);
+  stroke-width: 2;
+}
+.nx-goal.is-bonus .nx-goal-line {
+  stroke-dasharray: 2 5;
+  stroke-width: 1.5;
+}
+.nx-goal.is-bonus .nx-gate,
+.nx-goal.is-bonus rect {
+  opacity: 0.35;
+}
+
+/* ---- Side column --------------------------------------------------------------- */
+
+.nx-side {
+  position: sticky;
+  top: 0.75rem;
+  display: flex;
+  min-width: 0;
+  max-height: calc(100dvh - 1.5rem);
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.nx-side-scroll {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.9rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px;
+}
+.nx-side-title {
+  margin: 0 0 0.45rem;
+  font-size: var(--t-md);
+  font-weight: 700;
+}
+.nx-levers {
+  border: 1px solid var(--lab-line);
+  border-radius: var(--lab-radius-panel, 1rem);
+  background: var(--nx-card);
+  padding: 0.85rem 1rem;
+}
+.nx-plans {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.nx-plans .nx-side-title {
+  margin-bottom: 0.1rem;
+}
+.nx-plan {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  border: 1.5px solid var(--lab-line-strong);
+  border-radius: var(--lab-radius-card, 0.75rem);
+  background: var(--nx-card);
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  transition: border-color var(--dur-fast, 150ms) var(--ease, ease), box-shadow var(--dur, 250ms) var(--ease, ease), transform var(--dur-fast, 150ms) var(--ease, ease);
+}
+.nx-plan:hover {
+  border-color: var(--lab-ink);
+  transform: translateY(-1px);
+}
+.nx-plan.is-active {
+  border-color: var(--lab-ink);
+  box-shadow: 0 0 0 2px var(--lab-ink);
+}
+.nx-plan-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  line-height: 1.3;
+}
+.nx-plan-who {
+  font-weight: 700;
+}
+.nx-plan-who span {
+  font-weight: 400;
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 72%, transparent));
+}
+.nx-plan-faces {
+  display: flex;
+  flex: none;
+}
+.nx-plan-faces img,
+.nx-plan-noface {
+  width: 44px;
+  height: 44px;
+  border-radius: 0.7rem;
+  object-fit: cover;
+}
+.nx-plan-noface {
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--lab-ink) 7%, transparent);
+  font-weight: 700;
+}
+.nx-plan-faces img + img {
+  margin-left: -14px;
+  outline: 2px solid var(--nx-card);
+}
+.nx-plan-title {
+  font-size: var(--t-md);
+  font-weight: 700;
+}
+.nx-plan-effects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.9rem;
+}
+.nx-plan-effects .is-ok > span:first-child {
+  color: var(--nx-good);
+  font-weight: 700;
+}
+.nx-plan-effects .is-miss > span:first-child {
+  color: var(--nx-bad);
+  font-weight: 700;
+}
+.nx-plan-pick {
+  align-self: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--lab-ink) 8%, transparent);
+  padding: 0.35rem 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.nx-plan.is-active .nx-plan-pick {
+  background: var(--lab-ink);
+  color: var(--lab-on-accent, #fff);
+}
+.nx-reforms {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--lab-line);
+  padding-top: 0.6rem;
+}
+.nx-reforms summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.nx-end {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+.nx-end-btn {
+  flex: 1;
+  min-height: 3.25rem;
+}
+
+/* ---- Stage beats: news, result, debrief ------------------------------------------ */
+
+.nx-stage {
+  display: flex;
+  flex: 1;
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(0.75rem, 3vh, 2.5rem) clamp(0.75rem, 2vw, 1.5rem) 2rem;
+}
+.nx-news,
+.nx-result,
+.nx-debrief {
+  width: 100%;
+  max-width: 62rem;
+  border: 1px solid var(--lab-line);
+  border-radius: calc(var(--lab-radius-panel, 1rem) * 1.25);
+  background: var(--nx-card);
+  padding: clamp(1rem, 2.5vw, 2rem);
+  box-shadow: 0 18px 50px color-mix(in srgb, var(--lab-ink) 10%, transparent);
+  animation: nx-rise 380ms var(--ease, ease) both;
+}
+.nx-news {
+  max-width: 50rem;
+}
+.nx-news > .nx-call {
+  max-width: none;
+}
+@keyframes nx-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+.nx-headline {
+  margin: 0.2rem 0 0.4rem;
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-size: clamp(1.5rem, 2.6vw, 2.25rem);
+  font-weight: 600;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+.nx-lede {
+  max-width: 46rem;
+  margin: 0 0 0.6rem;
+  font-size: var(--t-md);
+}
+.nx-news-size {
+  display: inline-block;
+  margin: 0 0 1rem;
+  border-bottom: 2px solid var(--lab-warn-mark, #e7b83d);
+  font-weight: 700;
+}
+.nx-news-charts,
+.nx-result-charts {
+  display: grid;
+  gap: var(--nx-gap);
+  margin: 0.75rem 0;
+}
+.nx-news-charts[data-count="2"],
+.nx-result-charts[data-count="2"] {
+  grid-template-columns: 1fr 1fr;
+}
+.nx-result-charts[data-count="3"] {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.nx-news-charts .nx-goal-panel,
+.nx-result-charts .nx-goal-panel {
+  box-shadow: none;
+}
+.nx-responses {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+.nx-response {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  border: 1.5px solid var(--lab-line-strong);
+  border-radius: var(--lab-radius-card, 0.75rem);
+  background: var(--nx-card);
+  padding: 0.7rem 0.9rem;
+  text-align: left;
+  transition: border-color var(--dur-fast, 150ms), transform var(--dur-fast, 150ms);
+}
+.nx-response:hover {
+  border-color: var(--lab-ink);
+  transform: translateY(-1px);
+}
+.nx-response > span {
+  display: flex;
+  flex-direction: column;
+}
+.nx-response strong {
+  font-size: var(--t-md);
+}
+.nx-responses > .lab-btn {
+  justify-self: end;
+}
+
+.nx-moved {
+  margin: 0.4rem 0 0;
+}
+.nx-moved strong {
+  font-size: var(--t-md);
+  font-variant-numeric: tabular-nums;
+}
+.nx-delta {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.nx-delta.is-good {
+  color: var(--nx-good);
+}
+.nx-delta.is-bad {
+  color: var(--nx-bad);
+}
+.nx-moved-why {
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 75%, transparent));
+}
+.nx-result-foot {
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 300ms var(--ease, ease), transform 300ms var(--ease, ease);
+}
+.nx-result-foot.is-in {
+  opacity: 1;
+  transform: none;
+}
+.nx-verdicts,
+.nx-skipped {
+  margin: 0.5rem 0;
+  padding: 0;
+  list-style: none;
+}
+.nx-verdicts li,
+.nx-skipped li {
+  padding: 0.15rem 0;
+}
+.nx-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+.nx-stars {
+  margin: 0;
+  font-size: 2.25rem;
+  line-height: 1;
+  letter-spacing: 0.15em;
+  color: color-mix(in srgb, var(--lab-ink) 18%, transparent);
+}
+.nx-stars .is-on {
+  display: inline-block;
+  color: var(--lab-warn-mark, #e7b83d);
+  animation: nx-pop 420ms var(--ease, ease) both;
+}
+@keyframes nx-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4) rotate(-20deg);
+  }
+}
+
+/* ---- Call it ------------------------------------------------------------------------ */
+
+.nx-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--lab-ink) 38%, transparent);
+  padding: 1rem;
+  animation: nx-fade 200ms ease both;
+}
+@keyframes nx-fade {
+  from {
+    opacity: 0;
+  }
+}
+.nx-call {
+  width: 100%;
+  max-width: 40rem;
+}
+.nx-overlay > .nx-call {
+  border-radius: calc(var(--lab-radius-panel, 1rem) * 1.25);
+  background: var(--nx-card);
+  padding: clamp(1rem, 2.5vw, 1.75rem);
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--lab-ink) 30%, transparent);
+  animation: nx-rise 300ms var(--ease, ease) both;
+}
+.nx-news > .nx-call {
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--lab-line);
+  padding-top: 1rem;
+}
+.nx-call-prompt {
+  margin: 0.25rem 0 0.8rem;
+  font-size: var(--t-lg);
+  font-weight: 700;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+.nx-call-options {
+  display: grid;
+  gap: 0.5rem;
+}
+.nx-call-option {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 3rem;
+  border: 1.5px solid var(--lab-line-strong);
+  border-radius: var(--lab-radius-card, 0.75rem);
+  background: var(--nx-card);
+  padding: 0.6rem 0.9rem;
+  font-size: var(--t-md);
+  font-weight: 600;
+  text-align: left;
+  transition: border-color var(--dur-fast, 150ms), transform var(--dur-fast, 150ms), opacity var(--dur, 250ms);
+}
+.nx-call-option:not(:disabled):hover {
+  border-color: var(--lab-ink);
+  transform: translateY(-1px);
+}
+.nx-call-option:disabled {
+  opacity: 0.45;
+}
+.nx-call-option.is-picked {
+  border-color: var(--lab-ink);
+}
+.nx-call-option.is-answer {
+  border-color: var(--nx-good);
+  background: color-mix(in srgb, var(--nx-good) 9%, var(--nx-card));
+  opacity: 1;
+}
+.nx-call-tag {
+  margin-left: auto;
+  font-size: var(--t-sm);
+  font-weight: 700;
+}
+.nx-call-option.is-answer .nx-call-tag {
+  color: var(--nx-good);
+}
+.nx-call-reveal {
+  margin-top: 0.9rem;
+  animation: nx-rise 300ms var(--ease, ease) both;
+}
+.nx-call-reveal > p {
+  margin: 0 0 0.8rem;
+  font-size: var(--t-md);
+}
+.nx-call-detail {
+  margin-bottom: 0.9rem;
+}
+.nx-skip {
+  margin-top: 0.8rem;
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 72%, transparent));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.nx-bars {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  margin-top: 0.4rem;
+}
+.nx-bar {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.nx-bar-v {
+  height: 1.3em;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.nx-bar-track {
+  display: flex;
+  width: 100%;
+  height: 56px;
+  align-items: flex-end;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--lab-ink) 6%, transparent);
+}
+.nx-bar-fill {
+  width: 100%;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--nx-forecast) 45%, transparent);
+}
+.nx-bar.is-peak .nx-bar-fill {
+  background: var(--nx-forecast);
+}
+.nx-bar-q {
+  font-size: 13px;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--lab-ink) 72%, transparent);
+}
+
+/* ---- Fast-forward and the why drawer ------------------------------------------------ */
+
+.nx-run {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  left: 1rem;
+  z-index: 55;
+  display: flex;
+  max-width: 48rem;
+  margin: 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 1rem;
+  background: var(--lab-ink);
+  padding: 0.7rem 1rem;
+  color: var(--lab-on-accent, #fff);
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--lab-ink) 35%, transparent);
+}
+.nx-run p {
+  margin: 0;
+}
+.nx-why {
+  display: flex;
+  width: min(72rem, 100%);
+  height: min(46rem, 92dvh);
+  flex-direction: column;
+  border-radius: calc(var(--lab-radius-panel, 1rem) * 1.25);
+  background: var(--nx-card);
+  padding: 0.9rem 1rem 1rem;
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--lab-ink) 30%, transparent);
+}
+.nx-why-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.nx-why-body {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+/* ---- Narrow screens ------------------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .nx-decide {
+    grid-template-columns: minmax(0, 1.25fr) minmax(18rem, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .nx-head {
+    grid-template-columns: 1fr auto;
+    row-gap: 0.4rem;
+    padding-bottom: 0.3rem;
+  }
+  .nx-track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .nx-logo,
+  .nx-head .game-menu-label,
+  .nx-score[title^="Political"] {
+    display: none;
+  }
+  .nx-mission {
+    font-size: var(--t-md);
+  }
+  .nx-decide {
+    display: block;
+    padding: 0 0 6.5rem;
+  }
+  .nx-brief {
+    min-height: 0;
+    padding: 0.6rem 0.75rem 0;
+  }
+  .nx-brief-line {
+    font-size: var(--t-sm);
+  }
+  /* The charts ride along at the top while the plans and levers scroll under them:
+     swipe sideways for the next goal, and the line bends in view as a lever moves. */
+  .nx-main {
+    display: contents;
+  }
+  .nx-charts,
+  .nx-charts[data-count="4"] {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    grid-template-columns: none;
+    gap: 0.5rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    border-bottom: 1px solid var(--lab-line);
+    background: var(--lab-bg);
+    padding: 0.5rem 0.75rem;
+    scrollbar-width: none;
+  }
+  .nx-charts > .nx-goal-panel {
+    flex: 0 0 calc(100% - 2.25rem);
+    scroll-snap-align: center;
+    padding: 0.55rem 0.7rem 0.5rem;
+  }
+  .nx-charts > .nx-goal-panel:only-child {
+    flex-basis: 100%;
+  }
+  .nx-charts .nx-goal-label,
+  .nx-charts .nx-bonus {
+    display: none;
+  }
+  .nx-main > .nx-legend {
+    display: none;
+  }
+  .nx-side {
+    position: static;
+    max-height: none;
+    padding: 0.75rem;
+  }
+  .nx-side-scroll {
+    overflow: visible;
+  }
+  .nx-news-charts[data-count="2"],
+  .nx-result-charts[data-count="2"],
+  .nx-result-charts[data-count="3"] {
+    grid-template-columns: 1fr;
+  }
+  .nx-end {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    border-top: 1px solid var(--lab-line);
+    background: var(--nx-card);
+    padding: 0.6rem 0.75rem calc(0.6rem + env(safe-area-inset-bottom));
+  }
+  .nx-journey {
+    min-height: 2.9em;
+    margin-top: 0.15rem;
+  }
+  .nx-actions .lab-btn {
+    flex: 1;
+    min-height: 2.75rem;
+  }
+  .nx-plan-pick kbd {
+    display: none;
+  }
+}
+
+/* ---- Big screens: one step up, as the classic screen does ---------------------------- */
+
+@media (min-width: 2000px) {
+  .nx-tick,
+  .nx-ghostv,
+  .nx-mark,
+  .nx-bar-v,
+  .nx-bar-q {
+    font-size: 16px;
+  }
+  .nx-endv {
+    font-size: 20px;
+  }
+}
+
+.game.is-reduced .nx *,
+.game.is-reduced .nx *::before,
+.game.is-reduced .nx *::after {
+  animation: none !important;
+  transition: none !important;
+}
