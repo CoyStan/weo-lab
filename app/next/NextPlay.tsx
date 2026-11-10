@@ -1031,7 +1031,6 @@ function useAdvisorRuns(mission: { id: string; advisors: (keyof typeof ADVISORS)
       alive = false;
       window.clearTimeout(timer);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mission.id]);
   return runs;
 }

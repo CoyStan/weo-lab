@@ -736,37 +736,6 @@
 .nx-result-charts .nx-goal-panel {
   box-shadow: none;
 }
-.nx-responses {
-  display: grid;
-  gap: 0.6rem;
-  margin-top: 0.9rem;
-}
-.nx-response {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.7rem;
-  border: 1.5px solid var(--lab-line-strong);
-  border-radius: var(--lab-radius-card, 0.75rem);
-  background: var(--nx-card);
-  padding: 0.7rem 0.9rem;
-  text-align: left;
-  transition: border-color var(--dur-fast, 150ms), transform var(--dur-fast, 150ms);
-}
-.nx-response:hover {
-  border-color: var(--lab-ink);
-  transform: translateY(-1px);
-}
-.nx-response > span {
-  display: flex;
-  flex-direction: column;
-}
-.nx-response strong {
-  font-size: var(--t-md);
-}
-.nx-responses > .lab-btn {
-  justify-self: end;
-}
-
 .nx-moved {
   margin: 0.4rem 0 0;
 }
@@ -783,9 +752,6 @@
 }
 .nx-delta.is-bad {
   color: var(--nx-bad);
-}
-.nx-moved-why {
-  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 75%, transparent));
 }
 .nx-result-foot {
   opacity: 0;

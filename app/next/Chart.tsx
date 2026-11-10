@@ -63,7 +63,6 @@ export function useEased(target: number[], ms = 260): number[] {
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, reduced, ms]);
   return shown.length === target.length ? shown : target;
 }
