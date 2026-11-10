@@ -433,13 +433,18 @@ for (const [label, viewport] of SIZES) {
     await startMission(page);
     await closeCards(page);
     await nudge(page, "Policy rate", 8);
-    await page.keyboard.press("i"); // on the slider: must not switch views
+    // On the slider, letters reach the shortcuts (its arrows and Enter stay with it): I asks for the island...
+    await page.keyboard.press("i");
+    const asked = await page.locator('.game-scene-tabs button[data-view="island"][aria-pressed="true"]').count();
+    if (!asked) errors.push(`${name}: I on the slider did not switch the view`);
+    // ...and I again comes back to the map; then the slider lets go of focus before the shot.
+    await page.keyboard.press("i");
     await blur(page);
     await page.waitForTimeout(2600);
     const sz = `${label.slice(2)} ${dims(viewport)}`;
     const stem = `m1-${label}-${dims(viewport)}`;
-    const p = await shootBoth(page, `${stem}-map`, "m1", `Mission 1, rate 8.5% to 10.5%, map view (I pressed on the slider first: still the map), ${sz}`);
-    if (p?.view !== "map") errors.push(`${name}: I on the slider switched the view`);
+    const p = await shootBoth(page, `${stem}-map`, "m1", `Mission 1, rate 8.5% to 10.5%, map view (I pressed twice on the slider: to the island and back), ${sz}`);
+    if (p?.view !== "map") errors.push(`${name}: I twice on the slider did not come back to the map`);
     await toIsland(page);
     await top(page);
     await shoot(page, `${stem}-island.png`, "m1", `The same after pressing I: island view, ${sz}`);
