@@ -851,6 +851,17 @@
 .nx-mood.is-pleased {
   color: var(--nx-good);
 }
+.nx-election {
+  margin: 0 0 0.6rem;
+  font-size: var(--t-md);
+  font-weight: 700;
+}
+.nx-election.is-won {
+  color: var(--nx-good);
+}
+.nx-election.is-lost {
+  color: var(--nx-bad);
+}
 .nx-pending {
   margin: 0.5rem 0 0;
 }
@@ -944,6 +955,11 @@
   from {
     opacity: 0;
   }
+}
+/* A question hides the screen behind it, so the answer cannot be read off the chart. */
+.nx-overlay:has(> .nx-call) {
+  backdrop-filter: blur(7px);
+  background: color-mix(in srgb, var(--lab-ink) 50%, transparent);
 }
 .nx-call {
   width: 100%;
@@ -1160,6 +1176,9 @@
   .nx-coach ol {
     grid-template-columns: 1fr;
   }
+  .nx-coach li > span {
+    display: none;
+  }
   /* The charts ride along at the top while the plans and levers scroll under them:
      swipe sideways for the next goal, and the line bends in view as a lever moves. */
   .nx-main {
@@ -1282,4 +1301,9 @@
 .game.is-reduced .nx *::after {
   animation: none !important;
   transition: none !important;
+}
+
+/* Three charts side by side leave no room for the "latest" / "final" caption beside the figure. */
+.nx-result-charts[data-count="3"] .nx-goal-cap {
+  display: none;
 }

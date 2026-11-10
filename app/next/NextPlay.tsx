@@ -308,7 +308,7 @@ function GoalPanel({
   const flat = Math.abs(d) < (meta.digits === 0 ? 5 : 0.1);
   // A figure that rounds onto its goal gets one more decimal, so "1.5 against 1.5: missed" never happens.
   const vs = (v: number, o: Objective | undefined) => fmtNum(v, o && fmtNum(v, meta.digits) === fmtNum(o.threshold, meta.digits) && Math.abs(v - o.threshold) > 1e-9 ? meta.digits + 1 : meta.digits);
-  const judgedAt = main && j ? (main.when === "every" ? `${main.op === ">=" ? "lowest" : "highest"}, ${shortQ(j.t)}` : main.when === "year" ? `${main.year} ${metric === "debt" ? "year end" : "average"}` : clock >= end ? `final, ${shortQ(end)}` : `forecast for ${shortQ(j.t)}`) : "";
+  const judgedAt = main && j ? (main.when === "every" ? `${main.op === ">=" ? "at its lowest" : "at its highest"}, ${shortQ(j.t)}` : main.when === "year" ? `${main.year} ${metric === "debt" ? "year end" : "average"}` : clock >= end ? `at the end, ${shortQ(end)}` : `forecast for ${shortQ(j.t)}`) : "";
   return (
     <section className={`nx-goal-panel ${compact ? "is-compact" : ""}`} aria-label={meta.label}>
       <header className="nx-goal-head">
@@ -325,8 +325,8 @@ function GoalPanel({
           </p>
         ) : main && j ? (
           <p className="nx-goal-value">
-            {clock < end ? <span className="nx-goal-cap">now </span> : null}
-            {clock < end ? fmtNum(actual[clock][metric], meta.digits) : vs(j.value, main)}
+            <span className="nx-goal-cap">{clock < end ? "latest " : "final "}</span>
+            {fmtNum(actual[Math.min(clock, end)][metric], meta.digits)}
             <span className="nx-goal-unit">{unit}</span>
           </p>
         ) : null}
@@ -338,7 +338,7 @@ function GoalPanel({
           </p>
         ) : main && j ? (
           <p className="nx-goal-when">
-            {clock < end ? <><strong>{vs(j.value, main)}{meta.unit === "months of imports" ? " mo" : meta.unit === "% of GDP" || meta.unit === "%" ? "%" : unit}</strong> {judgedAt}</> : judgedAt} · <Status status={statuses[main.id]} />
+            <strong>{vs(j.value, main)}{meta.unit === "months of imports" ? " mo" : meta.unit === "% of GDP" || meta.unit === "%" ? "%" : unit}</strong> {judgedAt} · <Status status={statuses[main.id]} />
           </p>
         ) : null}
       </header>
@@ -438,7 +438,10 @@ function DecideBeat() {
     if (!list.some((p) => p.hold) && list[0]) {
       const base = forecastFor(turnStart, clock);
       const bonus = mission.objectives.filter((o) => o.bonus);
-      list.push({ advisors: [], title: "Change nothing this quarter", changes: {}, hold: true, effects: list[0].effects.map((e) => ({ ...e, value: e.base, ok: e.baseOk })), stars: { ok: bonus.filter((o) => judged(o, mission, actual, base, clock).ok).length, total: bonus.length }, election: electionOutlook(mission, turnStart, clock) });
+      list.push({ advisors: [], title: "Change nothing this quarter", changes: {}, hold: true, effects: list[0].effects.map((e) => ({ ...e, value: e.base, ok: e.baseOk })), stars: (() => {
+        const missed = bonus.filter((o) => !judged(o, mission, actual, base, clock).ok).map((o) => o.label.charAt(0).toLowerCase() + o.label.slice(1));
+        return { ok: bonus.length - missed.length, total: bonus.length, missed };
+      })(), election: electionOutlook(mission, turnStart, clock) });
     }
     return list;
   }, [mission, turnStart, actual, clock, done]);
@@ -633,9 +636,9 @@ function Coach({ close }: { close: () => void }) {
   return (
     <section className="nx-coach" aria-label="How to play">
       <ol>
-        <li><strong>Read the lines.</strong> Solid is what has happened; dashed is the staff forecast. Land it in the green gate, and keep it off the hatched fence.</li>
-        <li><strong>Make your move.</strong> Back an advisor&apos;s plan or drag a lever. The shaded wedge is what your move does, and where it widens is when it arrives.</li>
-        <li><strong>End the quarter</strong> and watch it play out. You decide again every quarter. (“pp” means percentage points.)</li>
+        <li><strong>Read the lines.</strong> <span>Solid is what has happened; dashed is the staff forecast. Land it in the green gate, and keep it off the hatched fence.</span></li>
+        <li><strong>Make your move.</strong> <span>Back an advisor&apos;s plan or drag a lever. The shaded wedge is what your move does, and where it widens is when it arrives.</span></li>
+        <li><strong>End the quarter.</strong> <span>Watch it play out; you decide again every quarter. (“pp” means percentage points.)</span></li>
       </ol>
       <button type="button" className="lab-btn lab-btn-soft lab-btn-sm" onClick={close}>Got it</button>
     </section>
@@ -650,8 +653,8 @@ function LagDetail({ call }: { call: Call }) {
   const trip = journey(metric, forecast, forecastStart, clock, mission.quarters);
   return (
     <div className="nx-call-detail">
-      <p className="nx-note">How far your move shifts {meta.label.toLowerCase()} from where it would have been, quarter by quarter ({deltaUnit(meta.unit).trim()}). The dark bar is where the gap grows fastest.</p>
-      <EffectBars series={trip.series} from={trip.from} digits={meta.digits} unit="" highlight={trip.biteT} />
+      <p className="nx-note">How far your move shifts {meta.label.toLowerCase()} from where it would have been, quarter by quarter ({deltaUnit(meta.unit).trim()}). The dark bar is the first quarter with at least half the full effect.</p>
+      <EffectBars series={trip.series} from={trip.from} digits={meta.digits} unit="" highlight={trip.halfT} />
     </div>
   );
 }
@@ -683,7 +686,8 @@ function PlanCard({ plan, index, active, onBack }: { plan: Plan; index: number; 
         </span>
         {plan.stars.total || plan.election ? (
           <span className="nx-plan-extras">
-            {plan.stars.total ? <span>★ {plan.stars.ok} of {plan.stars.total} bonus goals</span> : null}
+            {plan.stars.total ? <span title={plan.stars.missed.length ? `Not on track: ${plan.stars.missed.join("; ")}` : "Every bonus goal on track"}>★ {plan.stars.ok} of {plan.stars.total} bonus goals{plan.stars.missed.length === 1 ? ` (not: ${plan.stars.missed[0]})` : ""}</span> : null}
+            {plan.cost ? <span className="is-miss">costs {plan.cost} now</span> : null}
             {plan.election ? (
               <span className={plan.election.ok ? "is-ok" : "is-miss"}>
                 <span aria-hidden="true">{plan.election.ok ? "✓" : "✕"}</span> {plan.election.votes} vote{plan.election.votes === 1 ? "" : "s"} at the {shortQ(plan.election.quarter)} election (need {plan.election.need})
@@ -824,6 +828,19 @@ const SHORT_DRIVER: Record<string, string> = {
   other: "other things",
 };
 
+/** The same reason earned over several skipped quarters is one line, not four. */
+function groupPoints(entries: Recap["points"]["entries"]) {
+  const out: { currency: string; reason: string; amount: number; times: number }[] = [];
+  for (const e of entries) {
+    const same = out.find((x) => x.currency === e.currency && x.reason === e.reason);
+    if (same) {
+      same.amount += e.amount;
+      same.times += 1;
+    } else out.push({ currency: e.currency, reason: e.reason, amount: e.amount, times: 1 });
+  }
+  return out.filter((e) => e.amount !== 0);
+}
+
 /**
  * Why a goal moved this quarter, from the model's own drivers: the two biggest pushes and
  * "everything else", so the figures add up to the change. Growth is explained through output
@@ -834,7 +851,8 @@ function whyLine(m: MetricKey, recap: Recap): { total: string; text: string } | 
   if (!key) return null;
   const { parts } = explain(key, recap.now);
   if (!parts.length) return null;
-  const sum = parts.reduce((a, x) => a + x.value, 0);
+  // Inflation and debt drivers sum to the quarter's change; growth is explained through the output gap, whose change they sum to.
+  const sum = key === "growth" ? recap.now.gap - recap.prev.gap : recap.now[m] - recap.prev[m];
   const top = parts.slice(0, 2);
   const rest = sum - top.reduce((a, x) => a + x.value, 0);
   const name = (k: string, label: string) => SHORT_DRIVER[k] ?? label.toLowerCase();
@@ -845,7 +863,7 @@ function whyLine(m: MetricKey, recap: Recap): { total: string; text: string } | 
   const was = (recap.prev.drivers[group] as Record<string, number>).shocks ?? 0;
   const is = (recap.now.drivers[group] as Record<string, number>).shocks ?? 0;
   const fading = Math.abs(was) - Math.abs(is) >= 0.3 ? ` The shock is fading: its push was ${signed(was, 1, " pp")} last quarter.` : "";
-  const what = key === "growth" ? "output against capacity moved" : key === "debt" ? "debt moved" : "inflation moved";
+  const what = key === "growth" ? "Behind growth, demand against the economy's capacity moved" : key === "debt" ? "Why debt moved" : "Why inflation moved";
   return { total: `${what} ${signed(sum, 1, " pp")}`, text: `${list.join(", ")}.${fading}` };
 }
 
@@ -895,14 +913,19 @@ function ResultBeat({ recap }: { recap: Recap }) {
         </p>
         <h2 className="nx-headline">{lead}</h2>
         {lead !== recap.headline.text ? <p className="nx-lede">{recap.headline.text}</p> : null}
-        {recap.stopReasons?.length ? <p className="nx-lede">The clock stopped: {recap.stopReasons.join("; ").replace(/^./, (c) => c.toLowerCase())}.</p> : null}
+        {recap.election ? (
+          <p className={`nx-election ${recap.election.won ? "is-won" : "is-lost"}`}>
+            <span aria-hidden="true">{recap.election.won ? "✓" : "✕"}</span> Election day: {recap.election.won ? `you won, with ${recap.election.votes} votes.` : `you lost, with ${recap.election.votes} votes.`}
+          </p>
+        ) : null}
+        {recap.stopReasons?.length ? <p className="nx-lede">Skipping stopped here because: {recap.stopReasons.map((r) => r.replace(/\.+$/, "")).join("; ").replace(/^./, (c) => c.toLowerCase())}.</p> : null}
 
         <div className="nx-result-charts" data-count={metrics.length}>
           {metrics.map((m) => {
             const why = recap.skipped?.length ? null : whyLine(m, recap);
             return (
               <GoalPanel key={m} metric={m} height={narrow ? 140 : metrics.length > 2 ? 170 : 200} now={now} ghost={null} showJourney={false} compact moved={{ from: recap.prev[m], to: recap.now[m], p }}>
-                {why ? <p className="nx-moved"><strong>Why {why.total}:</strong> {why.text}</p> : null}
+                {why ? <p className="nx-moved"><strong>{why.total}:</strong> {why.text}</p> : null}
               </GoalPanel>
             );
           })}
@@ -954,13 +977,13 @@ function ResultBeat({ recap }: { recap: Recap }) {
                   </li>
                 ) : null;
               })}
-            {recap.points.entries.map((e, i) => (
+            {groupPoints(recap.points.entries).map((e, i) => (
               <li key={`p${i}`}>
                 {e.currency === "votes" ? "Votes" : "Trust"} {e.amount > 0 ? "+" : "−"}
-                {Math.abs(e.amount)}: {e.reason.charAt(0).toLowerCase() + e.reason.slice(1)}
+                {Math.abs(e.amount)}: {/^[A-Z]{2}/.test(e.reason) ? e.reason : e.reason.charAt(0).toLowerCase() + e.reason.slice(1)}
+                {e.times > 1 ? ` (${e.times} quarters)` : ""}
               </li>
             ))}
-            {recap.election ? <li>{recap.election.won ? `You won the election with ${recap.election.votes} votes.` : `You lost the election with ${recap.election.votes} votes.`}</li> : null}
             {recap.crisis ? <li><Status status="at-risk" /> Trust has run out: markets turn on the country next quarter.</li> : null}
           </ul>
           <div className="nx-actions">

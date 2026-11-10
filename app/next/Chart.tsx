@@ -130,7 +130,7 @@ export default function GoalChart({
 
   const W = box.w;
   const H = height;
-  const PAD = { l: compact ? 34 : 42, r: compact ? 58 : 76, t: 14, b: 26 };
+  const PAD = { l: compact ? 34 : 42, r: compact ? 66 : 80, t: 14, b: 26 };
   const x = (t: number) => PAD.l + ((W - PAD.l - PAD.r) * t) / end;
   const y = (v: number) => PAD.t + (H - PAD.t - PAD.b) * (1 - (v - lo) / (hi - lo || 1));
   const at = (vals: number[], t: number) => {
@@ -244,7 +244,11 @@ export default function GoalChart({
           <path d={pathOf(line, 0, now)} className="nx-actual" />
 
           {/* Goal labels go on top of the lines, with a halo, so a line never strikes one through. */}
-          {goalLabels.map((l) => (
+          {goalLabels.map((l, i) => {
+            // Two goals close together (a goal and its bonus): the later label steps aside.
+            const clash = goalLabels.slice(0, i).some((k) => Math.abs(k.y - l.y) < 15 && Math.abs(k.x - l.x) < 90);
+            return clash ? { ...l, y: l.y + (l.y > H / 2 ? -17 : 17) } : l;
+          }).map((l) => (
             <text key={l.key} x={l.x} y={l.y} textAnchor="end" className={l.cls}>{l.text}</text>
           ))}
 
@@ -265,7 +269,7 @@ export default function GoalChart({
           <circle cx={x(end)} cy={y(line[end])} r={4} className="nx-end" />
           <text x={x(end) + 9} y={clampY(endY) + 5} className="nx-endv">{fmtNum(endV, meta.digits)}{unit === "%" ? "%" : ""}</text>
           {showGhostLabel ? (
-            <text x={x(end) + 9} y={clampY(ghostY) + 4} className="nx-ghostv">{fmtNum(ghostV, meta.digits)} before</text>
+            <text x={x(end) + 9} y={clampY(ghostY) + 4} className="nx-ghostv">was {fmtNum(ghostV, meta.digits)}</text>
           ) : null}
         </svg>
       ) : null}
@@ -284,7 +288,7 @@ export function EffectBars({ series, from, digits, unit, highlight }: { series: 
           <span className="nx-bar-track">
             <span className={`nx-bar-fill ${v < 0 ? "is-down" : "is-up"}`} style={{ height: `${Math.max(3, (Math.abs(v) / max) * 100)}%` }} />
           </span>
-          <span className="nx-bar-q">{quarterLabel(from + i).slice(2).replace("Q", " Q")}</span>
+          <span className="nx-bar-q">{series.length > 9 ? (quarterLabel(from + i).endsWith("Q1") ? `'${quarterLabel(from + i).slice(2, 4)}` : i === 0 ? quarterLabel(from + i).slice(4) : "") : quarterLabel(from + i).slice(2).replace("Q", " Q")}</span>
         </div>
       ))}
     </div>

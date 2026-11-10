@@ -13,7 +13,7 @@ import { getPreset } from "../model/presets.ts";
 import type { Policy, QuarterState, ScenarioConfig, ScheduledShock, SimEvent } from "../model/types.ts";
 import { SHOCKS } from "../model/shocks.ts";
 import { isSurprise, knownConfig, missionOutcome, policyForTurn, yearQuarters, yearValue, type AdvisorId, type LeverId, type MetricKey, type Mission, type Objective, type Outcome } from "../game/missions.ts";
-import { affordable, ledger } from "../game/politics.ts";
+import { affordable, ledger, MOVE_COSTS } from "../game/politics.ts";
 
 export const trim = (v: number, d = 2) => v.toFixed(d).replace(/\.?0+$/, "");
 
@@ -82,8 +82,10 @@ export type Plan = {
   effects: PlanEffect[];
   /** Set when the plan guards against a shock the staff forecast leaves out. */
   note?: string;
-  /** Bonus goals on track under the plan, of how many. */
-  stars: { ok: number; total: number };
+  /** Bonus goals on track under the plan, of how many, and which are not. */
+  stars: { ok: number; total: number; missed: string[] };
+  /** Political capital the plan spends at once ("3 votes"). */
+  cost?: string;
   /** The next election on the forecast under the plan. */
   election: Election | null;
 };
@@ -99,6 +101,9 @@ export function electionOutlook(mission: Mission, config: ScenarioConfig, clock:
   if (!e) return null;
   return { quarter, need: mission.politics.threshold, votes: e.votes, ok: e.won };
 }
+
+/** How much an advisor minds a goal that is not theirs (their own count 6). */
+const OTHERS = 0.6;
 
 /** Which goals each advisor fights for (as in advisors.ts). */
 const WATCHES: Record<AdvisorId, MetricKey[]> = {
@@ -231,7 +236,8 @@ export function advisorPlans(mission: Mission, config: ScenarioConfig, actual: Q
     for (const o of mission.objectives) {
       const m = miss(o, mission, actual, c.path, clock) / SCALE[o.metric];
       const mine = WATCHES[advisor].includes(o.metric);
-      s += m * (o.bonus ? (mine ? 1 : 0.2) : mine ? 6 : 2);
+      // Their own goals first: an advisor argues their corner, and the player has to weigh the rest.
+      s += m * (o.bonus ? (mine ? 1 : 0.1) : mine ? 6 : OTHERS);
     }
     if (advisor === "chief" && c.risk) for (const o of mission.objectives) if (!o.bonus) s += (4 * miss(o, mission, actual, c.risk, clock)) / SCALE[o.metric];
     for (const rule of mission.fail) {
@@ -301,9 +307,12 @@ export function advisorPlans(mission: Mission, config: ScenarioConfig, actual: Q
     else {
       const next = withChanges(config, quarter, changes);
       const bonus = mission.objectives.filter((o) => o.bonus);
-      const stars = { ok: bonus.filter((o) => judged(o, mission, actual, best.path, clock).ok).length, total: bonus.length };
+      const missed = bonus.filter((o) => !judged(o, mission, actual, best.path, clock).ok).map((o) => o.label.charAt(0).toLowerCase() + o.label.slice(1));
+      const stars = { ok: bonus.length - missed.length, total: bonus.length, missed };
+      const costs = Object.values(MOVE_COSTS).filter((m) => m.when(policy, { ...policy, ...changes }));
+      const cost = costs.map((m) => (m.cost.votes ? `${m.cost.votes} vote${m.cost.votes === 1 ? "" : "s"}` : `${m.cost.trust} trust`)).join(" and ");
       const guards = advisor === "chief" && warned && Boolean(best.move) && candidates[0].risk !== null && mission.objectives.some((o) => !o.bonus && miss(o, mission, actual, candidates[0].risk!, clock) > miss(o, mission, actual, best.risk!, clock) + 1e-6);
-      plans.push({ advisors: [advisor], title: planTitle(policy, changes), changes, hold: !best.move, effects: effectsOf(mission, actual, best.path, base, clock), stars, election: electionOutlook(mission, next, clock), ...(guards ? { note: "A buffer against the shock analysts warn about, which the staff forecast leaves out." } : warned ? { note: "Safe on the staff forecast only: it leaves out the shock analysts warn about." } : {}) });
+      plans.push({ advisors: [advisor], title: planTitle(policy, changes), changes, hold: !best.move, effects: effectsOf(mission, actual, best.path, base, clock), stars, election: electionOutlook(mission, next, clock), ...(cost ? { cost } : {}), ...(guards ? { note: "A buffer against the shock analysts warn about, which the staff forecast leaves out." } : warned ? { note: "Safe on the staff forecast only: it leaves out the shock analysts warn about." } : {}) });
     }
   }
   return plans;
@@ -327,6 +336,8 @@ export type Journey = {
   biteT: number;
   /** True when the effect is still growing as the mission ends, so the peak shown is only the last quarter. */
   building: boolean;
+  /** The first quarter the effect reaches half its largest size: how long the move takes to be felt. */
+  halfT: number;
 };
 
 /** What the player's changes do to a metric over time: the forecast minus the same forecast without them. */
@@ -350,7 +361,15 @@ export function journey(metric: MetricKey, forecast: QuarterState[], base: Quart
   }
   const n = series.length;
   const building = peakT === end && n >= 2 && Math.abs(series[n - 1]) > Math.abs(series[n - 2]) * 1.03;
-  return { metric, series, from, next: series[0] ?? 0, peak: series[peakT - from] ?? 0, peakT, end: series[n - 1] ?? 0, biteT, building };
+  const top = Math.abs(series[peakT - from] ?? 0);
+  let halfT = peakT;
+  for (let i = 0; i < n; i++) {
+    if (top > 0 && Math.abs(series[i]) >= top / 2 && Math.sign(series[i]) === Math.sign(series[peakT - from])) {
+      halfT = from + i;
+      break;
+    }
+  }
+  return { metric, series, from, next: series[0] ?? 0, peak: series[peakT - from] ?? 0, peakT, end: series[n - 1] ?? 0, biteT, building, halfT };
 }
 
 // ---- Call it ------------------------------------------------------------------------
@@ -440,26 +459,24 @@ export function lagCall(mission: Mission, forecast: QuarterState[], base: Quarte
     if (!best || Math.abs(j.peak) / SCALE[metric] > Math.abs(best.peak) / SCALE[best.metric]) best = j;
   }
   if (!best) return null;
-  const after = best.biteT - (clock + 1);
+  const after = best.halfT - (clock + 1);
   const answer = after <= 0 ? "now" : after <= 2 ? "soon" : "later";
   const digits = best.metric === "spread" ? 0 : 1;
   const unit = best.metric === "spread" ? " bp" : " pp";
   const noun = NOUN[best.metric]!;
-  const when = after <= 0 ? "this very quarter" : `in ${quarterLabel(best.biteT)}, ${after} quarter${after === 1 ? "" : "s"} after this one`;
-  const tail = best.building
-    ? `It is still building when the mission ends (${versus(best.end, digits, unit)} by ${quarterLabel(end)}).`
-    : `It is at its widest in ${quarterLabel(best.peakT)} (${versus(best.peak, digits, unit)}).`;
+  const when = after <= 0 ? "already this quarter" : `in ${quarterLabel(best.halfT)}, ${after} quarter${after === 1 ? "" : "s"} after this one`;
+  const tail = best.building ? `and is still growing when the mission ends (${versus(best.end, digits, unit)} by ${quarterLabel(end)})` : `and is at its widest in ${quarterLabel(best.peakT)} (${versus(best.peak, digits, unit)})`;
   return {
     id: `lag:${best.metric}`,
     kind: "lag",
-    prompt: `${moveName}. When will ${noun} feel it most sharply?`,
+    prompt: `${moveName}. How long before ${noun} feels at least half of it?`,
     options: [
       { id: "now", label: "Right away, this quarter" },
       { id: "soon", label: "In the next quarter or two" },
       { id: "later", label: "Three or more quarters from now" },
     ],
     answer,
-    reveal: `Against not moving, ${noun} is ${versus(best.next, digits, unit)} this quarter. The gap grows fastest ${when}. ${tail}`,
+    reveal: `Against not moving, ${noun} is ${versus(best.next, digits, unit)} this quarter. The gap reaches half its size ${when}, ${tail}.`,
   };
 }
 

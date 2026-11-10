@@ -34,16 +34,13 @@ test("in the first mission the governor wants a higher rate than the minister", 
   assert.ok(rate("governor") >= rate("minister"), "the minister never wants a higher rate than the governor");
 });
 
-test("advisor plans never make the forecast lose the mission when holding would not", () => {
-  for (const m of MISSIONS) {
-    const config = m.setup();
-    const plans = advisorPlans(m, config, simulate(config).path, 0);
-    for (const p of plans) {
-      const worse = p.effects.filter((e) => e.baseOk && !e.ok);
-      const better = p.effects.filter((e) => !e.baseOk && e.ok);
-      assert.ok(worse.length <= better.length + 1, `${m.id}: "${p.title}" breaks ${worse.length} goals and fixes ${better.length}`);
-    }
-  }
+test("advisors argue their own corner: in the first mission neither plan alone wins", () => {
+  const verdicts = m1.advisors.map((a) => {
+    const run = advisorRun(m1, a);
+    while (!run.step());
+    return run.result().outcome.kind;
+  });
+  assert.ok(verdicts.includes("lost"), "at least one advisor, followed blindly, loses: the player has to weigh them");
 });
 
 test("the lever's journey: a rate hike moves inflation late, not now", () => {
@@ -76,9 +73,10 @@ test("call-it questions have one right answer among their options and a finite r
   const lag = lagCall(m1, hiked, base, 0, "You raised the rate to 10.5%")!;
   assert.ok(lag, "a two-point hike is worth a question");
   assert.equal(lag.answer, "later", lag.reveal);
-  assert.match(lag.reveal, /still building/, "the effect on inflation has not peaked by the end of the mission");
+  assert.match(lag.reveal, /still growing/, "the effect on inflation has not peaked by the end of the mission");
   const infl = journey("infl", hiked, base, 0, m1.quarters);
-  assert.ok(infl.biteT >= 3 && infl.biteT < m1.quarters, `the bite comes mid-mission, not in its last quarter (${infl.biteT})`);
+  assert.ok(infl.halfT >= 3 && infl.halfT < m1.quarters, `half the effect arrives mid-mission, not in its last quarter (${infl.halfT})`);
+  assert.ok(Math.abs(infl.series[infl.halfT - 1]) >= Math.abs(infl.peak) / 2, "by then at least half is felt");
   assert.equal(lagCall(m1, base, base, 0, "You held policy"), null, "no move, no question");
 });
 
