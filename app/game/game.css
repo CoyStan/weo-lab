@@ -1027,8 +1027,7 @@
   .game *::before,
   .game *::after {
     animation: none !important;
-    transition-duration: 0.01ms !important;
-    transition-delay: 0s !important;
+    transition: none !important;
   }
 }
 
@@ -1147,8 +1146,7 @@
 .game.is-reduced *::before,
 .game.is-reduced *::after {
   animation: none !important;
-  transition-duration: 0.01ms !important;
-  transition-delay: 0s !important;
+  transition: none !important;
 }
 
 /* ---- Political capital ------------------------------------------------- */
@@ -4060,8 +4058,9 @@ html:not(.is-kbd) .game button:focus-visible {
 
 /* ---- Design council, Ledger round 2 ---------------------------------------- */
 
-/* Helps or hurts a goal: a square and a word, never colour alone (Valence.tsx). Filled
-   square = helps, hollow = hurts. The triangle beside a figure is direction only, in ink. */
+/* Helps or hurts a goal: a square and a word, never colour alone (Valence.tsx). Hollow
+   square = helps, filled = hurts, as the map's key, its goal chips and the strip's bars draw
+   them. The triangle beside a figure is direction only, in ink. */
 .game-valence {
   display: inline-flex;
   align-items: center;
@@ -4083,14 +4082,15 @@ html:not(.is-kbd) .game button:focus-visible {
   color: var(--lab-good);
 }
 .game-valence.is-good .game-valence-mark {
-  background: var(--lab-good-mark);
+  border: 1.5px solid var(--lab-good-mark);
+  background: transparent;
 }
 .game-valence.is-bad {
   color: var(--lab-bad);
 }
 .game-valence.is-bad .game-valence-mark {
-  border: 1.5px solid var(--lab-alert);
-  background: transparent;
+  border: 0;
+  background: var(--lab-alert);
 }
 /* At risk, in every theme: amber words with a half-filled marker. */
 .game-valence.is-warn {
@@ -5886,12 +5886,14 @@ html.is-kbd .game .game-scene-tabs button:focus-visible {
 }
 
 /* The island view's news: one band along the island's top edge, beside the control; the island
-   is drawn below it, so it covers nothing (the map names the same news under its header). */
-.game-scene.has-news {
+   is drawn below it, so it covers nothing (the map names the same news under its header). The
+   band is always there during play ("No news this quarter" when quiet), so the island keeps one
+   frame from quarter to quarter: news coming or going never resizes the canvas. */
+.game-scene.has-tabs {
   /* As tall as the control plus its margin above, repeated below. */
   --scene-news-h: calc(var(--scene-tabs-h, 2.75rem) + 0.9rem);
 }
-.game-scene.has-news .game-scene-island {
+.game-scene.has-tabs .game-scene-island {
   top: var(--scene-news-h);
 }
 .game-scene-islandnews {
@@ -5925,6 +5927,9 @@ html.is-kbd .game .game-scene-tabs button:focus-visible {
 .game-scene-islandnews-detail {
   color: var(--lab-ink-2);
 }
+.game-scene-islandnews.is-quiet {
+  color: var(--lab-ink-2);
+}
 @container scene (max-width: 559.98px) {
   .game-scene-islandnews-q,
   .game-scene-islandnews-detail {
@@ -5932,7 +5937,7 @@ html.is-kbd .game .game-scene-tabs button:focus-visible {
   }
 }
 /* The control sits on the band, flush with it. */
-.game-scene.has-news.is-island .game-scene-tabs {
+.game-scene.is-island .game-scene-tabs {
   box-shadow: none;
 }
 .game-scene.is-list .game-scene-islandnews {
@@ -6231,6 +6236,15 @@ html.is-kbd .game :is(.lab-btn-primary, .game-end-btn):focus-visible {
     --t-sm: 1.125rem;
     --t-md: 1.25rem;
   }
+  /* The header reads from the sofa too (about 23.6 and 26.3 px at the 21 px root), and the
+     quarter being decided is its biggest line. */
+  .game-hud {
+    --t-xs: 1.125rem;
+    --t-sm: 1.25rem;
+  }
+  .game-hud .game-progress-head {
+    font-size: var(--t-sm);
+  }
 }
 
 /* Touch screens: the small links and the Levers / Reforms tabs get a finger-sized hit area
@@ -6257,5 +6271,252 @@ html.is-kbd .game :is(.lab-btn-primary, .game-end-btn):focus-visible {
   /* A goal card's two links, if they wrap, sit far enough apart for their areas. */
   .game .game-goal div:has(> .game-why) {
     row-gap: 1.5rem;
+  }
+}
+
+/* ---- Shell, round 3 ------------------------------------------------------------------------
+   Body text 14.4 px or more in the goals column, the levers' hints, the End bar and the
+   briefing; --t-xs (12.8 px in palari-tidy) only for key caps, chart axis ticks and section
+   labels. The island's news band, the Map / Island control while the island builds, the
+   one-time island pointer, the phone list's band under the control, touch targets. */
+
+/* Goals column: names, verdicts, "Your moves", the small labels, bonus stars and the key. */
+.lab.game .game-col-goals :is(.game-status, .game-goal-title, .game-goal-verdict, .game-goal-verdict-k, .game-goal small, .game-goal-target, .game-goal-now, .game-move-chip, .game-move-chip small, .game-move-chip-d, .game-probe-chip, .game-probe-chip small, .game-valence, .game-goal-bonus, .game-goal-bonus-what, .game-goal-star-state, .game-goal-part, .game-goal-note, .game-goal-key, .game-goal-key span) {
+  font-size: var(--t-sm);
+}
+/* The levers' column: the first-play hint, the decision box, the sliders' hints, the commit note. */
+.lab.game :is(.game-coach, .game-agenda, .game-agenda strong, .game-agenda span, .game-agenda li, .game-agenda-more > summary, .game-agenda-note, .game-end-note),
+.lab.game .game-col-levers :is(.lab-field > span.leading-snug, .game-probe) {
+  font-size: var(--t-sm);
+}
+/* The goals column keeps about its height: the larger type takes the room the cards' inner
+   gaps gave it (a few px each, about 24 px over two cards). */
+.lab.game .game-col-goals > .flex {
+  gap: 0.5rem;
+}
+.lab.game .game-col-goals .game-goal {
+  padding-block: 0.5rem 0.45rem;
+}
+.lab.game .game-col-goals .game-goal-figures {
+  margin-top: 0;
+}
+.lab.game .game-col-goals .game-goal-move {
+  margin-top: 0.15rem;
+}
+.lab.game .game-col-goals .game-goal-sub {
+  margin-top: 0.15rem;
+}
+.lab.game .game-col-goals .game-spark {
+  margin-top: 0.2rem;
+}
+
+/* The End bar's goal strip (EndStrip, Play.tsx): readable, dated, two rows at most on phones. */
+.lab.game .game-move-strip,
+.lab.game .game-move-strip :is(.game-status, .game-valence, .game-move-strip-at, .game-move-strip-level, .game-move-strip-d) {
+  font-size: var(--t-sm);
+}
+.lab.game .game-move-strip .game-status {
+  min-width: 0;
+}
+.game-move-strip-more {
+  display: none;
+}
+/* Laptops under 1180 px: the goals side by side, so a five-goal mission takes two or three rows
+   of the docked bar, not five. */
+@media (min-width: 761px) and (max-width: 1179px) {
+  .lab.game .game-move-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+    gap: 0.1rem 2rem;
+  }
+}
+@media (max-width: 760px) {
+  .lab.game .game-move-strip-item.is-folded {
+    display: none;
+  }
+  .lab.game .game-move-strip-more {
+    position: relative;
+    display: inline-flex;
+    align-self: flex-start;
+    align-items: baseline;
+    gap: 0.3rem;
+    padding: 0;
+    font-size: var(--t-sm);
+    font-weight: 600;
+    color: var(--lab-ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  /* A finger-sized target around the one-line link. */
+  .lab.game .game-move-strip-more::after {
+    content: "";
+    position: absolute;
+    inset: -10px -6px;
+  }
+}
+
+/* Helps / hurts beside a figure, in the goals column and the shock card: at body size. */
+.lab.game .game-choice .game-valence {
+  font-size: var(--t-sm);
+}
+
+/* The shock card: each option leads with where it leaves every goal and its verdict (dot and
+   word, as the goals panel), then the change against holding policy, then the detail. */
+.lab.game .game-choice .game-choice-levels {
+  display: block;
+  font-size: var(--t-sm);
+  line-height: 1.4;
+  color: var(--lab-ink);
+}
+.lab.game .game-choice .game-choice-levels span {
+  font-size: var(--t-sm);
+  color: inherit;
+}
+.lab.game .game-choice .game-choice-levels b {
+  font-weight: 700;
+}
+.lab.game .game-choice .game-choice-levels .game-status {
+  display: inline-flex;
+  gap: 0.3rem;
+  min-width: 0;
+  vertical-align: baseline;
+}
+.lab.game .game-choice .game-choice-levels .game-status.is-on-track,
+.lab.game .game-choice .game-choice-levels .game-status.is-met {
+  color: var(--lab-good);
+}
+.lab.game .game-choice .game-choice-levels .game-status.is-at-risk {
+  color: var(--lab-warn);
+}
+.lab.game .game-choice .game-choice-levels .game-status.is-failed {
+  color: var(--lab-bad);
+}
+.lab.game .game-choice .game-choice-levels .game-choice-goal {
+  color: var(--lab-ink-2);
+}
+.lab.game .game-choice .game-outcome.is-hold {
+  font-size: var(--t-sm);
+  font-weight: 400;
+}
+@media (min-width: 900px) {
+  .lab.game .game-shock {
+    width: min(100%, 34rem);
+  }
+}
+
+/* The briefing teaches the game: its tools table, the votes note, the advisors' lines and the
+   "Watched" line at body size; the eyebrow and section labels stay small. */
+.lab.game .game-briefing :is(.game-tools, .game-tools .game-cost, .game-tools-more, .game-capital-note, .game-brief-advisor, .game-brief-watched) {
+  font-size: var(--t-sm);
+}
+
+/* The Map / Island control while the island builds: the turning ring takes the island picture's
+   box, in the pressed half's text colour, so neither label moves or blanks. */
+.lab.game .game-scene-tabs-spin {
+  flex: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-width: 2px;
+  color: inherit;
+}
+.lab.game .game-scene-tabs button[aria-pressed="true"] .game-scene-tabs-spin {
+  color: var(--lab-paper);
+}
+/* Reduced motion: a still dotted ring, at full strength. */
+.lab.game.is-reduced .game-scene-tabs-spin {
+  border-style: dotted;
+  border-right-color: currentColor;
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lab.game .game-scene-tabs-spin {
+    border-style: dotted;
+    border-right-color: currentColor;
+    opacity: 1;
+  }
+}
+
+/* The one-time island pointer, beside the control on the title row when that spot is clear
+   (Play.tsx tries it first), its arrow pointing back at the control. */
+.lab.game .game-scene.has-tabs > p.game-scene-coach[data-spot="beside"] {
+  top: calc(0.45rem + var(--scene-tabs-h, 2.75rem) / 2);
+  left: calc(0.6rem + var(--scene-tabs-w, 12rem) + 12px);
+  max-width: none;
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+.lab.game .game-scene.has-tabs > p.game-scene-coach[data-spot="beside"]::before {
+  top: 50%;
+  bottom: auto;
+  left: auto;
+  right: 100%;
+  transform: translateY(-50%);
+  border: 7px solid transparent;
+  border-right-color: var(--lab-ink);
+}
+.lab.game .game-scene.has-tabs.is-list > p.game-scene-coach[data-spot="beside"] {
+  left: auto;
+  right: calc(0.6rem + var(--scene-tabs-w, 10rem) + 12px);
+}
+.lab.game .game-scene.has-tabs.is-list > p.game-scene-coach[data-spot="beside"]::before {
+  right: auto;
+  left: 100%;
+  border-right-color: transparent;
+  border-left-color: var(--lab-ink);
+}
+
+/* Phones and short slots (the goal-by-goal list): an opaque band as tall as the control stays
+   at the top of the scrolling list, so rows scroll under the band, never under the pill. At rest
+   the list's header paints over it (same paper), so the title reads beside the control. */
+.game-scene.is-list .st-root.is-list {
+  scroll-padding-top: calc(var(--scene-tabs-h, 2.25rem) + 8px);
+}
+.game-scene.is-list .st-root.is-list::before {
+  content: "";
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: block;
+  height: calc(var(--scene-tabs-h, 2.25rem) + 8px);
+  margin-bottom: calc(-1 * (var(--scene-tabs-h, 2.25rem) + 8px));
+  background: var(--st-bg);
+}
+.game-scene.is-list .st-root.is-list .st-map.is-v > .st-head {
+  position: relative;
+  z-index: 3;
+}
+
+/* Lever values: a big value never breaks inside itself ("50% of / pressure"); when it does not
+   fit beside its label, it takes its own line under the label, at the right. */
+.lab.game .game-lever .lab-field > span:first-child {
+  flex-wrap: wrap;
+  row-gap: 0.15rem;
+}
+.lab.game .game-lever .lab-slider-label {
+  flex: 1 1 auto;
+}
+.lab.game .game-lever .lab-slider-value {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* Touch screens: the steppers, the Framework button, the menu and the logo get finger-sized
+   targets (44 px), like the Levers tabs. */
+@media (pointer: coarse) {
+  .game .lab-step {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .game .game-fw-open,
+  .game .game-menu > summary,
+  .game .game-logo {
+    position: relative;
+  }
+  .game .game-fw-open::after,
+  .game .game-menu > summary::after,
+  .game .game-logo::after {
+    content: "";
+    position: absolute;
+    inset: -7px 0;
   }
 }

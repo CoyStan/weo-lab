@@ -7,13 +7,13 @@ import { SHOCKS } from "../../model/shocks";
 import { useLab, type FocusKey } from "../../store";
 import { PLACE } from "../../scene/places";
 import { deltaUnit, fmtNum, GAME_METRICS, unitShort } from "../metrics";
-import { getMission, knownConfig, MISSIONS, policyForTurn, type MetricKey, type ObjectiveStatus } from "../missions";
+import { getMission, knownConfig, MISSIONS, objectiveStatus, policyForTurn, yearValue, type MetricKey, type Objective, type ObjectiveStatus } from "../missions";
 import { responsesFor } from "../responses";
 import { forecastFor, useGame, type Recap } from "../store";
 import { withDecision } from "../useTurn";
 import { decompose, type DecompMetric } from "../decompose";
 import { Reactions } from "./Advisors";
-import { GoalChart, goalEffect } from "./Goals";
+import { decidingQuarter, GoalChart, goalEffect, pointWord } from "./Goals";
 import Glyph from "./Glyph";
 import { Valence, type Tone } from "./Valence";
 import { annual } from "../calibrate";
@@ -335,6 +335,7 @@ function ShockCard({ ids }: { ids: string[] }) {
                 <span className="game-choice-head">
                   <strong>{o.label}</strong>
                 </span>
+                <OptionLevels mission={mission} config={config} clock={clock} changes={o.changes} />
                 <OutcomeChips mission={mission} config={config} clock={clock} changes={o.changes} />
                 <span className="game-choice-detail">{o.detail}</span>
               </span>
@@ -416,8 +417,8 @@ function optionsSentence(mission: Mission): string {
     const o = mission.objectives.find((x) => x.metric === m && !x.bonus)!;
     return { m, every: o.when === "every", text: o.when === "every" ? `${GAME_METRICS[m].label.toLowerCase()} at its ${o.op === ">=" ? "low" : "high"} point` : `${GAME_METRICS[m].label.toLowerCase()} by ${end}` };
   });
-  if (!parts.some((p) => p.every)) return `Each option shows what it does to your goals by ${end}, against holding policy.`;
-  return `Each option shows what it does to your goals, against holding policy: ${parts.map((p) => p.text).join(", ")}.`;
+  if (!parts.some((p) => p.every)) return `Each option shows where your goals end up by ${end}, then what it changes against holding policy.`;
+  return `Each option shows where your goals end up (${parts.map((p) => p.text).join(", ")}), then what it changes against holding policy.`;
 }
 
 /** The district a shock lands on first, from the shape of its impulse. */
@@ -583,6 +584,77 @@ function groupReasons(list: { amount: number; reason: string }[]) {
   return [...out.values()];
 }
 
+type GoalLevel = { o: Objective; value: number; q: number | null; year: number | null; word: string | null; miss: number | null; status: ObjectiveStatus };
+
+/**
+ * Where a path leaves each judged goal, read as the goal cards read it: a goal judged at the end
+ * at the end; one that must hold every quarter at its low (high) point (decidingQuarter, with
+ * pointWord naming it and a first miss before it); a year goal at that year's value; with the
+ * status the goals panel would show for that path (objectiveStatus).
+ */
+function goalLevels(mission: Mission, actual: import("../../model/types").QuarterState[], path: import("../../model/types").QuarterState[], clock: number): GoalLevel[] {
+  const end = mission.quarters;
+  const metrics = Array.from(new Set(mission.objectives.filter((o) => !o.bonus).map((o) => o.metric)));
+  return metrics.map((m) => {
+    const o = mission.objectives.find((x) => x.metric === m && !x.bonus)!;
+    const status = objectiveStatus(o, mission, actual, path, clock);
+    if (o.when === "year") return { o, value: yearValue(o, mission, actual, path, clock), q: null, year: o.year ?? null, word: null, miss: null, status };
+    const dq = decidingQuarter(o, path, clock, end);
+    if (!dq) return { o, value: path[end][m], q: end, year: null, word: null, miss: null, status };
+    return { o, value: path[dq.worst][m], q: dq.worst, year: null, word: pointWord(o, { worst: dq.worst, at: dq.worst }), miss: pointWord(o, dq) === "first miss" ? dq.at : null, status };
+  });
+}
+
+/**
+ * Each option's verdict, first: where it leaves every judged goal and the goals panel's status
+ * for that path, dot and word. The baseline (holding policy) carries the dates and the goals,
+ * "Inflation 4.0% by 2027Q4 · at risk (goal ≤ 3.8%)"; the other options give the level and the
+ * verdict, "Inflation 3.5% · on track; growth low point 1.8% · on track", with a date only where
+ * the low point falls in another quarter than on the baseline.
+ */
+function OptionLevels({ mission, config, clock, changes }: { mission: Mission; config: import("../../model/types").ScenarioConfig; clock: number; changes: Partial<import("../../model/types").Policy> }) {
+  const actual = useLab((s) => s.result.path);
+  const hold = !Object.keys(changes).length;
+  const base = forecastFor(config, clock);
+  const path = hold ? base : forecastFor(withDecision(config, clock + 1, changes), clock);
+  const levels = goalLevels(mission, actual, path, clock);
+  const baseQ = new Map(goalLevels(mission, actual, base, clock).map((l) => [l.o.metric, l.q]));
+  if (!levels.length) return null;
+  return (
+    <span className="game-choice-levels">
+      {levels.map((l, i) => {
+        const meta = GAME_METRICS[l.o.metric];
+        const unit = unitShort(meta.unit);
+        const name = i ? meta.label.toLowerCase() : meta.label;
+        const dated = hold || (l.word !== null && l.q !== baseQ.get(l.o.metric));
+        const when = l.year !== null ? ` in ${l.year}` : dated && l.q !== null ? (l.word ? ` in ${quarterLabel(l.q)}` : ` by ${quarterLabel(l.q)}`) : "";
+        return (
+          <span key={l.o.id} className="game-choice-level">
+            {i ? <span aria-hidden="true">; </span> : null}
+            {name}
+            {l.word ? ` ${l.word}` : ""}{" "}
+            <b className="tabular-nums">
+              {fmtNum(l.value, meta.digits)}
+              {unit}
+            </b>
+            {when} · <span className={`game-status is-${l.status}`}>{STATUS_WORD[l.status]}</span>
+            {hold ? (
+              <span className="game-choice-goal">
+                {" "}
+                (goal {l.o.op === "<=" ? "≤" : "≥"}&nbsp;{fmtNum(l.o.threshold, meta.digits)}
+                {unit}
+                {l.miss !== null ? `, first miss ${quarterLabel(l.miss)}` : ""})
+              </span>
+            ) : l.miss !== null ? (
+              <span className="game-choice-goal"> (first miss {quarterLabel(l.miss)})</span>
+            ) : null}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 /**
  * What a ready-made response does to each goal, against holding policy: by the end of the
  * mission, or, for a goal that must hold every quarter, at the quarter that decides it on the
@@ -590,7 +662,7 @@ function groupReasons(list: { amount: number; reason: string }[]) {
  */
 function OutcomeChips({ mission, config, clock, changes }: { mission: Mission; config: import("../../model/types").ScenarioConfig; clock: number; changes: Partial<import("../../model/types").Policy> }) {
   const metrics = Array.from(new Set(mission.objectives.map((o) => o.metric)));
-  if (!Object.keys(changes).length) return <span className="game-outcome is-hold">Baseline</span>;
+  if (!Object.keys(changes).length) return <span className="game-outcome is-hold">No change: the baseline for the other options</span>;
   const end = mission.quarters;
   const base = forecastFor(config, clock);
   const next = forecastFor(withDecision(config, clock + 1, changes), clock);
@@ -796,16 +868,19 @@ function landing(story: Story, mine: HeadPush, T: number): { value: number; labe
 
 /** A cause named a second time in the same line: "drift", "food price surge", "your rate hike". */
 const causeShort = (p: HeadPush) => (p.cause.kind === "momentum" ? "drift" : lowerFirst(p.cause.title));
+/** "your rate hike bites", "your moves bite": the verb agrees with the lever's own name. */
+const bites = (p: HeadPush) => (/\band\b|s$/.test(p.cause.title.trim()) ? "bite" : "bites");
 
 /**
  * The recap's "why" line, read from the cause-and-effect map's own story (model.ts headline):
  * on the goal that matters most this quarter, the biggest push from outside the player's hands
  * and the player's own, with when it lands. Every push is a total since the mission began (the
  * map's base, unlike the card's figures, which are this quarter's changes), and every figure
- * names its quarter; when the line quotes a lever's peak, the outside push is quoted at that
- * same quarter, e.g.
+ * names its quarter; when the line quotes the quarter the lever's effect is biggest, it says so
+ * in the lever's own name (never "peak", which would read as the goal's), and the outside push
+ * is quoted at that same quarter, e.g.
  * "Why, since 2025Q4: in 2026Q1, the economy's own drift ▼ −0.6 pp on growth · your rate hike
- * ▼ −0.2 pp; by 2026Q4 (its peak): drift ▼ −1.2 pp, your rate hike ▼ −0.8 pp".
+ * ▼ −0.2 pp; by 2026Q4, when your rate hike bites hardest: drift ▼ −1.2 pp, your rate hike ▼ −0.8 pp".
  * Shown in both views (the map publishes its story whichever view is on screen).
  */
 function RecapWhy({ mission, recap }: { mission: Mission; recap: Recap }) {
@@ -853,7 +928,7 @@ function RecapWhy({ mission, recap }: { mission: Mission; recap: Recap }) {
       {mine && lands ? (
         lands.peak ? (
           <span className="game-recap-why-when">
-            ; by {lands.label} (its peak):{" "}
+            ; by {lands.label}, when {causeName(mine)} {bites(mine)} hardest:{" "}
             {top && matters(topAt(lands.t), m) ? (
               <>
                 {causeShort(top)} {amount(topAt(lands.t))},{" "}
