@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { simulate } from "../model/economy.ts";
 import { MISSIONS, policyForTurn } from "../game/missions.ts";
-import { advisorPlans, advisorRun, forecastOf, goalMetrics, journey, lagCall, moveMenu, planTitle, shockCall, withChanges } from "./logic.ts";
+import { advisorPlans, advisorRun, forecastOf, goalMetrics, journey, lagCall, moveMenu, moveName, planTitle, shockCall, versus, withChanges } from "./logic.ts";
 
 const m1 = MISSIONS.find((m) => m.id === "first-quarter")!;
 
@@ -115,4 +115,16 @@ test("in the commodity mission some advisor finds a plan that survives the bust"
     return run.result().outcome.kind === "won";
   });
   assert.ok(won.some(Boolean), "with bigger budget steps on the menu, at least one advisor gets through");
+});
+
+test("differences from not moving are worded as differences, and moves are named plainly", () => {
+  assert.equal(versus(-0.07, 1, " pp"), "0.07 pp lower");
+  assert.equal(versus(1.04, 1, " pp"), "1.0 pp higher");
+  assert.equal(versus(0.001, 1, " pp"), "no different");
+  assert.equal(versus(-42, 0, " bp"), "42 bp lower");
+  const policy = policyForTurn(m1.setup(), 0);
+  assert.equal(moveName(policy, policy), "You held policy");
+  assert.equal(moveName(policy, { ...policy, manualRate: 10.5 }), "You raised the rate to 10.5%");
+  assert.equal(moveName({ ...policy, fxRegime: "peg" }, { ...policy, fxRegime: "peg", manualRate: 13 }), "You raised the rate floor to 13%");
+  assert.match(moveName(policy, { ...policy, imfProgram: 4, fiscalAdjustment: 0.5 }), /^Your move: call the IMF/);
 });

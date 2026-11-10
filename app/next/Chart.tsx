@@ -228,7 +228,7 @@ export default function GoalChart({
               <g key={o.id} className={cls}>
                 <rect x={x0} width={Math.max(6, x1 - x0)} y={Math.min(yy, far)} height={Math.abs(far - yy)} className="nx-gate" />
                 <line x1={x0} x2={x1} y1={yy} y2={yy} className="nx-goal-line" />
-                <text x={x0 - 6} y={Math.abs((dir < 0 ? yy + 12 : yy - 11) - y(line[Math.max(0, qs[0] - 1)])) < 16 ? (dir < 0 ? yy - 7 : yy + 16) : dir < 0 ? yy + 16 : yy - 7} textAnchor="end" className="nx-goal-text">{star}{o.when === "year" ? `${o.year} ` : "land "}{num}</text>
+                <text x={x0 - 6} y={[1, 2, 3].some((k) => Math.abs((dir < 0 ? yy + 12 : yy - 11) - y(line[Math.max(0, qs[0] - k)])) < 15) ? (dir < 0 ? yy - 7 : yy + 16) : dir < 0 ? yy + 16 : yy - 7} textAnchor="end" className="nx-goal-text">{star}{o.when === "year" ? `${o.year} ` : "land "}{num}</text>
               </g>
             );
           })}

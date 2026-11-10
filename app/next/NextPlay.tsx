@@ -23,6 +23,7 @@ import { useSettings } from "../game/settings";
 import { useGame, type Recap } from "../game/store";
 import { useTurn } from "../game/useTurn";
 import { splitLead } from "../game/ui/Advisors";
+import { useUntouched } from "../game/ui/Goals";
 import Levers from "../game/ui/Levers";
 import Reforms from "../game/ui/Reforms";
 import { sound } from "../game/audio";
@@ -62,6 +63,11 @@ function signed(v: number, digits: number, unit: string) {
   return `${zero ? "" : v > 0 ? "+" : "−"}${a.toFixed(d)}${unit}`;
 }
 
+/** Gives a card's main button the focus when it appears, without scrolling the page to it. */
+const focusHere = (el: HTMLButtonElement | null) => {
+  if (el && document.activeElement !== el) el.focus({ preventScroll: true });
+};
+
 /** Count a number from one value to another while a quarter plays out. */
 function useProgress(key: string | number, ms: number): number {
   const reduced = useSettings((s) => s.reducedMotion);
@@ -100,6 +106,11 @@ export default function NextPlay() {
   useEffect(() => sound.setTense(tense), [tense]);
 
   const beat = modal?.kind === "shock" ? "news" : modal?.kind === "recap" ? "result" : modal?.kind === "debrief" ? "debrief" : "decide";
+  // Each beat starts at its top, whatever the last one was scrolled to.
+  useEffect(() => {
+    // Braces matter: newer browsers return a promise from scrollTo, and an effect must not return one.
+    window.scrollTo({ top: 0 });
+  }, [beat, clock]);
 
   // Enter runs the beat's main button, unless a control that uses Enter has the focus.
   useEffect(() => {
@@ -134,8 +145,10 @@ export default function NextPlay() {
         game.skipAhead();
         return;
       }
+      // With a question or card on top, keys go to it and never to the screen underneath.
+      const layer = document.querySelector(".nx .nx-overlay") ? ".nx .nx-overlay" : ".nx";
       if (/^[1-9]$/.test(e.key)) {
-        const el = document.querySelector<HTMLButtonElement>(`.nx [data-key="${e.key}"]:not(:disabled)`);
+        const el = document.querySelector<HTMLButtonElement>(`${layer} [data-key="${e.key}"]:not(:disabled)`);
         if (el) {
           e.preventDefault();
           el.click();
@@ -144,7 +157,7 @@ export default function NextPlay() {
       }
       if (e.key !== "Enter") return;
       if (t?.closest("button, a, [role=slider], input[type=range], summary")) return;
-      const primary = document.querySelector<HTMLButtonElement>(".nx [data-primary]:not(:disabled)");
+      const primary = document.querySelector<HTMLButtonElement>(`${layer} [data-primary]:not(:disabled)`);
       if (primary) {
         e.preventDefault();
         primary.click();
@@ -266,6 +279,7 @@ function GoalPanel({
   children?: ReactNode;
 }) {
   const { mission, actual, forecast, forecastStart, clock, statuses, changed } = useTurn();
+  const [plain, setPlain] = useState(false);
   const meta = GAME_METRICS[metric];
   const end = mission.quarters;
   const objectives = mission.objectives.filter((o) => o.metric === metric);
@@ -284,7 +298,12 @@ function GoalPanel({
   return (
     <section className={`nx-goal-panel ${compact ? "is-compact" : ""}`} aria-label={meta.label}>
       <header className="nx-goal-head">
-        <h2 className="nx-goal-name">{meta.label}</h2>
+        <h2 className="nx-goal-name">
+          <button type="button" className="nx-term" aria-expanded={plain} onClick={() => setPlain(!plain)} title={meta.plain}>
+            {meta.label} <span aria-hidden="true">?</span>
+            <span className="sr-only">What is this?</span>
+          </button>
+        </h2>
         {movedDelta ? (
           <p className="nx-goal-value">
             {fmtNum(movedDelta.from + d * movedDelta.p, meta.digits)}
@@ -309,6 +328,7 @@ function GoalPanel({
           </p>
         ) : null}
       </header>
+      {plain ? <p className="nx-plain">{meta.plain}</p> : null}
       <GoalChart mission={mission} metric={metric} actual={actual} forecast={forecast} ghost={ghost === undefined ? forecastStart : ghost} clock={clock} now={now} extra={extra} height={height} compact={compact} />
       {showJourney && clock < end ? (
         <p className={`nx-journey ${moved ? "is-on" : ""}`} aria-live="polite">
@@ -447,6 +467,10 @@ function DecideBeat() {
               <><Status status="on-track" /> Every goal is on track on the staff forecast{landing.length ? "." : warned ? ", which leaves out anything only warned about." : ". Nothing new this quarter."}</>
             )}
           </p>
+          <details className="nx-hint">
+            <summary>Stuck? Show a hint</summary>
+            <p>{mission.hint}</p>
+          </details>
         </section>
         {coach ? <Coach close={closeCoach} /> : null}
         <div className="nx-charts" data-count={shown.length}>
@@ -638,7 +662,7 @@ function CallCard({ call, onAnswer, onDone, doneLabel, detail }: { call: Call; o
             <strong>{right ? "Good call." : "Not this time."}</strong> {call.reveal}
           </p>
           {detail}
-          <button type="button" data-primary autoFocus className="lab-btn lab-btn-primary lab-btn-md" onClick={onDone}>
+          <button type="button" data-primary ref={focusHere} className="lab-btn lab-btn-primary lab-btn-md" onClick={onDone}>
             {doneLabel} <kbd aria-hidden="true">Enter</kbd>
           </button>
         </div>
@@ -687,7 +711,7 @@ function NewsBeat() {
             </div>
             <p className="nx-note">The dashed lines are the staff forecast if you keep policy as it is. Your advisors are waiting with their plans.</p>
             <div className="nx-actions">
-              <button type="button" data-primary autoFocus className="lab-btn lab-btn-primary lab-btn-md" onClick={closeModal}>
+              <button type="button" data-primary ref={focusHere} className="lab-btn lab-btn-primary lab-btn-md" onClick={closeModal}>
                 Decide for {deciding} <kbd aria-hidden="true">Enter</kbd>
               </button>
             </div>
@@ -721,7 +745,19 @@ const SHORT_DRIVER: Record<string, string> = {
 };
 
 function ResultBeat({ recap }: { recap: Recap }) {
-  const { mission, clock, statuses } = useTurn();
+  const { mission, clock, statuses, config, forecast, actual } = useTurn();
+  // What the player's moves so far are still doing: the forecast against never having moved.
+  const { untouched } = useUntouched(config, clock, forecast, actual);
+  const pending = useMemo(() => {
+    if (clock >= mission.quarters) return null;
+    let best: { metric: MetricKey; trip: ReturnType<typeof journey> } | null = null;
+    for (const m of goalMetrics(mission)) {
+      const trip = journey(m, forecast, untouched, clock, mission.quarters);
+      const size = Math.abs(trip.end) / (m === "spread" ? 100 : m === "debt" ? 3 : 1);
+      if (size >= 0.15 && (!best || size > Math.abs(best.trip.end) / (best.metric === "spread" ? 100 : best.metric === "debt" ? 3 : 1))) best = { metric: m, trip };
+    }
+    return best;
+  }, [mission, forecast, untouched, clock]);
   const closeModal = useGame((s) => s.closeModal);
   const setFramework = useGame((s) => s.setFramework);
   const narrow = useNarrow();
@@ -797,6 +833,12 @@ function ResultBeat({ recap }: { recap: Recap }) {
         ) : null}
 
         <div className={`nx-result-foot ${settled ? "is-in" : ""}`}>
+          {pending ? (
+            <p className="nx-pending">
+              <span className="nx-journey-swatch" aria-hidden="true" /> <strong>Still working through:</strong> your moves so far leave {GAME_METRICS[pending.metric].label.toLowerCase()}{" "}
+              {versus(pending.trip.next, GAME_METRICS[pending.metric].digits, deltaUnit(GAME_METRICS[pending.metric].unit))} next quarter and {versus(pending.trip.end, GAME_METRICS[pending.metric].digits, deltaUnit(GAME_METRICS[pending.metric].unit))} by {shortQ(mission.quarters)} than had you never moved.
+            </p>
+          ) : null}
           <ul className="nx-verdicts">
             {recap.statuses
               .filter((s) => s.before !== s.after)
@@ -822,7 +864,7 @@ function ResultBeat({ recap }: { recap: Recap }) {
             <button type="button" className="lab-btn lab-btn-ghost lab-btn-md" onClick={() => setFramework(true, DECOMP.includes(metrics[0]) ? (metrics[0] as never) : undefined)}>
               Why did it move? <kbd aria-hidden="true">W</kbd>
             </button>
-            <button type="button" data-primary autoFocus className="lab-btn lab-btn-primary lab-btn-md" onClick={closeModal}>
+            <button type="button" data-primary ref={focusHere} className="lab-btn lab-btn-primary lab-btn-md" onClick={closeModal}>
               {last ? "See how it ended" : `Plan ${quarterLabel(clock + 1)}`} <kbd aria-hidden="true">Enter</kbd>
             </button>
           </div>
@@ -944,17 +986,17 @@ function DebriefBeat() {
             <>
               <button type="button" className="lab-btn lab-btn-soft lab-btn-md" onClick={restart}>Play again</button>
               {next ? (
-                <button type="button" data-primary autoFocus className="lab-btn lab-btn-primary lab-btn-md" onClick={() => startMission(next.id)}>
+                <button type="button" data-primary ref={focusHere} className="lab-btn lab-btn-primary lab-btn-md" onClick={() => startMission(next.id)}>
                   Next: {next.title} <kbd aria-hidden="true">Enter</kbd>
                 </button>
               ) : (
-                <button type="button" data-primary autoFocus className="lab-btn lab-btn-primary lab-btn-md" onClick={() => setScreen("missions")}>Choose another</button>
+                <button type="button" data-primary ref={focusHere} className="lab-btn lab-btn-primary lab-btn-md" onClick={() => setScreen("missions")}>Choose another</button>
               )}
             </>
           ) : (
             <>
               <button type="button" className="lab-btn lab-btn-soft lab-btn-md" onClick={restart}>Restart mission</button>
-              <button type="button" data-primary autoFocus className="lab-btn lab-btn-primary lab-btn-md" onClick={rewind}>
+              <button type="button" data-primary ref={focusHere} className="lab-btn lab-btn-primary lab-btn-md" onClick={rewind}>
                 Rewind one quarter <kbd aria-hidden="true">Enter</kbd>
               </button>
             </>

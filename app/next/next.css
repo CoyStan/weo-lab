@@ -58,6 +58,9 @@
   align-items: center;
   gap: 0.75rem;
 }
+.nx-head-title > div {
+  min-width: 0;
+}
 .nx-logo {
   width: 62px;
   height: auto;
@@ -178,6 +181,21 @@
 .nx-coach .lab-btn {
   flex: none;
 }
+.nx-hint summary {
+  display: inline-block;
+  cursor: pointer;
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 72%, transparent));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  list-style: none;
+}
+.nx-hint summary::-webkit-details-marker {
+  display: none;
+}
+.nx-hint p {
+  margin: 0.2rem 0 0;
+  font-weight: 600;
+}
 .nx-charts {
   display: grid;
   gap: 1rem;
@@ -244,6 +262,40 @@
   font-size: var(--t-lg);
   font-weight: 700;
   line-height: 1.2;
+}
+.nx-term {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+.nx-term > span[aria-hidden] {
+  display: inline-grid;
+  width: 1.15rem;
+  height: 1.15rem;
+  place-items: center;
+  border: 1.5px solid color-mix(in srgb, var(--lab-ink) 35%, transparent);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  color: color-mix(in srgb, var(--lab-ink) 70%, transparent);
+  transform: translateY(-0.12em);
+}
+.nx-term:hover > span[aria-hidden],
+.nx-term[aria-expanded="true"] > span[aria-hidden] {
+  border-color: var(--lab-ink);
+  background: var(--lab-ink);
+  color: var(--lab-on-accent, #fff);
+}
+.nx-plain {
+  margin: 0.3rem 0 0;
+  border-left: 0;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--lab-ink) 5%, transparent);
+  padding: 0.4rem 0.6rem;
 }
 .nx-goal-label,
 .nx-goal-when,
@@ -777,6 +829,9 @@
 .nx-mood.is-pleased {
   color: var(--nx-good);
 }
+.nx-pending {
+  margin: 0.5rem 0 0;
+}
 .nx-verdicts,
 .nx-skipped {
   margin: 0.5rem 0;
@@ -1048,7 +1103,7 @@
 
 @media (max-width: 760px) {
   .nx-head {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     row-gap: 0.4rem;
     padding-bottom: 0.3rem;
   }
@@ -1057,6 +1112,7 @@
     grid-row: 2;
   }
   .nx-logo,
+  .nx-head kbd,
   .nx-head .game-menu-label,
   .nx-score[title^="Political"] {
     display: none;
