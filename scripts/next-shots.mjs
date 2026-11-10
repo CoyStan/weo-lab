@@ -64,7 +64,7 @@ for (const [label, viewport] of [
     await page.locator(".game-cta").first().click();
   } else {
     // Unlock every mission, then pick one from the list.
-    await page.evaluate(() => window.localStorage.setItem("weo-lab.campaign.v1", JSON.stringify({ stars: { "first-quarter": 1, "cost-shock": 1, "debt-mountain": 1, "commodity-bust": 1, "defend-peg": 1, "sudden-stop": 1 } })));
+    await page.evaluate(() => window.localStorage.setItem("weo-lab.campaign.v1", JSON.stringify({ stars: { "first-quarter": 1, "cost-shock": 1, "debt-mountain": 1, "commodity-bust": 1, "defend-peg": 1, "sudden-stop": 1, windfall: 1, "hot-money": 1, "world-slows": 1, "bank-rescue": 1, lockdown: 1 } })));
     await page.goto(url);
     await page.waitForTimeout(1000);
     await page.getByRole("button", { name: /mission/i }).first().click();

@@ -1,0 +1,374 @@
+/* The scenario desk. Scoped under .dk, on the theme's tokens. */
+
+.dk {
+  --dk-a: var(--lab-scenario, #4a3aa7);
+  --dk-b: var(--lab-reference, #eb6834);
+  --dk-c: var(--lab-info, #15706b);
+  --dk-card: var(--lab-paper, #fffdf8);
+  min-height: 100dvh;
+  background: var(--lab-bg);
+  color: var(--lab-ink);
+  font-family: var(--lab-font-ui);
+  font-size: var(--t-sm);
+  line-height: 1.45;
+}
+.dk kbd {
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: 0.35rem;
+  padding: 0 0.35rem;
+  font-family: var(--lab-font-ui);
+  font-size: 0.8rem;
+}
+.dk-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1.5rem;
+  border-bottom: 1px solid var(--lab-line);
+  background: var(--dk-card);
+  padding: 0.7rem clamp(0.75rem, 2vw, 1.5rem);
+}
+.dk-kicker {
+  margin: 0;
+  font-weight: 700;
+  color: var(--lab-info, #15706b);
+}
+.dk-title {
+  margin: 0;
+  font-size: var(--t-lg);
+  font-weight: 700;
+  line-height: 1.2;
+}
+.dk-pick {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+}
+.dk-pick select {
+  min-width: 14rem;
+}
+.dk-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+.dk-honest {
+  margin: 0;
+  border-bottom: 1px solid var(--lab-line);
+  background: var(--pt-warm, color-mix(in srgb, var(--lab-warn-mark, #e7b83d) 12%, var(--dk-card)));
+  padding: 0.5rem clamp(0.75rem, 2vw, 1.5rem);
+}
+.dk-body {
+  display: grid;
+  grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(0.75rem, 1.4vw, 1.25rem);
+  max-width: 110rem;
+  margin: 0 auto;
+  padding: clamp(0.75rem, 1.4vw, 1.25rem) clamp(0.75rem, 2vw, 1.5rem) 2rem;
+}
+.dk-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.dk-slot,
+.dk-finding,
+.dk-chart,
+.dk-cover,
+.dk-table-wrap {
+  border: 1px solid var(--lab-line);
+  border-radius: var(--lab-radius-panel, 1rem);
+  background: var(--dk-card);
+}
+.dk-slot {
+  padding: 0.8rem 0.9rem;
+}
+.dk-slot-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.dk-slot-head h2 {
+  margin: 0;
+  flex: 1;
+  font-size: var(--t-md);
+  font-weight: 700;
+}
+.dk-letter {
+  display: inline-grid;
+  width: 1.6rem;
+  height: 1.6rem;
+  flex: none;
+  place-items: center;
+  border-radius: 0.45rem;
+  background: var(--dk-a);
+  color: #fff;
+  font-weight: 700;
+}
+.dk-letter.is-small {
+  width: 1.25rem;
+  height: 1.25rem;
+  font-size: 0.8rem;
+}
+.is-b .dk-letter,
+.dk-letter.is-b {
+  background: var(--dk-b);
+}
+.is-c .dk-letter,
+.dk-letter.is-c {
+  background: var(--dk-c);
+}
+.dk-remove {
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 70%, transparent));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.dk-field {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-weight: 700;
+}
+.dk-field select {
+  width: 100%;
+  font-weight: 400;
+}
+.dk-row {
+  display: flex;
+  gap: 0.6rem;
+}
+.dk-assumes {
+  margin: 0.35rem 0 0.6rem;
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 75%, transparent));
+}
+.dk-discuss summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.dk-discuss ul,
+.dk-finding ul {
+  list-style: disc;
+}
+.dk-discuss ul {
+  margin: 0.15rem 0 0.4rem;
+  padding-left: 1.1rem;
+}
+.dk-sub {
+  margin: 0.4rem 0 0;
+  font-weight: 700;
+  color: var(--lab-info, #15706b);
+}
+.dk-add {
+  align-self: stretch;
+}
+.dk-results {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.dk-cover {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+  padding: clamp(1.25rem, 4vw, 3rem);
+}
+.dk-cover h2 {
+  margin: 0;
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-size: clamp(1.5rem, 2.4vw, 2.1rem);
+  font-weight: 600;
+}
+.dk-cover p {
+  max-width: 34rem;
+  margin: 0 0 0.5rem;
+  font-size: var(--t-md);
+}
+.dk-findings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 0.75rem;
+}
+.dk-finding {
+  padding: 0.75rem 0.9rem;
+}
+.dk-finding h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.35rem;
+  font-size: var(--t-md);
+  font-weight: 700;
+  line-height: 1.25;
+}
+.dk-finding ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+.dk-finding p {
+  margin: 0;
+}
+.dk-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+}
+.dk-toggle {
+  display: inline-flex;
+  border: 1.5px solid var(--lab-line-strong);
+  border-radius: 999px;
+  background: var(--dk-card);
+  padding: 2px;
+}
+.dk-toggle button {
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  font-weight: 600;
+}
+.dk-toggle button[aria-pressed="true"] {
+  background: var(--lab-ink);
+  color: var(--lab-on-accent, #fff);
+}
+.dk-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 1rem;
+  margin: 0;
+}
+.dk-key {
+  display: inline-block;
+  width: 1.6rem;
+  margin-right: 0.3rem;
+  border-top: 2px solid color-mix(in srgb, var(--lab-ink) 55%, transparent);
+  vertical-align: middle;
+}
+.dk-key.is-a {
+  border-top: 3px solid var(--dk-a);
+}
+.dk-key.is-b {
+  border-top: 3px dashed var(--dk-b);
+}
+.dk-key.is-c {
+  border-top: 3px dotted var(--dk-c);
+}
+.dk-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.75rem;
+}
+.dk-chart {
+  min-width: 0;
+  margin: 0;
+  padding: 0.6rem 0.7rem 0.4rem;
+}
+.dk-chart figcaption span {
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 72%, transparent));
+}
+.dk-chart svg {
+  display: block;
+}
+.dk-grid {
+  stroke: color-mix(in srgb, var(--lab-ink) 9%, transparent);
+}
+.dk-tick {
+  fill: color-mix(in srgb, var(--lab-ink) 72%, transparent);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.dk-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dk-line.is-base {
+  stroke: color-mix(in srgb, var(--lab-ink) 55%, transparent);
+  stroke-width: 1.5;
+}
+.dk-line.is-a {
+  stroke: var(--dk-a);
+  stroke-width: 2.6;
+}
+.dk-line.is-b {
+  stroke: var(--dk-b);
+  stroke-width: 2.6;
+  stroke-dasharray: 7 5;
+}
+.dk-line.is-c {
+  stroke: var(--dk-c);
+  stroke-width: 2.8;
+  stroke-dasharray: 1.5 5;
+}
+.dk-table-wrap {
+  overflow-x: auto;
+  padding: 0.5rem 0.9rem 0.8rem;
+}
+.dk-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.dk-table caption {
+  padding: 0.3rem 0 0.5rem;
+  text-align: left;
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 72%, transparent));
+}
+.dk-table th,
+.dk-table td {
+  padding: 0.2rem 0.6rem 0.2rem 0;
+  text-align: right;
+  white-space: nowrap;
+}
+.dk-table thead th {
+  border-bottom: 1.5px solid var(--lab-ink);
+}
+.dk-table th[scope="row"],
+.dk-table th:first-child,
+.dk-table td:first-of-type,
+.dk-table thead th:nth-child(2) {
+  text-align: left;
+}
+.dk-table th[scope="row"] {
+  vertical-align: top;
+  white-space: normal;
+}
+.dk-table th[scope="row"] span {
+  display: block;
+  font-weight: 400;
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 72%, transparent));
+}
+.dk-table tr.is-first > * {
+  border-top: 1px solid var(--lab-line-strong);
+  padding-top: 0.45rem;
+}
+.dk-table tr.is-diff td {
+  padding-bottom: 0.35rem;
+  color: var(--lab-ink-2, color-mix(in srgb, var(--lab-ink) 72%, transparent));
+}
+.dk-table .dk-letter {
+  margin-right: 0.3rem;
+}
+
+@media (max-width: 900px) {
+  .dk-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dk-head-actions {
+    margin-left: 0;
+  }
+  .dk-pick select {
+    min-width: 0;
+  }
+}
+@media (min-width: 2000px) {
+  .dk {
+    zoom: 1.5;
+    min-height: calc(100dvh / 1.5);
+  }
+}
