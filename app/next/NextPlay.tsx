@@ -403,7 +403,8 @@ function useViewport() {
   useEffect(() => {
     // On a TV the whole screen is zoomed (next.css), so it has fewer layout pixels than the window.
     const on = () => {
-      const zoom = window.innerWidth >= 3000 ? 2.25 : window.innerWidth >= 2000 ? 1.5 : 1;
+      // Same conditions as next.css: a screen counts as big only if it is tall as well as wide.
+      const zoom = window.innerWidth >= 3000 && window.innerHeight >= 1700 ? 2.25 : window.innerWidth >= 2000 && window.innerHeight >= 1100 ? 1.5 : 1;
       setVp({ w: window.innerWidth / zoom, h: window.innerHeight / zoom });
     };
     on();

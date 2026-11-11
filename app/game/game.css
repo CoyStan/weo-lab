@@ -2015,14 +2015,14 @@
 
 /* Laptops (up to 2000px wide) keep the normal 16px base. Only really large screens
    (TVs, 4K monitors) scale the whole interface up. */
-@media (min-width: 2000px) {
+@media (min-width: 2000px) and (min-height: 1100px) {
   html {
     font-size: 18px;
   }
 }
 
 /* 2560 px TVs: 21 px (--t-xl is then 39.9 px, under the 40 px cap). */
-@media (min-width: 2400px) {
+@media (min-width: 2400px) and (min-height: 1300px) {
   html {
     font-size: 21px;
   }
@@ -6001,7 +6001,7 @@ html.is-kbd .game .game-scene-tabs button:focus-visible {
   }
 }
 /* TVs: the control and the island's line grow with the room. */
-@media (min-width: 2000px) {
+@media (min-width: 2000px) and (min-height: 1100px) {
   .game-scene-tabs button {
     min-height: 2.9rem;
     padding-inline: 0.8rem 1rem;
@@ -6237,7 +6237,7 @@ html.is-kbd .game :is(.lab-btn-primary, .game-end-btn):focus-visible {
 
 /* TVs: the side panels, the advisors, the shock card and the recap read from the sofa, as the
    scene slot does (it raises its own tokens). */
-@media (min-width: 2000px) {
+@media (min-width: 2000px) and (min-height: 1100px) {
   .game-col-levers,
   .game-col-goals,
   .game-advisors,

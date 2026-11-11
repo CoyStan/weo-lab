@@ -64,7 +64,7 @@
   color: var(--lab-ink);
 }
 /* A TV, read from the sofa: headline-size tags (about 24 px on an 18 px root, 28 px on 21 px). */
-@media (min-width: 2000px) {
+@media (min-width: 2000px) and (min-height: 1100px) {
   .isl-tag {
     font-size: var(--t-lg);
     padding: 0.25rem 0.75rem;

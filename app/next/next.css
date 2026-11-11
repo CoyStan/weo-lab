@@ -1326,7 +1326,7 @@
 
 /* ---- Big screens: a TV is read from a sofa, so everything grows together ------------- */
 
-@media (min-width: 2000px) {
+@media (min-width: 2000px) and (min-height: 1100px) {
   .nx {
     zoom: 1.5;
     min-height: calc(100dvh / 1.5);
@@ -1335,7 +1335,7 @@
     max-height: calc(100dvh / 1.5 - 4.2rem - 1.5rem);
   }
 }
-@media (min-width: 3000px) {
+@media (min-width: 3000px) and (min-height: 1700px) {
   .nx {
     zoom: 2.25;
     min-height: calc(100dvh / 2.25);

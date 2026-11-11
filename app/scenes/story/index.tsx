@@ -172,7 +172,7 @@ export default function StoryScene({ immediate = false }: { /** Draw at once, ev
     if (!el) return;
     const ro = new ResizeObserver(([e]) => {
       const r = parseFloat(getComputedStyle(document.documentElement).fontSize) / 16 || 1;
-      setSize({ W: Math.round(e.contentRect.width), H: Math.round(e.contentRect.height), r, wide: window.innerWidth >= 2000 });
+      setSize({ W: Math.round(e.contentRect.width), H: Math.round(e.contentRect.height), r, wide: window.innerWidth >= 2000 && window.innerHeight >= 1100 });
     });
     ro.observe(el);
     return () => ro.disconnect();
