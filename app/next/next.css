@@ -1179,7 +1179,7 @@
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .nx-head {
     grid-template-columns: minmax(0, 1fr) auto;
     row-gap: 0.4rem;

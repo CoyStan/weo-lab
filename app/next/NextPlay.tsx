@@ -108,7 +108,7 @@ export default function NextPlay() {
   useEffect(() => sound.setTense(tense), [tense]);
 
   // Phones skip the scenery: the cards fill the screen there, and it would only cost battery.
-  const wide = useViewport().w > 760;
+  const wide = useViewport().w > 900;
   const beat = modal?.kind === "shock" ? "news" : modal?.kind === "recap" ? "result" : modal?.kind === "debrief" ? "debrief" : "decide";
   // The scenery moves for a moment when a card comes up, then holds still: a picture behind the
   // card, not an animation competing with it (and nothing for a slow machine to keep drawing).
@@ -439,7 +439,7 @@ function DecideBeat() {
   const calls = useNext((s) => s.calls);
   const answer = useNext((s) => s.answer);
   const vp = useViewport();
-  const narrow = vp.w <= 760;
+  const narrow = vp.w <= 900;
   const [asking, setAsking] = useState<Call | null>(null);
   const notice = useNext((s) => s.notice);
   const chartsRef = useRef<HTMLDivElement>(null);
@@ -726,7 +726,7 @@ function PlanCard({ plan, index, active, onBack }: { plan: Plan; index: number; 
 }
 
 function useNarrow() {
-  return useViewport().w <= 760;
+  return useViewport().w <= 900;
 }
 
 // ---- Call it -----------------------------------------------------------------------------

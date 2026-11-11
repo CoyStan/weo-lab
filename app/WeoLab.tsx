@@ -154,7 +154,7 @@ export default function WeoLab({ restoreSaved = true }: { restoreSaved?: boolean
     >
       {theme.css ? <style>{theme.css}</style> : null}
       <TopBar />
-      <main id="main-content" className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-3 xl:grid-cols-[322px_minmax(0,1fr)_344px]">
+      <main id="main-content" className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-3 xl:grid-cols-[20.125rem_minmax(0,1fr)_21.5rem]">
         <aside className="order-2 flex min-h-0 flex-col xl:order-1" aria-label="Policy desk">
           <Panel className="flex min-h-0 flex-1 flex-col !p-0">
             <div className="shrink-0 border-b border-[color-mix(in_srgb,var(--lab-ink)_8%,transparent)] px-3 pt-3 pb-2">
@@ -180,7 +180,7 @@ export default function WeoLab({ restoreSaved = true }: { restoreSaved?: boolean
             <IslandScene />
             <SceneOverlay />
           </div>
-          <div className="h-[238px] shrink-0">{view === "charts" ? <ChartsStrip /> : <ProjectionTable />}</div>
+          <div className="h-[14.875rem] shrink-0">{view === "charts" ? <ChartsStrip /> : <ProjectionTable />}</div>
         </section>
 
         <aside className="order-3 flex min-h-0 flex-col gap-3 overflow-y-auto xl:pr-0.5" aria-label="Indicators and assessment">
