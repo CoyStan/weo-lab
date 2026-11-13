@@ -1170,6 +1170,11 @@
   flex: 1;
   overflow: auto;
 }
+/* The drawer gives the map all its room: the classic screen's caps on the scene slot (34vh on phones) do not apply. */
+.nx .nx-why-body.game-scene {
+  max-height: none;
+  min-height: 0;
+}
 
 /* ---- Narrow screens ------------------------------------------------------------------- */
 

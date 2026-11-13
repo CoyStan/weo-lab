@@ -752,6 +752,18 @@
   overflow: auto hidden;
   padding-block: 8px;
 }
+.st-cells-track.is-scroll .st-cell {
+  flex: none;
+}
+/* Phones: the row names give their room to the quarters (each cell's colour and the sentence below say helps or hurts). */
+.st-cells.is-scrolling .st-rowkeys {
+  min-width: 0 !important;
+  max-width: 6.2rem;
+}
+.st-cells.is-scrolling .st-rowtone-part,
+.st-cells.is-scrolling .st-rowtone-tiny {
+  display: none;
+}
 .st-cell {
   position: relative;
   display: flex;
@@ -978,7 +990,8 @@
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 0.4rem;
+  flex-wrap: wrap;
+  gap: 0 0.4rem;
   font-size: var(--t-sm);
   line-height: 1.35;
 }
@@ -992,9 +1005,6 @@
 }
 .st-lname {
   min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 .st-lvalue {
   font-size: var(--t-md);
@@ -1022,8 +1032,14 @@
   background: var(--lab-bad);
   color: var(--lab-paper);
 }
+.st-lline {
+  position: relative;
+  padding-right: 1.1rem;
+}
 .st-lchev {
-  margin-left: auto;
+  position: absolute;
+  top: 0;
+  right: 0;
   color: var(--lab-ink-2);
 }
 /* The pushes wrap to a second line rather than lose their figures; each pill stays whole. */

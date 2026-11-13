@@ -1709,7 +1709,10 @@ function Strip({
       }
       return w + gap * Math.max(0, n - 1) <= room.w + 0.5;
     };
-    if (!fits(show)) {
+    if (!fits(show) && !positioned) {
+      // The goal-by-goal list (phones): every quarter stays, and the row scrolls sideways.
+      scrolls = true;
+    } else if (!fits(show)) {
       const near = [...cells].sort((a, b) => Math.abs(a - deciding) - Math.abs(b - deciding) || a - b);
       const prio = [T, deciding, story.end, story.clock, deciding + 1, mid, deciding + 2, ...near].filter((t, i, a) => cells.includes(t) && a.indexOf(t) === i);
       show = new Set();
@@ -1723,6 +1726,12 @@ function Strip({
       }
     }
   }
+  // A scrolling row keeps the quarter on show in view.
+  useEffect(() => {
+    const track = trackRef.current;
+    const on = track?.querySelector<HTMLElement>(".st-cell.is-on");
+    if (scrolls && track && on) track.scrollLeft = Math.max(0, on.offsetLeft - on.offsetWidth * 0.6);
+  }, [scrolls, T]);
   const items: Cell[] = [];
   for (const t of cells) {
     if (show.has(t)) items.push({ t });
@@ -1745,7 +1754,7 @@ function Strip({
         <b>{sentence ? "When does it land?" : "Quarter by quarter"}</b>{" "}
         <span>{sentence ? (tr ? tr.sentence : "Move a lever: this strip shows, quarter by quarter, when its effect arrives.") : tr ? "your moves' effect, as it builds. Pick a quarter to show it above." : "pick a quarter to show it above."}</span>
       </p>
-      <div className="st-cells" role="group" aria-label="Quarter shown on the map">
+      <div className={`st-cells${scrolls && !positioned ? " is-scrolling" : ""}`} role="group" aria-label="Quarter shown on the map">
         <span className="st-rowkeys" aria-hidden="true" style={tr || positioned ? { minWidth: `calc(${(keyChars * 0.56).toFixed(2)}em + ${mixed ? 8.6 : 3.4}em)` } : undefined}>
           {/* The unit once, on the quarters' line, when the rows share it ("in pp"); otherwise beside each row. */}
           <small className="st-rowkeys-unit">{unitText}</small>
