@@ -685,7 +685,7 @@
 .st-strip:not(.is-static) .st-strip-head {
   min-height: 2.6em;
 }
-@media (min-width: 2000px) {
+@media (min-width: 2000px) and (min-height: 1100px) {
   .st-strip:not(.is-static) .st-strip-head {
     min-height: 0;
   }
@@ -887,7 +887,7 @@
   opacity: 0.6;
 }
 /* TVs: taller rows and wider bars, so a bar fills most of its cell's height and reads from the sofa. */
-@media (min-width: 2000px) {
+@media (min-width: 2000px) and (min-height: 1100px) {
   .st-strip {
     --st-row: 2.6rem;
   }
@@ -1295,7 +1295,7 @@
 }
 /* TVs: the map is scaled up, so the band under the control is empty down to the column heads; the
    pointer stays there, one slim line, and ends above them. */
-@media (min-width: 2000px) {
+@media (min-width: 2000px) and (min-height: 1100px) {
   .game-scene.is-story.is-map:not(.is-list) > .game-scene-coach {
     top: calc(3.35rem + 10px);
     padding: 0.1rem 0.7rem;

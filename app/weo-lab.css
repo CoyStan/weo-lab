@@ -695,15 +695,23 @@ input:focus-visible + .lab-toggle {
   }
 }
 
-/* Four charts across the strip at any width, scrolling for the rest. */
+/* Four charts across the strip where they fit; narrower, each chart keeps a readable size and the strip scrolls. */
 .lab-chart-strip {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: max(210px, calc((100% - 3 * 0.5rem) / 4));
+  grid-auto-columns: max(210px, calc((100% - 3 * 0.5rem) / 4), min(86%, calc((14.875rem - 5rem) * 236 / 128)));
   gap: 0.5rem;
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x proximity;
+}
+/* A chart keeps its shape: on wide cards it stops growing when the strip's height runs out. */
+.lab-chart-strip .lab-chart {
+  container-type: size;
+}
+.lab-chart-strip .lab-chart svg {
+  width: min(100%, calc((100cqh - 1.5rem) * 236 / 128));
+  margin-inline: auto;
 }
 
 /* Compact menu built on <details>. */

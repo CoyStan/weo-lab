@@ -108,7 +108,7 @@ export default function NextPlay() {
   useEffect(() => sound.setTense(tense), [tense]);
 
   // Phones skip the scenery: the cards fill the screen there, and it would only cost battery.
-  const wide = useViewport().w > 760;
+  const wide = useViewport().w > 900;
   const beat = modal?.kind === "shock" ? "news" : modal?.kind === "recap" ? "result" : modal?.kind === "debrief" ? "debrief" : "decide";
   // The scenery moves for a moment when a card comes up, then holds still: a picture behind the
   // card, not an animation competing with it (and nothing for a slow machine to keep drawing).
@@ -403,7 +403,8 @@ function useViewport() {
   useEffect(() => {
     // On a TV the whole screen is zoomed (next.css), so it has fewer layout pixels than the window.
     const on = () => {
-      const zoom = window.innerWidth >= 3000 ? 2.25 : window.innerWidth >= 2000 ? 1.5 : 1;
+      // Same conditions as next.css: a screen counts as big only if it is tall as well as wide.
+      const zoom = window.innerWidth >= 3000 && window.innerHeight >= 1700 ? 2.25 : window.innerWidth >= 2000 && window.innerHeight >= 1100 ? 1.5 : 1;
       setVp({ w: window.innerWidth / zoom, h: window.innerHeight / zoom });
     };
     on();
@@ -438,7 +439,7 @@ function DecideBeat() {
   const calls = useNext((s) => s.calls);
   const answer = useNext((s) => s.answer);
   const vp = useViewport();
-  const narrow = vp.w <= 760;
+  const narrow = vp.w <= 900;
   const [asking, setAsking] = useState<Call | null>(null);
   const notice = useNext((s) => s.notice);
   const chartsRef = useRef<HTMLDivElement>(null);
@@ -725,7 +726,7 @@ function PlanCard({ plan, index, active, onBack }: { plan: Plan; index: number; 
 }
 
 function useNarrow() {
-  return useViewport().w <= 760;
+  return useViewport().w <= 900;
 }
 
 // ---- Call it -----------------------------------------------------------------------------

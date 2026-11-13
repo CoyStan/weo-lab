@@ -436,7 +436,7 @@
     min-width: 0;
   }
 }
-@media (min-width: 2000px) {
+@media (min-width: 2000px) and (min-height: 1100px) {
   .dk {
     zoom: 1.5;
     min-height: calc(100dvh / 1.5);
